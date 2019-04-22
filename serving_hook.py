@@ -5,6 +5,7 @@ import os
 
 import cv2
 import numpy as np
+
 from svod_rcgn.recognize.detector import Detector, add_overlays
 from svod_rcgn.tools.images import get_images
 
@@ -12,6 +13,7 @@ LOG = logging.getLogger(__name__)
 PARAMS = {
     'device': 'CPU',
     'classifiers_dir': '',
+    'model_dir': '',
     'threshold': [0.6, 0.7, 0.7],
     'debug': 'false',
     'bg_remove_path': '',
@@ -69,6 +71,7 @@ def load_nets(**kwargs):
     openvino_facenet = Detector(
         device='CPU',
         classifiers_dir=clf_dir,
+        model_dir=PARAMS['model_dir'],
         debug=PARAMS['debug'],
         bg_remove_path=PARAMS['bg_remove_path'],
     )
