@@ -8,45 +8,20 @@ spec:
   packages:
   - manager: pip3
   tasks:
-  - name: align-images
+  - name: prepare-classifiers
     resources:
-    - command: python align_dataset_mtcnn.py
-        $FACES_DIR $TRAINING_DIR/aligned-images
+    - command: python prepare.py
+        --input_dir $FACES_DIR
+        --aligned_dir $TRAINING_DIR/aligned
         {{- if .bgrm.value }}
-        --bg-remove-path $BGRM_DIR
+        --bg_remove_path $BGRM_DIR
         {{- end }}
-        --image_size 160
-        --margin 32
-        --complementary
+        --model_dir $FACENET_DIR
+        --classifiers_dir $TRAINING_DIR/classifiers
       default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
-      name: worker
-      replicas: 1
-      resources:
-        limits:
-          cpu: "2"
-          memory: 8Gi
-        requests:
-          cpu: 100m
-          memory: 64Mi
-      restartPolicy: Never
-      workDir: $SRC_DIR
-  - name: train-classifier
-    resources:
-    - command: python classifier_train.py
-        TRAIN $TRAINING_DIR/aligned-images
-        --model $FACENET_DIR/facenet.xml
-        --classifiers_path $TRAINING_DIR/classifiers
-        --flip --noise --noise-count 3
-        --driver openvino
-        --device CPU
-        --batch_size 10
-      default_volume_mapping: true
-      images:
-        cpu: kuberlab/serving:latest-openvino
-        gpu: kuberlab/serving:latest-openvino
       name: worker
       replicas: 1
       resources:
