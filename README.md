@@ -28,7 +28,7 @@ Each directory can be redefined by command line arguments.
 ### Download required models
 
 ```bash
-python svod_rcgn/download_models.py
+python download_models.py
 ```
 
 Download models to default model directories:
@@ -40,18 +40,18 @@ Download models to default model directories:
 Prepare dataset (align images, calculate embeddings) and train SMV and kNN classifiers:
 
 ```bash
-python svod_rcgn/prepare.py
+python prepare.py
 ```
 Argument `--download` can be used for downloading dataset's archive from specified URL.
 This argument can be used with `--clear_input_dir` to clear source data dir before archive downloading. For example:
 ```bash
-python svod_rcgn/prepare.py --download https://dev.kibernetika.io/api/v0.2/workspace/kuberlab-demo/dataset/faces-svod/versions/0.0.1/download/dataset-faces-svod-0.0.1.tar --clear_input_dir 
+python prepare.py --download https://dev.kibernetika.io/api/v0.2/workspace/kuberlab-demo/dataset/faces-svod/versions/0.0.1/download/dataset-faces-svod-0.0.1.tar --clear_input_dir 
 ```
 Argument `--complementary_align` allows to **add** new classes and images to existing alignment data.
 Argument `--complementary_train` uses existing embeddings for classifiers training.
 So adding some new persons to classifiers from another input directory looks like this: 
 ```bash
-python svod_rcgn/prepare.py --input_dir ./data/another_input_dir --complementary_align --complementary_train
+python prepare.py --input_dir ./data/another_input_dir --complementary_align --complementary_train
 ```
 It's available to skip alignment `--skip_alignment` or skip training `--skip_training`.
 
@@ -62,7 +62,7 @@ If recognizing process is running, this script will reload classifiers for runni
 Open window with camera's video stream and draw labeled boxes for recognized faces: 
 
 ```bash
-python svod_rcgn/video.py
+python video.py
 ```
 
 Default video source is main web-camera, but it's can be redefined with argument `--video_source`.
@@ -73,7 +73,7 @@ Use argument `--video_async` for asynchronous video rendering (by default **each
 It's available to do any actions during face recognition process.
 Start faces recognition:
 ```bash
-python svod_rcgn/video.py
+python video.py
 ```
 
 In this time it's available to make calls:
