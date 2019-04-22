@@ -5,7 +5,7 @@ storage:
    kind: cluster_storage
 
 src:
-  value: https://github.com/kibernetika-ai/svod_rcgn/src
+  value: https://github.com/kibernetika-ai/svod_rcgn
   accountId: ''
   revision: ''
   wizard:
@@ -17,7 +17,7 @@ model:
  version: '1.0.0-openvino-cpu'
  workspace: 'kuberlab-demo'
  wizard:
-   name: "Pre trained model catalog"
+   name: "Pretrained catalog model"
    kind: model
 
 faces:
