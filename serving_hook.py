@@ -72,7 +72,7 @@ def load_nets(**kwargs):
         device='CPU',
         classifiers_dir=clf_dir,
         model_dir=PARAMS['model_dir'],
-        debug=PARAMS['debug'],
+        debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
     )
     openvino_facenet.init()
