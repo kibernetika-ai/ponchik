@@ -4,6 +4,7 @@ import math
 import os
 import pickle
 import shutil
+import time
 
 import numpy as np
 from ml_serving.drivers import driver
@@ -210,7 +211,9 @@ class Classifiers:
             if len(paths_batch_load) == 0:
                 continue
 
+            t = time.time()
             images = self.load_data(paths_batch_load, labels_batch_load)
+            print_fun("Load & Augmentation: %.3fms" % ((time.time() - t) * 1000))
 
             if serving.driver_name == 'tensorflow':
                 feed_dict = {'input:0': images, 'phase_train:0': False}
@@ -222,8 +225,10 @@ class Classifiers:
             else:
                 raise RuntimeError('Driver %s currently not supported' % serving.driver_name)
 
-            # t = time.time()
+
+            t = time.time()
             outputs = serving.predict(feed_dict)
+            print_fun("Inference: %.3fms" % ((time.time() - t) * 1000))
             # total_time += time.time() - t
 
             emb_outputs = list(outputs.values())[0]
