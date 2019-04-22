@@ -11,6 +11,7 @@ from sklearn import svm
 
 from svod_rcgn.recognize import nets, defaults
 from svod_rcgn.tools import images, bg_remove
+from svod_rcgn.tools.print import print_fun
 
 
 class DetectorClassifiers:
@@ -85,16 +86,16 @@ class Detector(object):
 
         if extensions and "CPU" in self.device:
             for ext in extensions.split(':'):
-                print("LOAD extension from {}".format(ext))
+                print_fun("LOAD extension from {}".format(ext))
                 plugin.add_cpu_extension(ext)
 
-        print('Load FACE DETECTION')
+        print_fun('Load FACE DETECTION')
         weights_file = self.face_detection_path[:self.face_detection_path.rfind('.')] + '.bin'
         net = ie.IENetwork(self.face_detection_path, weights_file)
         self.face_detect = nets.FaceDetect(plugin, net)
 
         if self.model_dir:
-            print('Load FACENET model')
+            print_fun('Load FACENET model')
             model_file = os.path.join(self.model_dir, "facenet.xml")
             weights_file = os.path.join(self.model_dir, "facenet.bin")
             net = ie.IENetwork(model_file, weights_file)
@@ -119,10 +120,10 @@ class Detector(object):
         if len(classifiers) > 0:
             new = DetectorClassifiers()
             for clfi, clf in enumerate(classifiers):
-                # print(clfi, clf)
+                # print_fun(clfi, clf)
                 # Load classifier
                 with open(clf, 'rb') as f:
-                    print('Load CLASSIFIER %s' % clf)
+                    print_fun('Load CLASSIFIER %s' % clf)
                     opts = {'file': f}
                     if six.PY3:
                         opts['encoding'] = 'latin1'
@@ -140,7 +141,7 @@ class Detector(object):
                         embedding_size = 512
                         classifier_name = "%d" % clfi
                         classifier_name_log = type(clf)
-                    print('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
+                    print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
                     if new.class_names is None:
                         new.class_names = class_names
                     elif class_names != new.class_names:
@@ -181,7 +182,7 @@ class Detector(object):
                 predictions = clf.predict_proba(output)
             except ValueError as e:
                 # Can not reshape
-                print("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
+                print_fun("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
                 continue
 
             best_class_indices = np.argmax(predictions, axis=1)
@@ -218,7 +219,7 @@ class Detector(object):
 
             else:
 
-                print("ERROR: Unsupported model type: %s" % type(clf))
+                print_fun("ERROR: Unsupported model type: %s" % type(clf))
                 continue
 
             for i in range(len(best_class_indices)):
@@ -236,7 +237,7 @@ class Detector(object):
                     label_strings.append(label_debug_info)
                 elif len(label_strings) == 0:
                     label_strings.append(overlay_label)
-                # print(label_debug_info)
+                # print_fun(label_debug_info)
 
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected

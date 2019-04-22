@@ -1,6 +1,7 @@
 import io
 import tarfile
 from urllib.request import urlopen
+from svod_rcgn.tools.print import print_fun
 
 
 def downloader_args(args):
@@ -14,12 +15,12 @@ class Downloader:
 
     def extract(self):
         try:
-            print("Downloading from %s" % self.url)
+            print_fun("Downloading from %s" % self.url)
             arc = io.BytesIO(urlopen(self.url).read())
         except Exception as e:
             return RuntimeError("Download archive error: %s" % e)
         try:
-            print("Extracting...")
+            print_fun("Extracting...")
             tar = tarfile.open(fileobj=arc, mode="r:*")
             tar.extractall(path=self.dest)
             tar.close()

@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from ml_serving.drivers import driver as sdrv
+from svod_rcgn.tools.print import print_fun
 
 DEFAULT_BG_REMOVE_DIR = "./models/bg_remove"
 
@@ -8,7 +9,7 @@ DEFAULT_BG_REMOVE_DIR = "./models/bg_remove"
 class Driver(object):
 
     def __init__(self, bg_remove_path):
-        print('Load BG_REMOVE model')
+        print_fun('Load BG_REMOVE model')
         drv = sdrv.load_driver('tensorflow')
         self.drv = drv()
         self.drv.load_model(bg_remove_path)

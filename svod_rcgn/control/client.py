@@ -3,6 +3,7 @@ import pickle
 import zmq
 
 from svod_rcgn.control import listener
+from svod_rcgn.tools.print import print_fun
 
 
 class SVODClient:
@@ -26,7 +27,7 @@ class SVODClient:
             err = pickle.loads(self.socket.recv())
         except zmq.error.Again:
             err = ValueError("no response, is server available?")
-            print(err)
+            print_fun(err)
             self.socket.close()
             self.context.term()
             self.socket = None

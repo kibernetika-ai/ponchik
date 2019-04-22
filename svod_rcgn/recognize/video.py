@@ -3,6 +3,7 @@ from threading import Thread
 import cv2
 
 from svod_rcgn.tools import images
+from svod_rcgn.tools.print import print_fun
 
 
 def video_args(detector, listener, args):
@@ -51,7 +52,7 @@ class Video:
                 if key in [ord('q'), 202, 27]:
                     break
         except (KeyboardInterrupt, SystemExit) as e:
-            print('Caught %s: %s' % (e.__class__.__name__, e))
+            print_fun('Caught %s: %s' % (e.__class__.__name__, e))
 
     def init_video(self):
         if self.video_source is None:
@@ -64,7 +65,7 @@ class Video:
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
-            print("frame is None. Possibly camera or display does not work")
+            print_fun("frame is None. Possibly camera or display does not work")
             return None
         if new_frame.shape[0] > 480:
             new_frame = images.image_resize(new_frame, height=480)
@@ -82,15 +83,15 @@ class Video:
             err = None
             command, data = self.listener.listen()
             if command == 'reload_classifiers':
-                print("reload classifiers")
+                print_fun("reload classifiers")
                 self.detector.load_classifiers()
             elif command == 'debug':
                 deb = bool(data)
-                print("set debug", deb)
+                print_fun("set debug", deb)
                 self.detector.debug = deb
             elif command == 'test':
-                print("get test data:")
-                print(data)
+                print_fun("get test data:")
+                print_fun(data)
             else:
                 err = ValueError('unknown command %s' % command)
             self.listener.result(err)

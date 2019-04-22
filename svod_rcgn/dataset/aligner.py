@@ -33,6 +33,7 @@ import shutil
 import cv2
 import numpy as np
 from ml_serving.drivers import driver
+from svod_rcgn.tools.print import print_fun
 
 from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import bg_remove, images, downloader, dataset
@@ -114,7 +115,7 @@ class Aligner:
 
     def align(self):
 
-        print('Align images to %s' % self.aligned_dir)
+        print_fun('Align images to %s' % self.aligned_dir)
 
         aligned_dir = os.path.expanduser(self.aligned_dir)
         bounding_boxes_filename = os.path.join(aligned_dir, 'bounding_boxes.txt')
@@ -128,23 +129,23 @@ class Aligner:
 
         align_data = {}
         if os.path.isfile(align_filename):
-            print("Check previous align data")
+            print_fun("Check previous align data")
             with open(align_filename, 'rb') as infile:
                 (align_data_args_loaded, align_data_loaded) = pickle.load(infile)
                 if align_data_args == align_data_args_loaded:
-                    print("Loaded data about %d aligned classes" % len(align_data_loaded))
+                    print_fun("Loaded data about %d aligned classes" % len(align_data_loaded))
                     align_data = align_data_loaded
 
                 else:
-                    print("Previous align data is for another arguments, deleting existing data")
+                    print_fun("Previous align data is for another arguments, deleting existing data")
                     shutil.rmtree(self.aligned_dir, ignore_errors=True)
 
         if not os.path.isdir(aligned_dir):
-            print("Creating output dir")
+            print_fun("Creating output dir")
             os.makedirs(aligned_dir)
 
         if not self.complementary_align:
-            print("Clearing existing aligned images")
+            print_fun("Clearing existing aligned images")
             in_dir = os.listdir(aligned_dir)
             for i in in_dir:
                 fi = os.path.join(aligned_dir, i)
@@ -156,7 +157,7 @@ class Aligner:
         # facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
         loaded_dataset = dataset.get_dataset(self.input_dir)
 
-        print('Creating networks and loading parameters')
+        print_fun('Creating networks and loading parameters')
 
         # Load driver
         drv = driver.load_driver("openvino")
@@ -197,7 +198,7 @@ class Aligner:
                             img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype(np.float32)
                         except Exception as e:
                             error_message = '{}: {}'.format(image_path, e)
-                            print('ERROR: %s' % error_message)
+                            print_fun('ERROR: %s' % error_message)
                             continue
 
                         img_hash = hashlib.sha1(img.tostring()).hexdigest()
@@ -211,14 +212,14 @@ class Aligner:
                                                 all_aligned_exists = False
                                                 break
                                     if all_aligned_exists:
-                                        # print("%s - cached" % image_path)
+                                        # print_fun("%s - cached" % image_path)
                                         nrof_images_cached += 1
                                         continue
                         align_data_class[image_path] = {'hash': hashlib.sha1(img.tostring()).hexdigest()}
-                        print(image_path)
+                        print_fun(image_path)
 
                         if len(img.shape) <= 2:
-                            print('WARNING: Unable to align "%s", shape %s' % (image_path, img.shape))
+                            print_fun('WARNING: Unable to align "%s", shape %s' % (image_path, img.shape))
                             text_file.write('%s\n' % output_filename)
                             continue
 
@@ -248,13 +249,13 @@ class Aligner:
                         area = (bbs[:, 3] - bbs[:, 1]) * (bbs[:, 2] - bbs[:, 0])
 
                         if len(area) < 1:
-                            print('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
+                            print_fun('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
                             text_file.write('%s\n' % output_filename)
                             continue
 
                         num = np.argmax(area)
                         if area[num] < min_face_area:
-                            print(
+                            print_fun(
                                 'WARNING: Face found but too small - about {}px '
                                 'width against required minimum of {}px. Try'
                                 ' adjust parameter --min-face-size'.format(
@@ -291,7 +292,7 @@ class Aligner:
         with open(align_filename, 'wb') as align_file:
             pickle.dump((align_data_args, align_data), align_file, protocol=2)
 
-        print('Total number of images: %d' % nrof_images_total)
+        print_fun('Total number of images: %d' % nrof_images_total)
         if nrof_images_cached > 0:
-            print('Number of cached images: %d' % nrof_images_cached)
-        print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
+            print_fun('Number of cached images: %d' % nrof_images_cached)
+        print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)

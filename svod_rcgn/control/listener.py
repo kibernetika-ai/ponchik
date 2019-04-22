@@ -1,4 +1,5 @@
 import pickle
+from svod_rcgn.tools.print import print_fun
 
 import zmq
 
@@ -26,7 +27,7 @@ class SVODListener:
                     raise ValueError("test error")
                 return command, data
             except Exception as e:
-                print("listener exception: %s" % e)
+                print_fun("listener exception: %s" % e)
                 self.result(e)
 
     def result(self, err=None):

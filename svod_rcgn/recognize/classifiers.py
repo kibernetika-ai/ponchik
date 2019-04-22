@@ -11,6 +11,7 @@ from sklearn import svm, neighbors
 
 from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import dataset, images
+from svod_rcgn.tools.print import print_fun
 
 
 def add_classifier_args(parser):
@@ -109,15 +110,15 @@ class Classifiers:
         # Check that there are at least one training image per class
         for cls in loaded_dataset:
             if len(cls.image_paths) == 0:
-                print('WARNING: %s: There are no aligned images in this class.' % cls)
+                print_fun('WARNING: %s: There are no aligned images in this class.' % cls)
 
         paths, labels = dataset.split_to_paths_and_labels(loaded_dataset)
 
-        print('Number of classes: %d' % len(loaded_dataset))
-        print('Number of images: %d' % len(paths))
+        print_fun('Number of classes: %d' % len(loaded_dataset))
+        print_fun('Number of images: %d' % len(paths))
 
         # Load the model
-        print('Loading feature extraction model')
+        print_fun('Loading feature extraction model')
 
         # Load and instantinate driver
         drv = driver.load_driver(self.driver_name)
@@ -132,7 +133,7 @@ class Classifiers:
         )
 
         # Run forward pass to calculate embeddings
-        print('Calculating features for images')
+        print_fun('Calculating features for images')
 
         emb_args = {
             'model': model_path,
@@ -147,7 +148,7 @@ class Classifiers:
             "embeddings-%s.pkl" % hashlib.md5(json.dumps(emb_args, sort_keys=True).encode()).hexdigest(),
         )
         if os.path.isfile(embeddings_filename):
-            print("Found stored embeddings data, loading...")
+            print_fun("Found stored embeddings data, loading...")
             with open(embeddings_filename, 'rb') as embeddings_file:
                 stored_embeddings = pickle.load(embeddings_file)
 
@@ -162,7 +163,7 @@ class Classifiers:
                     del stored_embeddings[stored_class]
                     deleted_classes += 1
             if deleted_embs > 0 or deleted_classes > 0:
-                print("Deleted not existing in aligned data %d embeddings and %d classes"
+                print_fun("Deleted not existing in aligned data %d embeddings and %d classes"
                       % (deleted_embs, deleted_classes))
 
         total_time = 0.
@@ -187,7 +188,7 @@ class Classifiers:
             paths_batch_load, labels_batch_load = [], []
 
             for j in range(end_index - start_index):
-                # print(os.path.split(paths_batch[j]))
+                # print_fun(os.path.split(paths_batch[j]))
                 cls_name = loaded_dataset[labels_batch[j]].name
                 cached = True
                 if cls_name not in stored_embeddings or paths_batch[j] not in stored_embeddings[cls_name]:
@@ -202,7 +203,7 @@ class Classifiers:
                     emb_index += len(embeddings)
 
                 if not cached:
-                    print('Batch {} <-> {} {} {}'.format(
+                    print_fun('Batch {} <-> {} {} {}'.format(
                         paths_batch[j], labels_batch[j], cls_name, "cached" if cached else "",
                     ))
 
@@ -242,7 +243,7 @@ class Classifiers:
             emb_index += len(images)
 
         # average_time = total_time / embeddings_size * 1000
-        # print('Average time: %.3fms' % average_time)
+        # print_fun('Average time: %.3fms' % average_time)
 
         classifiers_dir = os.path.expanduser(self.classifiers_dir)
 
@@ -269,7 +270,7 @@ class Classifiers:
         # Train classifiers
         for algorithm in self.algorithms:
 
-            print('Classifier algorithm %s' % algorithm)
+            print_fun('Classifier algorithm %s' % algorithm)
             # update_data({'classifier_algorithm': args.algorithm}, use_mlboard, mlboard)
             if algorithm == 'SVM':
                 clf = svm.SVC(kernel='linear', probability=True)
@@ -288,7 +289,7 @@ class Classifiers:
             classifier_filename = os.path.join(classifiers_dir, "classifier-%s.pkl" % algorithm.lower())
             with open(classifier_filename, 'wb') as outfile:
                 pickle.dump((clf, class_names, class_stats), outfile, protocol=2)
-            print('Saved classifier model to file "%s"' % classifier_filename)
+            print_fun('Saved classifier model to file "%s"' % classifier_filename)
             # update_data({'average_time_%s': '%.3fms' % average_time}, use_mlboard, mlboard)
 
     def load_data(self, paths_batch, labels):
@@ -303,7 +304,7 @@ class Classifiers:
         if self.aug_flip:
             for k in range(imgs_size):
                 img = imgs[k]
-                # print('Applying flip to image {}'.format(paths_batch[k]))
+                # print_fun('Applying flip to image {}'.format(paths_batch[k]))
                 flipped = images.horizontal_flip(img)
                 imgs = np.concatenate((imgs, flipped.reshape(1, *flipped.shape)))
                 labels.append(labels[k])
@@ -313,14 +314,14 @@ class Classifiers:
             for k in range(imgs_size):
                 img = imgs[k]
                 for i in range(self.aug_noise):
-                    # print('Applying noise to image {}, #{}'.format(paths_batch[k], i + 1))
+                    # print_fun('Applying noise to image {}, #{}'.format(paths_batch[k], i + 1))
                     noised = images.random_noise(img)
                     imgs = np.concatenate((imgs, noised.reshape(1, *noised.shape)))
                     labels.append(labels[k])
                     paths_batch.append(paths_batch[k])
 
                     if self.aug_flip:
-                        # print('Applying flip to noised image {}, #{}'.format(paths_batch[k], i + 1))
+                        # print_fun('Applying flip to noised image {}, #{}'.format(paths_batch[k], i + 1))
                         flipped = images.horizontal_flip(noised)
                         imgs = np.concatenate((imgs, flipped.reshape(1, *flipped.shape)))
                         labels.append(labels[k])
@@ -336,6 +337,6 @@ class Classifiers:
             if self.aug_noise > 0 and self.aug_flip:
                 batch_log_details.append('%d noise+flip' % (init_batch_len * self.aug_noise))
             batch_log = '%s (%s)' % (batch_log, ', '.join(batch_log_details))
-        print(batch_log)
+        print_fun(batch_log)
 
         return imgs
