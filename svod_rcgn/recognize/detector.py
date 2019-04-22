@@ -349,6 +349,8 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
 
     if labels:
         for l in labels:
+            if l is None:
+                continue
             strs = l['label'].split('\n')
             str_w, str_h = 0, 0
             widths = []
