@@ -1,0 +1,37 @@
+storage:
+ value: default
+ wizard:
+   name: "Storage Configuration"
+   kind: cluster_storage
+
+src:
+  value: https://github.com/kibernetika-ai/svod_rcgn/src
+  accountId: ''
+  revision: ''
+  wizard:
+    name: "Source Code"
+    kind: git
+
+model:
+ value: 'facenet-pretrained'
+ version: '1.0.0-openvino-cpu'
+ workspace: 'kuberlab-demo'
+ wizard:
+   name: "Pre trained model catalog"
+   kind: model
+
+faces:
+ value: 'faces'
+ version: '1.0.1'
+ workspace: 'kuberlab-demo'
+ wizard:
+   name: "Faces Dataset"
+   kind: dataset
+
+bgrm:
+  value: 'coco-bg-rm'
+  version: '1.0.0'
+  workspace: 'kuberlab-demo'
+  wizard:
+    name: "Background removal model (uses before faces detection)"
+    kind: model

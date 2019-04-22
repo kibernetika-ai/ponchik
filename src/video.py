@@ -1,10 +1,10 @@
 import argparse
 
-from svod_rcgn.control.listener import add_listener_args, listener_args
-from svod_rcgn.recognize.args import add_common_args
-from svod_rcgn.recognize.detector import add_detector_args, detector_args
-from svod_rcgn.recognize.video import video_args, add_video_args
-from svod_rcgn.tools.bg_remove import add_bg_remove_args
+from src.control.listener import add_listener_args, listener_args
+from src.recognize.args import add_common_args
+from src.recognize.detector import add_detector_args, detector_args
+from src.recognize.video import video_args, add_video_args
+from src.tools.bg_remove import add_bg_remove_args
 
 
 def main():

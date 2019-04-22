@@ -1,4 +1,4 @@
-from svod_rcgn.recognize import defaults
+from src.recognize import defaults
 
 
 def add_common_args(parser):

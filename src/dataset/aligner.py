@@ -34,8 +34,8 @@ import cv2
 import numpy as np
 from ml_serving.drivers import driver
 
-from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import bg_remove, images, downloader, dataset
+from src.recognize import defaults
+from src.tools import bg_remove, images, downloader, dataset
 
 DEFAULT_INPUT_DIR = "./data/faces"
 

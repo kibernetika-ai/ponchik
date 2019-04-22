@@ -1,0 +1,192 @@
+kind: MLApp
+metadata:
+  name: svod_rcgn
+spec:
+  default_mount_path: /notebooks
+  default_read_only: false
+  package_manager: pip3
+  packages:
+  - manager: pip3
+  tasks:
+  - name: align-images
+    resources:
+    - command: python align_dataset_mtcnn.py
+        $FACES_DIR $TRAINING_DIR/aligned-images
+        {{- if .bgrm.value }}
+        --bg-remove-path $BGRM_DIR
+        {{- end }}
+        --image_size 160
+        --margin 32
+        --complementary
+      default_volume_mapping: true
+      images:
+        cpu: kuberlab/serving:latest-openvino
+        gpu: kuberlab/serving:latest-openvino-gpu
+      name: worker
+      replicas: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      restartPolicy: Never
+      workDir: $SRC_DIR
+  - name: train-classifier
+    resources:
+    - command: python classifier_train.py
+        TRAIN $TRAINING_DIR/aligned-images
+        --model $FACENET_DIR/facenet.xml
+        --classifiers_path $TRAINING_DIR/classifiers
+        --flip --noise --noise-count 3
+        --driver openvino
+        --device CPU
+        --batch_size 10
+      default_volume_mapping: true
+      images:
+        cpu: kuberlab/serving:latest-openvino
+        gpu: kuberlab/serving:latest-openvino
+      name: worker
+      replicas: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      restartPolicy: Never
+      workDir: $SRC_DIR
+  uix:
+  - default_volume_mapping: true
+    displayName: Jupyter
+    images:
+      cpu: kuberlab/tensorflow:cpu-36-1.9.0-full
+    name: jupyter
+    ports:
+    - name: http
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
+    resources:
+      limits:
+        cpu: "1"
+        memory: 4Gi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+  serving:
+  - name: serving
+    displayName: OpenVino Serving
+    images:
+      cpu: "kuberlab/serving:latest-openvino"
+      gpu: "kuberlab/serving:latest-openvino-gpu"
+    command: >-
+      kuberlab-serving --driver openvino --model-path $FACENET_DIR/facenet.xml --hooks serving_hook.py
+      {{- if .bgrm.value }}
+      -o bg_remove_path=$BGRM_DIR
+      {{- end }}
+      -o classifiers_path=$MODEL_DIR -o flexible_batch_size=True
+      -o use_face_detection=true -o face_detection_path=$FACE_DETECTION_DIR/face-detection.xml
+      -o device=CPU
+    resources:
+      accelerators:
+        gpu: 0
+      requests:
+        cpu: 200m
+        memory: 256M
+      limits:
+        cpu: 4000m
+        memory: 4Gi
+    spec:
+      params:
+      - name: input
+        type: bytes
+      response:
+      - name: output
+        type: bytes
+        shape:
+        - 1
+        - -1
+      - name: table_output
+        type: string
+        shape:
+        - -1
+      rawInput: true
+      model: any
+      template: "image"
+      outFilter:
+        - output
+      outMimeType: "image/jpeg"
+    workDir: $SRC_DIR
+    sources:
+    - gitRepo:
+        repository: {{ gitRepo .src.value }}
+        accountId: '{{ .src.accountId }}'
+        revision: '{{ .src.revision }}'
+      name: src
+      subPath: {{ gitSubPath .src.value }}/src
+    - name: facenet
+      model:
+        workspace: {{ .model.workspace }}
+        model: {{ .model.value }}
+        version: {{ .model.version }}
+    - name: face-detection
+      model:
+        workspace: kuberlab-demo
+        model: openvino-face-detection
+        version: 1.4.0-cpu
+    {{- if .bgrm.value }}
+    - name: bgrm
+      model:
+        workspace: {{ .bgrm.workspace }}
+        model: {{ .bgrm.value }}
+        version: {{ .bgrm.version }}
+    {{- end }}
+    ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: http
+  volumes:
+  - clusterStorage: '{{ .storage.value }}'
+    name: training
+  - gitRepo:
+      repository: {{ gitRepo .src.value }}
+      accountId: '{{ .src.accountId }}'
+      revision: '{{ .src.revision }}'
+    isLibDir: false
+    name: src
+    subPath: {{ gitSubPath .src.value }}/src
+  - clusterStorage: '{{ .storage.value }}'
+    isLibDir: true
+    name: lib
+  - clusterStorage: '{{ .storage.value }}'
+    mountPath: /notebooks
+    name: code
+    subPath: code
+  - isLibDir: false
+    name: facenet
+    model:
+      workspace: {{ .model.workspace }}
+      model: {{ .model.value }}
+      version: {{ .model.version }}
+  - isLibDir: false
+    name: faces
+    {{- if .faces.value }}
+    datasetFS:
+      workspace: {{ .faces.workspace }}
+      dataset: {{ .faces.value }}
+      version: {{ .faces.version }}
+    {{- else }}
+    clusterStorage: {{ .storage.value }}
+    {{- end }}
+    {{- if .bgrm.value }}
+  - isLibDir: false
+    name: bgrm
+    model:
+      workspace: {{ .bgrm.workspace }}
+      model: {{ .bgrm.value }}
+      version: {{ .bgrm.version }}
+    {{- end }}

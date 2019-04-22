@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from svod_rcgn.tools import images
+from src.tools import images
 
 
 def get_dataset(path):
