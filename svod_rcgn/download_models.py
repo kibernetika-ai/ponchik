@@ -1,7 +1,7 @@
 import argparse
 
-from src.recognize import defaults
-from src.tools import downloader, bg_remove
+from svod_rcgn.recognize import defaults
+from svod_rcgn.tools import downloader, bg_remove
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

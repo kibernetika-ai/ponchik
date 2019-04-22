@@ -2,7 +2,7 @@ import pickle
 
 import zmq
 
-from src.control import listener
+from svod_rcgn.control import listener
 
 
 class SVODClient:

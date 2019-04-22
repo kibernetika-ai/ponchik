@@ -1,9 +1,9 @@
 import argparse
 
-from src.dataset.aligner import add_aligner_args, aligner_args
-from src.recognize.args import add_common_args
-from src.recognize.classifiers import add_classifier_args, classifiers_args
-from src.tools.bg_remove import add_bg_remove_args
+from svod_rcgn.dataset.aligner import add_aligner_args, aligner_args
+from svod_rcgn.recognize.args import add_common_args
+from svod_rcgn.recognize.classifiers import add_classifier_args, classifiers_args
+from svod_rcgn.tools.bg_remove import add_bg_remove_args
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
     if not args.skip_train:
         clf = classifiers_args(args)
         clf.train()
-        from src.control.client import SVODClient
+        from svod_rcgn.control.client import SVODClient
         cl = SVODClient()
         cl.call('reload_classifiers')
 

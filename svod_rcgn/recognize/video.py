@@ -2,7 +2,7 @@ from threading import Thread
 
 import cv2
 
-from src.tools import images
+from svod_rcgn.tools import images
 
 
 def video_args(detector, listener, args):
