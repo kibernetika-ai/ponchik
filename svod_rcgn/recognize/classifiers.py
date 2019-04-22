@@ -103,6 +103,8 @@ class Classifiers:
         self.image_size = image_size
         self.batch_size = batch_size
         self.device = device
+        self.loading_image_total_time = 0
+        self.loading_images = 0
 
     def train(self):
 
@@ -225,7 +227,6 @@ class Classifiers:
             else:
                 raise RuntimeError('Driver %s currently not supported' % serving.driver_name)
 
-
             t = time.time()
             outputs = serving.predict(feed_dict)
             print_fun("Inference: %.3fms" % ((time.time() - t) * 1000))
@@ -249,6 +250,11 @@ class Classifiers:
 
         # average_time = total_time / embeddings_size * 1000
         # print_fun('Average time: %.3fms' % average_time)
+
+        if self.loading_images != 0:
+            print_fun("Load image file requests count: %d" % self.loading_images)
+            print_fun("Load images total time: %.3fs" % self.loading_image_total_time)
+            print_fun("Load images average time: %.3fms" % ((self.loading_image_total_time / self.loading_images) * 1000))
 
         classifiers_dir = os.path.expanduser(self.classifiers_dir)
 
@@ -303,7 +309,10 @@ class Classifiers:
 
         init_batch_len = len(paths_batch)
 
+        t = time.time()
         imgs = dataset.load_data(paths_batch, self.image_size)
+        self.loading_images += len(paths_batch)
+        self.loading_image_total_time += (time.time() - t)
         imgs_size = len(imgs)
 
         if self.aug_flip:
