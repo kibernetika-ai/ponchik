@@ -144,14 +144,6 @@ class Aligner:
             print_fun("Creating output dir")
             os.makedirs(aligned_dir)
 
-        if not self.complementary_align:
-            print_fun("Clearing existing aligned images")
-            in_dir = os.listdir(aligned_dir)
-            for i in in_dir:
-                fi = os.path.join(aligned_dir, i)
-                if os.path.isdir(fi):
-                    shutil.rmtree(fi, ignore_errors=True)
-
         # Store some git revision info in a text file in the log directory
         src_path, _ = os.path.split(os.path.realpath(__file__))
         # facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
@@ -185,6 +177,7 @@ class Aligner:
             for cls in loaded_dataset:
                 output_class_dir = os.path.join(aligned_dir, cls.name)
                 output_class_dir_created = False
+                aligned_class_images = []
                 if cls.name in align_data:
                     align_data_class = align_data[cls.name]
                 else:
@@ -213,6 +206,10 @@ class Aligner:
                                                 break
                                     if all_aligned_exists:
                                         # print_fun("%s - cached" % image_path)
+                                        # self._clear_absent_aligned(
+                                        #     output_class_dir, align_data_class[image_path]['aligned'])
+                                        if 'aligned' in align_data_class[image_path]:
+                                            aligned_class_images.extend(align_data_class[image_path]['aligned'])
                                         nrof_images_cached += 1
                                         continue
                         align_data_class[image_path] = {'hash': hashlib.sha1(img.tostring()).hexdigest()}
@@ -260,6 +257,15 @@ class Aligner:
                                     os.makedirs(output_class_dir)
                             cv2.imwrite(output_filename_n, cropped)
                             align_data_class[image_path]['aligned'].append(output_filename_n)
+
+                        aligned_class_images.extend(align_data_class[image_path]['aligned'])
+
+                if not self.complementary_align:
+                    if os.path.isdir(output_class_dir):
+                        for f in os.listdir(output_class_dir):
+                            fp = os.path.join(output_class_dir, f)
+                            if os.path.isfile(fp) and fp not in aligned_class_images:
+                                os.remove(fp)
 
                 align_data[cls.name] = align_data_class
 
@@ -310,3 +316,4 @@ class Aligner:
 
         bounding_boxes = np.stack([bbs[num]])
         return bounding_boxes
+
