@@ -136,7 +136,6 @@ class Aligner:
                 if align_data_args == align_data_args_loaded:
                     print_fun("Loaded data about %d aligned classes" % len(align_data_loaded))
                     align_data = align_data_loaded
-
                 else:
                     print_fun("Previous align data is for another arguments, deleting existing data")
                     shutil.rmtree(self.aligned_dir, ignore_errors=True)
@@ -172,6 +171,15 @@ class Aligner:
         self.min_face_area = self.min_face_size ** 2
 
         bounding_boxes_contents = ""
+
+        # clear not actual previous aligned stored data
+        if not self.complementary_align and len(align_data) > 0:
+            stored_classes = []
+            for cls in loaded_dataset:
+                stored_classes.append(cls.name)
+            for adcl in list(align_data):
+                if adcl not in stored_classes:
+                    del align_data[adcl]
 
         nrof_images_total = 0
         nrof_images_cached = 0
@@ -269,6 +277,7 @@ class Aligner:
 
                     aligned_class_images.extend(list(align_data_class[image_path]['aligned'].keys()))
 
+            # clear not existing in input already exists aligned class images
             if not self.complementary_align:
                 if os.path.isdir(output_class_dir):
                     for f in os.listdir(output_class_dir):
@@ -277,6 +286,13 @@ class Aligner:
                             os.remove(fp)
 
             align_data[cls.name] = align_data_class
+
+        # clear not existing in input already exists aligned classes (dirs)
+        if not self.complementary_align:
+            for d in os.listdir(aligned_dir):
+                dd = os.path.join(aligned_dir, d)
+                if os.path.isdir(dd) and d not in align_data:
+                    shutil.rmtree(dd, ignore_errors=True)
 
         with open(bounding_boxes_filename, "w") as text_file:
             text_file.write(bounding_boxes_contents)
