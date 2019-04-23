@@ -21,9 +21,9 @@ model:
    kind: model
 
 faces:
- value: 'faces'
- version: '1.0.1'
- workspace: 'kuberlab-demo'
+  value: 'svod-faces'
+  version: '1.0.0'
+  workspace: 'svod'
  wizard:
    name: "Faces Dataset"
    kind: dataset
