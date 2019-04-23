@@ -210,8 +210,8 @@ class Detector(object):
                     # first matched embeddings
                     # less than 25% is 0%, more than 75% is 100%
                     # multiplied by distance coefficient:
-                    # 0.5 and less is 100%, 0.83 and more is 0%
-                    prob = max(0, min(1, 2 * first_cnt / cnt - .5)) * max(0, min(1, 2.5 - eval_values[idx] * 3))
+                    # 0.5 and less is 100%, 1 and more is 0%
+                    prob = max(0, min(1, 2 * first_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
                     label_debug = '%.3f %d/%d' % (
                         eval_values[idx],
                         first_cnt, cnt,
@@ -411,14 +411,17 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     ),
                     font,
                     font_size,
-                    l['color'],
+                    color=l['color'],
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )
 
             if 'classes' in l:
-                classes_preview_size = str_h * 3
                 global classes_previews
-                i_left, i_top = l['left'] + 5, l['top'] + 5
+                classes_preview_size = min(
+                    str_h * 3,  # size depends on row height
+                    int((l['right'] - l['left'] - 10) / len(l['classes']) / 1.2),  # size depends on bounding box size
+                )
+                i_left, i_top = max(0, l['left'] + 5), max(0, l['top'] + 5)
                 for cls in l['classes']:
                     cv2.rectangle(
                         frame,
@@ -434,17 +437,19 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                         cls_img_path = os.path.join(classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
                         if os.path.isfile(cls_img_path):
                             try:
-                                cls_img = cv2.imread(cls_img_path)
-                                classes_previews[cls] = \
-                                    images.image_resize(cls_img, classes_preview_size, classes_preview_size)
+                                classes_previews[cls] = cv2.imread(cls_img_path)
                             except Exception as e:
                                 print_fun('Error reading preview for "%s": %s' % (cls, e))
                         else:
                             print_fun('Error reading preview for "%s": file not found' % cls)
                     cls_img = classes_previews[cls]
                     if cls_img is not None:
-                        frame[i_top:i_top + cls_img.shape[0], i_left:i_left + cls_img.shape[1]] = cls_img
-                    i_left += classes_preview_size + 10
+                        resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
+                        try:
+                            frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
+                        except Exception as e:
+                            print_fun("ERROR: %s" % e)
+                    i_left += int(classes_preview_size * 1.2)
 
 
 def openvino_detect(face_detect, frame, threshold):
