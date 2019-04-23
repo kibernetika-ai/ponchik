@@ -122,7 +122,6 @@ class Detector(object):
         if len(classifiers) > 0:
             new = DetectorClassifiers()
             for clfi, clf in enumerate(classifiers):
-                # print_fun(clfi, clf)
                 # Load classifier
                 with open(clf, 'rb') as f:
                     print_fun('Load CLASSIFIER %s' % clf)

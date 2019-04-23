@@ -87,7 +87,7 @@ class Video:
                 self.detector.load_classifiers()
             elif command == 'debug':
                 deb = bool(data)
-                print_fun("set debug", deb)
+                print_fun("set debug " + ("on" if deb else "off"))
                 self.detector.debug = deb
             elif command == 'test':
                 print_fun("get test data:")
