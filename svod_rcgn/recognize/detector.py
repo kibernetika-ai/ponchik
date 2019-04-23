@@ -252,7 +252,7 @@ class Detector(object):
                 label_strings.append("Summary: not detected")
 
         thin = not detected
-        color = (0, 0, 255) if thin else (0, 255, 0)
+        color = (255, 0, 0) if thin else (0, 255, 0)
 
         bb = bbox.astype(int)
         bounding_boxes_overlay = {
@@ -390,7 +390,6 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     l['color'],
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )
-
 
 
 def openvino_detect(face_detect, frame, threshold):
