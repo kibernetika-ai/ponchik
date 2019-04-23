@@ -13,6 +13,9 @@ from svod_rcgn.recognize import nets, defaults
 from svod_rcgn.tools import images, bg_remove
 from svod_rcgn.tools.print import print_fun
 
+classes_previews = {}
+classes_preview_size = 50
+
 
 class DetectorClassifiers:
     def __init__(self):
@@ -68,6 +71,7 @@ class Detector(object):
         self.model_dir = model_dir
         self.classifiers_dir = classifiers_dir
         self.bg_remove_path = bg_remove_path
+        self.bg_remove = None
         self.use_classifiers = False
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
@@ -111,6 +115,9 @@ class Detector(object):
         self.load_classifiers()
 
     def load_classifiers(self):
+
+        global classes_previews
+        classes_previews = {}
 
         if not bool(self.model_dir):
             return
@@ -173,6 +180,7 @@ class Detector(object):
         detected_indices = []
         label_strings = []
         probs = []
+        classes = []
         prob_detected = True
         summary_overlay_label = ""
 
@@ -236,6 +244,7 @@ class Detector(object):
                     '%s: %.1f%% %s (%s)' % (classifier_name, prob * 100, overlay_label, label_debug)
                 if self.debug:
                     label_strings.append(label_debug_info)
+                    classes.append(overlay_label)
                 elif len(label_strings) == 0:
                     label_strings.append(overlay_label)
                 # print_fun(label_debug_info)
@@ -249,6 +258,9 @@ class Detector(object):
                 label_strings.append("Summary: %.1f%% %s" % (mean_prob * 100, summary_overlay_label))
             else:
                 label_strings.append("Summary: not detected")
+
+        if detected:
+            classes = [summary_overlay_label]
 
         thin = not detected
         color = (250, 0, 250) if thin else (0, 255, 0)
@@ -271,6 +283,7 @@ class Detector(object):
         if overlay_label_str != "":
             overlay_label = {
                 'label': overlay_label_str,
+                'classes': classes,
                 'left': bb[0],
                 'top': bb[1],
                 'right': bb[2],
@@ -309,20 +322,17 @@ class Detector(object):
 
         # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
         if overlays:
-            self.add_overlays(frame, bounding_boxes_overlays, labels, frame_rate)
+            add_overlays(
+                frame, bounding_boxes_overlays,
+                frame_rate=frame_rate,
+                labels=labels,
+                align_to_right=True,
+                classifiers_dir=self.classifiers_dir,
+            )
         return bounding_boxes_overlays, labels
 
-    @staticmethod
-    def add_overlays(frame, boxes, labels=None, frame_rate=None, align_to_right=True):
-        add_overlays(
-            frame, boxes,
-            frame_rate=frame_rate,
-            labels=labels,
-            align_to_right=align_to_right
-        )
 
-
-def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True):
+def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True, classifiers_dir=None):
     if boxes is not None:
         for face in boxes:
             face_bb = face['bb'].astype(int)
@@ -371,7 +381,9 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
             for i, line in enumerate(strs):
                 if align_to_right:
                     # all align to right box border
-                    left = (l['right'] - widths[i] - font_inner_padding_w) if to_right else l['left'] + font_inner_padding_w
+                    left = (l['right'] - widths[i] - font_inner_padding_w) \
+                        if to_right \
+                        else l['left'] + font_inner_padding_w
                 else:
                     # move left each string if it's ending not places on the frame
                     left = frame.shape[1] - widths[i] - font_inner_padding_w \
@@ -400,6 +412,36 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     l['color'],
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )
+
+            if 'classes' in l:
+                global classes_previews
+                i_left, i_top = l['left'] + 5, l['top'] + 5
+                for cls in l['classes']:
+                    cv2.rectangle(
+                        frame,
+                        (i_left, i_top),
+                        (i_left + classes_preview_size, i_top + classes_preview_size),
+                        color=(0, 0, 0),
+                        thickness=font_thickness + 2,
+                    )
+                    if cls not in classes_previews:
+                        print_fun('Init preview for class "%s"' % cls)
+                        classes_previews[cls] = None
+                        # todo check it!
+                        cls_img_path = os.path.join(classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
+                        if os.path.isfile(cls_img_path):
+                            try:
+                                cls_img = cv2.imread(cls_img_path)
+                                classes_previews[cls] = \
+                                    images.image_resize(cls_img, classes_preview_size, classes_preview_size)
+                            except Exception as e:
+                                print_fun('Error reading preview for "%s": %s' % (cls, e))
+                        else:
+                            print_fun('Error reading preview for "%s": file not found' % cls)
+                    cls_img = classes_previews[cls]
+                    if cls_img is not None:
+                        frame[i_top:i_top + cls_img.shape[0], i_left:i_left + cls_img.shape[1]] = cls_img
+                    i_left += classes_preview_size + 10
 
 
 def openvino_detect(face_detect, frame, threshold):

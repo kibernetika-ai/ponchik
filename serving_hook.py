@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-import time
 
 import cv2
 import numpy as np
@@ -164,7 +163,7 @@ def process(inputs, ctx, **kwargs):
             )
 
     if not skip:
-        detector.add_overlays(frame, box_overlays, 0, labels=labels)
+        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
