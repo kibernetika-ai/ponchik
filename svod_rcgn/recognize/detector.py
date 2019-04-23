@@ -14,7 +14,6 @@ from svod_rcgn.tools import images, bg_remove
 from svod_rcgn.tools.print import print_fun
 
 classes_previews = {}
-classes_preview_size = 50
 
 
 class DetectorClassifiers:
@@ -333,19 +332,22 @@ class Detector(object):
 
 
 def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True, classifiers_dir=None):
+    frame_avg = (frame.shape[1] + frame.shape[0]) / 2
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_size = frame_avg / 1200
+    # font_thickness = 2 if frame_avg > 1000 else 1
+    font_thickness = int(font_size * 2)
+
     if boxes is not None:
         for face in boxes:
             face_bb = face['bb'].astype(int)
             cv2.rectangle(
                 frame,
                 (face_bb[0], face_bb[1]), (face_bb[2], face_bb[3]),
-                face['color'], 1 if face['thin'] else 2,
+                face['color'],
+                font_thickness * (1 if face['thin'] else 2),
             )
 
-    frame_avg = (frame.shape[1] + frame.shape[0]) / 2
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_size = frame_avg / 1300
-    font_thickness = 2 if frame_avg > 1000 else 1
     font_inner_padding_w, font_inner_padding_h = 5, 5
 
     if frame_rate is not None and frame_rate != 0:
@@ -414,6 +416,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                 )
 
             if 'classes' in l:
+                classes_preview_size = str_h * 3
                 global classes_previews
                 i_left, i_top = l['left'] + 5, l['top'] + 5
                 for cls in l['classes']:
