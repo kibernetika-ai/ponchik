@@ -393,7 +393,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
 
 
 def openvino_detect(face_detect, frame, threshold):
-    inference_frame = cv2.resize(frame, face_detect.input_size, interpolation=cv2.INTER_AREA)
+    inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
     inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
     outputs = face_detect(inference_frame)
     outputs = outputs.reshape(-1, 7)
