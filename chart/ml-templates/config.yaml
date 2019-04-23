@@ -35,13 +35,7 @@ spec:
       workDir: $SRC_DIR
   - name: export-classifiers
     resources:
-      - command: python prepare.py
-          --input_dir $FACES_DIR
-          --aligned_dir $TRAINING_DIR/aligned
-          {{- if .bgrm.value }}
-          --bg_remove_path $BGRM_DIR
-          {{- end }}
-          --model_dir $FACENET_DIR
+      - command: python export_model.py
           --classifiers_dir $TRAINING_DIR/classifiers
         default_volume_mapping: true
         images:
@@ -85,12 +79,16 @@ spec:
     command: >-
       kserving --driver openvino --model-path $FACENET_DIR/facenet.xml
       --hooks serving_hook.py
-      {{- if .bgrm.value }}
+      {{- if and .bgrm.value .detection_bgrm.value }}
       -o bg_remove_path=$BGRM_DIR
       {{- end }}
       -o classifiers_dir=$MODEL_DIR
       -o model_dir=$FACENET_DIR
-      -o device=CPU
+      -o flexible_batch_size=True
+      {{- if .detection_debug.value }}
+      -o debug=true
+      {{- end }}
+      -o threshold=0.25,0.3,0.3
     resources:
       accelerators:
         gpu: 0

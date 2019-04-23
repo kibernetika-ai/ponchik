@@ -35,3 +35,15 @@ bgrm:
   wizard:
     name: "Background removal model (uses before faces detection)"
     kind: model
+
+detection_bgrm:
+  value: false
+  wizard:
+    name: Use background removal before face detection
+    kind: boolean
+
+detection_debug:
+  value: false
+  wizard:
+    name: Return debug info on detection and recognition
+    kind: boolean
