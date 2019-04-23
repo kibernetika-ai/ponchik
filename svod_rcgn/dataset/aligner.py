@@ -33,10 +33,10 @@ import shutil
 import cv2
 import numpy as np
 from ml_serving.drivers import driver
-from svod_rcgn.tools.print import print_fun
 
 from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import bg_remove, images, downloader, dataset
+from svod_rcgn.tools.print import print_fun
 
 DEFAULT_INPUT_DIR = "./data/faces"
 
@@ -162,8 +162,8 @@ class Aligner:
         # Load driver
         drv = driver.load_driver("openvino")
         # Instantinate driver
-        serving = drv()
-        serving.load_model(
+        self.serving = drv()
+        self.serving.load_model(
             self.face_detection_path,
             device=self.device,
             flexible_batch_size=True,
@@ -171,12 +171,12 @@ class Aligner:
 
         bg_rm_drv = bg_remove.get_driver(self.bg_remove_path)
 
-        input_name = list(serving.inputs.keys())[0]
-        output_name = list(serving.outputs.keys())[0]
+        self.input_name = list(self.serving.inputs.keys())[0]
+        self.output_name = list(self.serving.outputs.keys())[0]
 
-        threshold = 0.5
+        self.threshold = 0.5
 
-        min_face_area = self.min_face_size ** 2
+        self.min_face_area = self.min_face_size ** 2
 
         with open(bounding_boxes_filename, "w") as text_file:
             nrof_images_total = 0
@@ -226,45 +226,19 @@ class Aligner:
                         if bg_rm_drv is not None:
                             img = bg_rm_drv.apply_mask(img)
 
-                        serving_img = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
-                        serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, 300, 300])
-                        raw = serving.predict({input_name: serving_img})[output_name].reshape([-1, 7])
-                        # 7 values:
-                        # class_id, label, confidence, x_min, y_min, x_max, y_max
-                        # Select boxes where confidence > factor
-                        bboxes_raw = raw[raw[:, 2] > threshold]
-                        bboxes_raw[:, 3] = bboxes_raw[:, 3] * img.shape[1]
-                        bboxes_raw[:, 5] = bboxes_raw[:, 5] * img.shape[1]
-                        bboxes_raw[:, 4] = bboxes_raw[:, 4] * img.shape[0]
-                        bboxes_raw[:, 6] = bboxes_raw[:, 6] * img.shape[0]
+                        bounding_boxes = None
+                        if bg_rm_drv is not None:
+                            img_masked = bg_rm_drv.apply_mask(img)
+                            bounding_boxes = self._get_boxes(image_path, img_masked)
+                            if bounding_boxes is None:
+                                print_fun('WARNING: no faces on image with removed bg, try without bg removing')
 
-                        bounding_boxes = np.zeros([len(bboxes_raw), 5])
+                        if bounding_boxes is None or bg_rm_drv is not None:
+                            bounding_boxes = self._get_boxes(image_path, img)
 
-                        bounding_boxes[:, 0:4] = bboxes_raw[:, 3:7]
-                        bounding_boxes[:, 4] = bboxes_raw[:, 2]
-
-                        # Get the biggest box: find the box with largest square:
-                        # (y1 - y0) * (x1 - x0) - size of box.
-                        bbs = bounding_boxes
-                        area = (bbs[:, 3] - bbs[:, 1]) * (bbs[:, 2] - bbs[:, 0])
-
-                        if len(area) < 1:
-                            print_fun('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
+                        if bounding_boxes is None:
                             text_file.write('%s\n' % output_filename)
                             continue
-
-                        num = np.argmax(area)
-                        if area[num] < min_face_area:
-                            print_fun(
-                                'WARNING: Face found but too small - about {}px '
-                                'width against required minimum of {}px. Try'
-                                ' adjust parameter --min-face-size'.format(
-                                    int(np.sqrt(area[num])), self.min_face_size
-                                )
-                            )
-                            continue
-
-                        bounding_boxes = np.stack([bbs[num]])
 
                         imgs = images.get_images(
                             img,
@@ -296,3 +270,43 @@ class Aligner:
         if nrof_images_cached > 0:
             print_fun('Number of cached images: %d' % nrof_images_cached)
         print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)
+
+    def _get_boxes(self, image_path, img):
+        serving_img = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
+        serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, 300, 300])
+        raw = self.serving.predict({self.input_name: serving_img})[self.output_name].reshape([-1, 7])
+        # 7 values:
+        # class_id, label, confidence, x_min, y_min, x_max, y_max
+        # Select boxes where confidence > factor
+        bboxes_raw = raw[raw[:, 2] > self.threshold]
+        bboxes_raw[:, 3] = bboxes_raw[:, 3] * img.shape[1]
+        bboxes_raw[:, 5] = bboxes_raw[:, 5] * img.shape[1]
+        bboxes_raw[:, 4] = bboxes_raw[:, 4] * img.shape[0]
+        bboxes_raw[:, 6] = bboxes_raw[:, 6] * img.shape[0]
+
+        bounding_boxes = np.zeros([len(bboxes_raw), 5])
+
+        bounding_boxes[:, 0:4] = bboxes_raw[:, 3:7]
+        bounding_boxes[:, 4] = bboxes_raw[:, 2]
+
+        # Get the biggest box: find the box with largest square:
+        # (y1 - y0) * (x1 - x0) - size of box.
+        bbs = bounding_boxes
+        area = (bbs[:, 3] - bbs[:, 1]) * (bbs[:, 2] - bbs[:, 0])
+
+        if len(area) < 1:
+            print_fun('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
+            return None
+
+        num = np.argmax(area)
+        if area[num] < self.min_face_area:
+            print_fun(
+                'WARNING: Unable to align "{}", face found but too small - about {}px '
+                'width against required minimum of {}px. Try adjust parameter --min-face-size'.format(
+                    image_path, int(np.sqrt(area[num])), self.min_face_size
+                )
+            )
+            return None
+
+        bounding_boxes = np.stack([bbs[num]])
+        return bounding_boxes

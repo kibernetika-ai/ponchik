@@ -33,6 +33,31 @@ spec:
           memory: 64Mi
       restartPolicy: Never
       workDir: $SRC_DIR
+  - name: export-classifiers
+    resources:
+      - command: python prepare.py
+          --input_dir $FACES_DIR
+          --aligned_dir $TRAINING_DIR/aligned
+          {{- if .bgrm.value }}
+          --bg_remove_path $BGRM_DIR
+          {{- end }}
+          --model_dir $FACENET_DIR
+          --classifiers_dir $TRAINING_DIR/classifiers
+        default_volume_mapping: true
+        images:
+          cpu: kuberlab/serving:latest-openvino
+          gpu: kuberlab/serving:latest-openvino-gpu
+        name: worker
+        replicas: 1
+        resources:
+          limits:
+            cpu: "2"
+            memory: 8Gi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        restartPolicy: Never
+        workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
     displayName: Jupyter
@@ -58,12 +83,13 @@ spec:
       cpu: "kuberlab/serving:latest-openvino"
       gpu: "kuberlab/serving:latest-openvino-gpu"
     command: >-
-      kuberlab-serving --driver openvino --model-path $FACENET_DIR/facenet.xml --hooks serving_hook.py
+      kserving --driver openvino --model-path $FACENET_DIR/facenet.xml
+      --hooks serving_hook.py
       {{- if .bgrm.value }}
       -o bg_remove_path=$BGRM_DIR
       {{- end }}
-      -o classifiers_path=$MODEL_DIR -o flexible_batch_size=True
-      -o use_face_detection=true -o face_detection_path=$FACE_DETECTION_DIR/face-detection.xml
+      -o classifiers_dir=$MODEL_DIR
+      -o model_dir=$FACENET_DIR
       -o device=CPU
     resources:
       accelerators:
