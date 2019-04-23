@@ -163,7 +163,9 @@ def process(inputs, ctx, **kwargs):
             )
 
     if not skip:
+        frame = frame[:, :, ::-1]
         detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
+        frame = frame[:, :, ::-1]
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
