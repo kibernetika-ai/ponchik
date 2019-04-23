@@ -125,7 +125,7 @@ spec:
         accountId: '{{ .src.accountId }}'
         revision: '{{ .src.revision }}'
       name: src
-      subPath: {{ gitSubPath .src.value }}/src
+      subPath: {{ gitSubPath .src.value }}
     - name: facenet
       model:
         workspace: {{ .model.workspace }}
@@ -157,7 +157,7 @@ spec:
       revision: '{{ .src.revision }}'
     isLibDir: false
     name: src
-    subPath: {{ gitSubPath .src.value }}/src
+    subPath: {{ gitSubPath .src.value }}
   - clusterStorage: '{{ .storage.value }}'
     isLibDir: true
     name: lib
