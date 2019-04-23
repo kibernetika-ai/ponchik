@@ -301,7 +301,11 @@ class Classifiers:
             with open(classifier_filename, 'wb') as outfile:
                 pickle.dump((clf, class_names, class_stats), outfile, protocol=2)
             print_fun('Saved classifier model to file "%s"' % classifier_filename)
+
             # update_data({'average_time_%s': '%.3fms' % average_time}, use_mlboard, mlboard)
+
+        previews_dir = self.store_previews()
+        print_fun('Saved class previews to dir "%s"' % previews_dir)
 
     def load_data(self, paths_batch, labels):
         if len(paths_batch) != len(labels):
@@ -354,3 +358,21 @@ class Classifiers:
         print_fun(batch_log)
 
         return imgs
+
+    def store_previews(self):
+        previews_dir = os.path.join(self.classifiers_dir, "previews")
+        if os.path.exists(previews_dir):
+            shutil.rmtree(previews_dir, ignore_errors=True)
+        os.makedirs(previews_dir)
+        if os.path.isdir(self.aligned_dir):
+            for d in os.listdir(self.aligned_dir):
+                dd = os.path.join(self.aligned_dir, d)
+                if os.path.isdir(dd):
+                    for f in os.listdir(dd):
+                        ff = os.path.join(dd, f)
+                        if os.path.isfile(ff):
+                            _, ext = os.path.splitext(ff)
+                            if ext.lower() == ".png":
+                                shutil.copyfile(ff, os.path.join(previews_dir, "%s.png" % d))
+                                break
+        return previews_dir

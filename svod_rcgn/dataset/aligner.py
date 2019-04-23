@@ -237,7 +237,7 @@ class Aligner:
                         img_masked = bg_rm_drv.apply_mask(img)
                         bounding_boxes = self._get_boxes(image_path, img_masked)
                         if bounding_boxes is None:
-                            print_fun('WARNING: no faces on image with removed bg, try without bg removing')
+                            print_fun('WARNING: no faces on image with removed bg, trying without bg removing')
 
                     if bounding_boxes is None or bg_rm_drv is not None:
                         bounding_boxes = self._get_boxes(image_path, img)
