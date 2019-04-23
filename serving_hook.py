@@ -2,12 +2,13 @@ import base64
 import json
 import logging
 import os
+import time
 
 import cv2
 import numpy as np
 
-from svod_rcgn.recognize.detector import Detector, add_overlays
-from svod_rcgn.tools.images import get_images
+from svod_rcgn.recognize import detector
+from svod_rcgn.tools import images
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -63,7 +64,7 @@ def load_nets(**kwargs):
     # LOG.info('Classifiers path: {}'.format(classifiers_path))
     # LOG.info('Classifier files: {}'.format(classifiers))
     global openvino_facenet
-    openvino_facenet = Detector(
+    openvino_facenet = detector.Detector(
         device='CPU',
         classifiers_dir=clf_dir,
         model_dir=PARAMS['model_dir'],
@@ -104,7 +105,7 @@ def process(inputs, ctx, **kwargs):
 
     bounding_boxes = openvino_facenet.detect_faces(data, PARAMS['threshold'][0])
 
-    imgs = get_images(frame, bounding_boxes)
+    imgs = images.get_images(frame, bounding_boxes)
 
     if len(imgs) > 0:
         imgs = np.stack(imgs).transpose([0, 3, 1, 2])
@@ -163,7 +164,7 @@ def process(inputs, ctx, **kwargs):
             )
 
     if not skip:
-        add_overlays(frame, box_overlays, 0, labels=labels)
+        detector.add_overlays(frame, box_overlays, 0, labels=labels)
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
