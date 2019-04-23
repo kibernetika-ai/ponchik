@@ -252,7 +252,7 @@ class Detector(object):
                 label_strings.append("Summary: not detected")
 
         thin = not detected
-        color = (255, 0, 0) if thin else (0, 255, 0)
+        color = (250, 0, 250) if thin else (0, 255, 0)
 
         bb = bbox.astype(int)
         bounding_boxes_overlay = {
