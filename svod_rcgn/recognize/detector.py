@@ -337,6 +337,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
     font_size = frame_avg / 1200
     # font_thickness = 2 if frame_avg > 1000 else 1
     font_thickness = int(font_size * 2)
+    print_fun("font_size: %f, font_thickness %f" % (font_size, font_thickness))
 
     if boxes is not None:
         for face in boxes:
