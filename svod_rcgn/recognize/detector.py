@@ -387,6 +387,17 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     ),
                     font,
                     font_size,
+                    (0, 0, 0),
+                    thickness=font_thickness + 2, lineType=cv2.LINE_AA
+                )
+                cv2.putText(
+                    frame, line,
+                    (
+                        left,
+                        int(top + i * str_h),
+                    ),
+                    font,
+                    font_size,
                     l['color'],
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )

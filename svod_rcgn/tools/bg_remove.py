@@ -3,7 +3,7 @@ import numpy as np
 from ml_serving.drivers import driver as sdrv
 from svod_rcgn.tools.print import print_fun
 
-DEFAULT_BG_REMOVE_DIR = "./models/bg_remove"
+DEFAULT_BG_REMOVE_DIR = ""
 
 
 class Driver(object):
