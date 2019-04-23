@@ -337,7 +337,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
     font_size = frame_avg / 1200
     # font_thickness = 2 if frame_avg > 1000 else 1
     font_thickness = int(font_size * 2)
-    print_fun("font_size: %f, font_thickness %f" % (font_size, font_thickness))
+    print_fun("font_size: %f, font_thickness: %f" % (font_size, font_thickness))
 
     if boxes is not None:
         for face in boxes:
@@ -374,6 +374,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                 str_h = max(str_h, lh)
                 widths.append(lw)
             str_h = int(str_h * 1.6) # line height
+            print_fun("str_h: %f" % (str_h))
 
             to_right = l['left'] + str_w > frame.shape[1] - font_inner_padding_w
 
