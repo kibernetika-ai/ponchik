@@ -34,9 +34,12 @@ spec:
       restartPolicy: Never
       workDir: $SRC_DIR
   - name: export-classifiers
+    type: export
     resources:
       - command: python export_model.py
           --classifiers_dir $TRAINING_DIR/classifiers
+          --model_name svod-faces
+          --model_version 1.0.0
         default_volume_mapping: true
         images:
           cpu: kuberlab/serving:latest-openvino
