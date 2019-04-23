@@ -74,6 +74,7 @@ def load_nets(**kwargs):
         model_dir=PARAMS['model_dir'],
         debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
+        loaded_plugin=kwargs['plugin']
     )
     openvino_facenet.init()
 

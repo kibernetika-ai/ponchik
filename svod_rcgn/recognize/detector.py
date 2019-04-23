@@ -59,6 +59,7 @@ class Detector(object):
             bg_remove_path=bg_remove.DEFAULT_BG_REMOVE_DIR,
             threshold=defaults.THRESHOLD,
             debug=defaults.DEBUG,
+            loaded_plugin=None,
     ):
 
         self._initialized = False
@@ -71,6 +72,7 @@ class Detector(object):
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
         self.debug = debug
+        self.loaded_plugin = loaded_plugin
 
     def init(self):
 
@@ -79,10 +81,10 @@ class Detector(object):
         self._initialized = True
 
         extensions = os.environ.get('INTEL_EXTENSIONS_PATH')
-        # if loaded_plugin is not None:
-        #     plugin = loaded_plugin
-        # else:
-        plugin = ie.IEPlugin(device=self.device)
+        if self.loaded_plugin is not None:
+            plugin = self.loaded_plugin
+        else:
+            plugin = ie.IEPlugin(device=self.device)
 
         if extensions and "CPU" in self.device:
             for ext in extensions.split(':'):
