@@ -332,6 +332,16 @@ class Detector(object):
 
 
 def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True, classifiers_dir=None):
+    """Add boxes and labels overlays on frame
+
+    :param frame: frame in BGR channels order
+    :param boxes: bounding boxes
+    :param frame_rate: (optional) frame rate
+    :param labels: text labels - list of dicts
+    :param align_to_right:
+    :param classifiers_dir: classifiers directory
+    :return:
+    """
     frame_avg = (frame.shape[1] + frame.shape[0]) / 2
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_size = frame_avg / 1200

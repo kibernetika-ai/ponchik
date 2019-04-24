@@ -162,10 +162,9 @@ def process(inputs, ctx, **kwargs):
                 }
             )
 
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     if not skip:
         detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
-
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
     if PARAMS['output_type'] == 'bytes':
         image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
