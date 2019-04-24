@@ -144,9 +144,24 @@ def process(inputs, ctx, **kwargs):
         # LOG.info("prob = {}".format(prob))
         # LOG.info("scores_out = {}".format(scores_out))
 
-    table = []
-    text_labels = []
+    text_labels = ["" if l is None else l['label'] for l in labels]
+
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    if PARAMS['output_type'] == 'bytes':
+        image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
+    else:
+        image_bytes = frame
+
+    ret = {
+        'boxes': bounding_boxes,
+        'output': image_bytes,
+        'labels': np.array(text_labels, dtype=np.string_),
+    }
+
     if PARAMS['need_table']:
+
+        table = []
+
         text_labels = ["" if l is None else l['label'] for l in labels]
         for i, b in enumerate(bounding_boxes):
             x_min = int(max(0, b[0]))
@@ -168,18 +183,24 @@ def process(inputs, ctx, **kwargs):
                 }
             )
 
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    if not skip:
-        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
+        ret['table_output'] = json.dumps(table)
+        ret['table_meta'] = [
+            {
+                "name": "type",
+                "filtered": True
+            },
+            {
+                "name": "name"
+            },
+            {
+                "name": "prob",
+                "type": "number",
+                "format": ".2f"
+            },
+            {
+                "name": "image",
+                "type": "image"
+            }
+        ]
 
-    if PARAMS['output_type'] == 'bytes':
-        image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
-    else:
-        image_bytes = frame
-
-    return {
-        'output': image_bytes,
-        'boxes': bounding_boxes,
-        'labels': np.array(text_labels, dtype=np.string_),
-        'table_output': json.dumps(table),
-    }
+    return ret
