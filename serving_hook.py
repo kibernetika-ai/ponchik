@@ -147,6 +147,9 @@ def process(inputs, ctx, **kwargs):
     text_labels = ["" if l is None else l['label'] for l in labels]
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    if not skip:
+        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
+
     if PARAMS['output_type'] == 'bytes':
         image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
     else:
@@ -170,7 +173,7 @@ def process(inputs, ctx, **kwargs):
             y_max = int(min(frame.shape[0], b[3]))
             cim = frame[y_min:y_max, x_min:x_max]
             # image_bytes = io.BytesIO()
-            cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
+            # cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
             image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
 
             encoded = base64.encodebytes(image_bytes).decode()
