@@ -146,18 +146,8 @@ def process(inputs, ctx, **kwargs):
 
     text_labels = ["" if l is None else l['label'] for l in labels]
 
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    if not skip:
-        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
-
-    if PARAMS['output_type'] == 'bytes':
-        image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
-    else:
-        image_bytes = frame
-
     ret = {
         'boxes': bounding_boxes,
-        'output': image_bytes,
         'labels': np.array(text_labels, dtype=np.string_),
     }
 
@@ -165,7 +155,6 @@ def process(inputs, ctx, **kwargs):
 
         table = []
 
-        text_labels = ["" if l is None else l['label'] for l in labels]
         for i, b in enumerate(bounding_boxes):
             x_min = int(max(0, b[0]))
             y_min = int(max(0, b[1]))
@@ -205,5 +194,16 @@ def process(inputs, ctx, **kwargs):
                 "type": "image"
             }
         ])
+
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    if not skip:
+        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
+
+    if PARAMS['output_type'] == 'bytes':
+        image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
+    else:
+        image_bytes = frame
+
+    ret['output'] = image_bytes
 
     return ret
