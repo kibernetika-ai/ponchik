@@ -23,6 +23,7 @@ PARAMS = {
 width = 640
 height = 480
 net_loaded = False
+openvino_facenet: detector.Detector = None
 
 
 def boolean_string(s):
