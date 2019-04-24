@@ -431,7 +431,7 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )
 
-            if 'classes' in l:
+            if 'classes' in l and len(l['classes']) > 0:
                 global classes_previews
                 classes_preview_size = min(
                     str_h * 3,  # size depends on row height
