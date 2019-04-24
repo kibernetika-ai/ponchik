@@ -184,7 +184,7 @@ def process(inputs, ctx, **kwargs):
             )
 
         ret['table_output'] = json.dumps(table)
-        ret['table_meta'] = [
+        ret['table_meta'] = json.dumps([
             {
                 "name": "type",
                 "filtered": True
@@ -201,6 +201,6 @@ def process(inputs, ctx, **kwargs):
                 "name": "image",
                 "type": "image"
             }
-        ]
+        ])
 
     return ret
