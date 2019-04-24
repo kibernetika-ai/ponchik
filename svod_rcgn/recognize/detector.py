@@ -206,15 +206,21 @@ class Detector(object):
                         if clf._y[i] != best_class_indices[idx]:
                             break
                         first_cnt += 1
+                    ttl_cnt = 0
+                    for i in neighbors_indices[0]:
+                        if clf._y[i] != best_class_indices[idx]:
+                            continue
+                        ttl_cnt += 1
+
                     # probability:
-                    # first matched embeddings
+                    # total matched embeddings
                     # less than 25% is 0%, more than 75% is 100%
                     # multiplied by distance coefficient:
                     # 0.5 and less is 100%, 1 and more is 0%
-                    prob = max(0, min(1, 2 * first_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
-                    label_debug = '%.3f %d/%d' % (
+                    prob = max(0, min(1, 2 * ttl_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
+                    label_debug = '%.3f %d/%d/%d' % (
                         eval_values[idx],
-                        first_cnt, cnt,
+                        first_cnt, ttl_cnt, cnt,
                     )
                     return prob, label_debug
 
