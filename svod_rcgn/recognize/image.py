@@ -22,10 +22,7 @@ class Image:
         img = cv2.imread(self.image_source)
         self.detector.process_frame(img, overlays=True)
         cv2.imshow('Image', img)
-        key = cv2.waitKey()
-        # Wait 'q' or Esc or 'q' in russian layout
-        if key in [ord('q'), 202, 27]:
-            return
+        cv2.waitKey()
 
 
 def add_image_args(parser):
