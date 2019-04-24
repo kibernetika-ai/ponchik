@@ -161,8 +161,7 @@ def process(inputs, ctx, **kwargs):
             x_max = int(min(frame.shape[1], b[2]))
             y_max = int(min(frame.shape[0], b[3]))
             cim = frame[y_min:y_max, x_min:x_max]
-            # image_bytes = io.BytesIO()
-            # cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
+            cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
             image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
 
             encoded = base64.encodebytes(image_bytes).decode()
