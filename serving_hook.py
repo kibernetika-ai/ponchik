@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+import threading
 
 import cv2
 import numpy as np
@@ -20,6 +21,7 @@ PARAMS = {
     'output_type': 'bytes',
     'need_table': True,
 }
+lock = threading.Lock()
 width = 640
 height = 480
 net_loaded = False
@@ -95,9 +97,12 @@ def load_image_from_inputs(inputs, image_key):
 
 def process(inputs, ctx, **kwargs):
     global net_loaded
+    # check-lock-check
     if not net_loaded:
-        load_nets(**kwargs)
-        net_loaded = True
+        with lock:
+            if not net_loaded:
+                load_nets(**kwargs)
+                net_loaded = True
 
     frame = load_image_from_inputs(inputs, 'input')
     # convert to BGR
