@@ -2,7 +2,9 @@ import base64
 import json
 import logging
 import os
+import shutil
 import threading
+import time
 
 import cv2
 import numpy as np
@@ -20,22 +22,13 @@ PARAMS = {
     'bg_remove_path': '',
     'output_type': 'bytes',
     'need_table': True,
+    'add_image_dir': '',
 }
 lock = threading.Lock()
 width = 640
 height = 480
 net_loaded = False
 openvino_facenet: detector.Detector = None
-
-
-def boolean_string(s):
-    if isinstance(s, bool):
-        return s
-
-    s = s.lower()
-    if s not in {'false', 'true'}:
-        raise ValueError('Not a valid boolean string')
-    return s == 'true'
 
 
 def init_hook(**kwargs):
@@ -47,52 +40,9 @@ def init_hook(**kwargs):
             float(x) for x in PARAMS['threshold'].split(',')
         ]
 
-    PARAMS['need_table'] = boolean_string(PARAMS['need_table'])
-    # PARAMS['use_tf'] = boolean_string(PARAMS['use_tf'])
+    PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
-
-
-def load_nets(**kwargs):
-
-    LOG.info('Load FACE DETECTION')
-    clf_dir = PARAMS['classifiers_dir']
-    if not os.path.isdir(clf_dir):
-        raise RuntimeError("Classifiers path %s is absent or is not directory" % clf_dir)
-    classifiers = \
-        [os.path.join(clf_dir, f) for f in os.listdir(clf_dir) if os.path.isfile(os.path.join(clf_dir, f))]
-    if len(classifiers) == 0:
-        raise RuntimeError("Classifiers path %s has no any files" % clf_dir)
-    # LOG.info('Classifiers path: {}'.format(classifiers_path))
-    # LOG.info('Classifier files: {}'.format(classifiers))
-    global openvino_facenet
-    openvino_facenet = detector.Detector(
-        device='CPU',
-        classifiers_dir=clf_dir,
-        model_dir=PARAMS['model_dir'],
-        debug=PARAMS['debug'] == 'true',
-        bg_remove_path=PARAMS['bg_remove_path'],
-        loaded_plugin=kwargs['plugin']
-    )
-    openvino_facenet.init()
-
-    LOG.info('Done.')
-
-
-def load_image_from_inputs(inputs, image_key):
-    image = inputs.get(image_key)
-    if image is None:
-        raise RuntimeError('Missing "{0}" key in inputs. Provide an image in "{0}" key'.format(image_key))
-
-    if len(image.shape) == 0:
-        image = np.stack([image.tolist()])
-
-    if len(image.shape) < 3:
-        image = cv2.imdecode(np.frombuffer(image[0], np.uint8), cv2.IMREAD_COLOR)
-
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    return image
 
 
 def process(inputs, ctx, **kwargs):
@@ -101,10 +51,37 @@ def process(inputs, ctx, **kwargs):
     if not net_loaded:
         with lock:
             if not net_loaded:
-                load_nets(**kwargs)
+                _load_nets(**kwargs)
                 net_loaded = True
 
-    frame = load_image_from_inputs(inputs, 'input')
+    action = _string_input_value(inputs, 'action')
+
+    if action == "test":
+        return process_test()
+    elif action == "add_image":
+        return process_add_image(inputs)
+    else:
+        return process_recognize(inputs, ctx, kwargs['model_inputs'])
+
+
+def process_add_image(inputs):
+    if PARAMS['add_image_dir'] == '' or not os.path.isdir(PARAMS['add_image_dir']):
+        raise EnvironmentError('directory for images adding "%s" is not set or absent' % PARAMS['add_image_dir'])
+    face_class = _string_input_value(inputs, 'class')
+    if face_class is None:
+        raise ValueError('face class is not specified')
+    face_image = _load_image(inputs, 'input')
+    face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+    class_dir = os.path.join(PARAMS['add_image_dir'], face_class)
+    if not os.path.isdir(class_dir):
+        shutil.rmtree(class_dir, ignore_errors=True)
+        os.makedirs(class_dir)
+    cv2.imwrite("%s.png" % os.path.join(class_dir, str(round(time.time() * 1000))), face_image)
+    return {'added': True}
+
+
+def process_recognize(inputs, ctx, model_inputs):
+    frame = _load_image(inputs, 'input')
     # convert to BGR
     data = frame[:, :, ::-1]
 
@@ -119,7 +96,7 @@ def process(inputs, ctx, **kwargs):
         imgs = np.random.randn(1, 3, 160, 160).astype(np.float32)
         skip = True
 
-    model_input = list(kwargs['model_inputs'].keys())[0]
+    model_input = list(model_inputs.keys())[0]
     if not skip:
         outputs = ctx.driver.predict({model_input: imgs})
     else:
@@ -206,3 +183,62 @@ def process(inputs, ctx, **kwargs):
     ret['output'] = image_bytes
 
     return ret
+
+
+def process_test():
+    return {'test': 'test'}
+
+
+def _string_input_value(inputs, key):
+    return None if inputs.get(key) is None else inputs.get(key)[0].decode()
+
+
+def _load_image(inputs, image_key):
+    image = inputs.get(image_key)
+    if image is None:
+        raise RuntimeError('Missing "{0}" key in inputs. Provide an image in "{0}" key'.format(image_key))
+
+    if len(image.shape) == 0:
+        image = np.stack([image.tolist()])
+
+    if len(image.shape) < 3:
+        image = cv2.imdecode(np.frombuffer(image[0], np.uint8), cv2.IMREAD_COLOR)
+
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    return image
+
+
+def _boolean_string(s):
+    if isinstance(s, bool):
+        return s
+
+    s = s.lower()
+    if s not in {'false', 'true'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'true'
+
+
+def _load_nets(**kwargs):
+    LOG.info('Load FACE DETECTION')
+    clf_dir = PARAMS['classifiers_dir']
+    if not os.path.isdir(clf_dir):
+        raise RuntimeError("Classifiers path %s is absent or is not directory" % clf_dir)
+    classifiers = \
+        [os.path.join(clf_dir, f) for f in os.listdir(clf_dir) if os.path.isfile(os.path.join(clf_dir, f))]
+    if len(classifiers) == 0:
+        raise RuntimeError("Classifiers path %s has no any files" % clf_dir)
+    # LOG.info('Classifiers path: {}'.format(classifiers_path))
+    # LOG.info('Classifier files: {}'.format(classifiers))
+    global openvino_facenet
+    openvino_facenet = detector.Detector(
+        device='CPU',
+        classifiers_dir=clf_dir,
+        model_dir=PARAMS['model_dir'],
+        debug=PARAMS['debug'] == 'true',
+        bg_remove_path=PARAMS['bg_remove_path'],
+        loaded_plugin=kwargs['plugin']
+    )
+    openvino_facenet.init()
+
+    LOG.info('Done.')
