@@ -14,6 +14,8 @@ from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import dataset, images
 from svod_rcgn.tools.print import print_fun
 
+META_FILENAME = 'meta.json'
+
 
 def add_classifier_args(parser):
     parser.add_argument(
@@ -307,7 +309,7 @@ class Classifiers:
         print_fun('Saved class previews to dir "%s"' % previews_dir)
 
         meta = dataset.get_meta(loaded_dataset)
-        meta_file = os.path.join(classifiers_dir, 'meta.json')
+        meta_file = os.path.join(classifiers_dir, META_FILENAME)
         if len(meta) > 0:
             with open(meta_file, 'w') as mw:
                 json.dump(meta, mw)

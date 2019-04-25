@@ -107,16 +107,18 @@ def process_recognize(inputs, ctx, model_inputs):
     labels = []
     box_overlays = []
     scores_out = []
+    meta_out = []
     for img_idx, item_output in enumerate(facenet_output):
         if skip:
             break
 
-        box_overlay, label, prob = openvino_facenet.process_output(
+        box_overlay, label, prob, meta = openvino_facenet.process_output(
             item_output, bounding_boxes[img_idx]
         )
         box_overlays.append(box_overlay)
         labels.append(label)
         scores_out.append(prob)
+        meta_out.append(meta)
         # LOG.info("prob = {}".format(prob))
         # LOG.info("scores_out = {}".format(scores_out))
 
@@ -141,31 +143,54 @@ def process_recognize(inputs, ctx, model_inputs):
             image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
 
             encoded = base64.encodebytes(image_bytes).decode()
-            table.append(
-                {
-                    'type': 'text',
-                    'name': text_labels[i],  # if i in text_labels else '',
-                    'prob': float(scores_out[i]),
-                    'image': encoded
-                }
-            )
+            row_data = {
+                # 'type': 'text',
+                'name': text_labels[i],  # if i in text_labels else '',
+                'prob': float(scores_out[i]),
+                'image': encoded
+            }
+            if meta_out[i] is not None:
+                meta = meta_out[i]
+                row_data['meta'] = meta
+                if 'position' in meta:
+                    row_data['position'] = meta['position']
+                if 'company' in meta:
+                    row_data['company'] = meta['company']
+
+            table.append(row_data)
 
         ret['table_output'] = json.dumps(table)
         ret['table_meta'] = json.dumps([
+            # {
+            #     "name": "type",
+            #     "filtered": True
+            # },
             {
-                "name": "type",
-                "filtered": True
+                "name": "name",
+                "label": "Name"
             },
             {
-                "name": "name"
+                "name": "position",
+                "label": "Position"
+            },
+            {
+                "name": "company",
+                "label": "Company"
             },
             {
                 "name": "prob",
+                "label": "Probability",
                 "type": "number",
                 "format": ".2f"
             },
             {
+                "name": "meta",
+                "label": "Metadata",
+                "type": "data"
+            },
+            {
                 "name": "image",
+                "label": "Image",
                 "type": "image"
             }
         ])

@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import pickle
 
@@ -9,7 +10,7 @@ from openvino import inference_engine as ie
 from sklearn import neighbors
 from sklearn import svm
 
-from svod_rcgn.recognize import nets, defaults
+from svod_rcgn.recognize import nets, defaults, classifiers
 from svod_rcgn.tools import images, bg_remove
 from svod_rcgn.tools.print import print_fun
 
@@ -76,6 +77,7 @@ class Detector(object):
         self.threshold = threshold
         self.debug = debug
         self.loaded_plugin = loaded_plugin
+        self.meta = {}
 
     def init(self):
 
@@ -123,11 +125,11 @@ class Detector(object):
 
         self.use_classifiers = False
 
-        classifiers = glob.glob(os.path.join(self.classifiers_dir, "*.pkl"))
+        loaded_classifiers = glob.glob(os.path.join(self.classifiers_dir, "*.pkl"))
 
-        if len(classifiers) > 0:
+        if len(loaded_classifiers) > 0:
             new = DetectorClassifiers()
-            for clfi, clf in enumerate(classifiers):
+            for clfi, clf in enumerate(loaded_classifiers):
                 # Load classifier
                 with open(clf, 'rb') as f:
                     print_fun('Load CLASSIFIER %s' % clf)
@@ -163,6 +165,13 @@ class Detector(object):
 
             self.classifiers = new
             self.use_classifiers = True
+
+        meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
+        self.meta = {}
+        if os.path.isfile(meta_file):
+            print_fun("Load metadata...")
+            with open(meta_file, 'r') as mr:
+                self.meta = json.load(mr)
 
     def detect_faces(self, frame, threshold=0.5):
         if self.bg_remove is not None:
@@ -313,7 +322,10 @@ class Detector(object):
                 'color': color,
             }
 
-        return bounding_boxes_overlay, overlay_label, mean_prob
+        stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
+        meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
+
+        return bounding_boxes_overlay, overlay_label, mean_prob, meta
 
     def process_frame(self, frame, frame_rate=None, overlays=True):
 
@@ -337,7 +349,7 @@ class Detector(object):
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                face_overlay, face_label, _ = self.process_output(output, bounding_boxes_detected[img_idx])
+                face_overlay, face_label, _, _ = self.process_output(output, bounding_boxes_detected[img_idx])
                 bounding_boxes_overlays.append(face_overlay)
                 if face_label:
                     labels.append(face_label)
