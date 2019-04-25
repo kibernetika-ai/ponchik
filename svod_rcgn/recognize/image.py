@@ -17,7 +17,7 @@ class Image:
 
     def process(self):
         if not os.path.isfile(self.image_source):
-            raise ValueError('Image file "%s" is not exists' % self.image_source)
+            raise ValueError('Image file "%s" does not exist' % self.image_source)
         self.detector.init()
         img = cv2.imread(self.image_source)
         self.detector.process_frame(img, overlays=True)
