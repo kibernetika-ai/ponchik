@@ -6,6 +6,8 @@ from PIL import Image
 
 from svod_rcgn.tools import images
 
+META_FILENAME = 'meta.json'
+
 
 def get_dataset(path):
     dataset = []
@@ -41,7 +43,9 @@ def split_to_paths_and_labels(dataset):
     image_paths_flat = []
     labels_flat = []
     for i in range(len(dataset)):
-        image_paths_flat += dataset[i].image_paths
+        for image_path in dataset[i].image_paths:
+            if os.path.basename(image_path) != META_FILENAME:
+                image_paths_flat.append(image_path)
         labels_flat += [i] * len(dataset[i].image_paths)
     return image_paths_flat, labels_flat
 

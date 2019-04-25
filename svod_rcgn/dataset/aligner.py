@@ -184,15 +184,20 @@ class Aligner:
         nrof_images_total = 0
         nrof_images_cached = 0
         nrof_successfully_aligned = 0
+        nrof_has_meta = 0
         for cls in loaded_dataset:
             output_class_dir = os.path.join(aligned_dir, cls.name)
             output_class_dir_created = False
+            meta_file = None
             aligned_class_images = []
             if cls.name in align_data:
                 align_data_class = align_data[cls.name]
             else:
                 align_data_class = {}
             for image_path in cls.image_paths:
+                if os.path.basename(image_path) == dataset.META_FILENAME:
+                    meta_file = image_path
+                    continue
                 nrof_images_total += 1
                 filename = os.path.splitext(os.path.split(image_path)[1])[0]
                 output_filename = os.path.join(output_class_dir, filename + '.png')
@@ -277,10 +282,16 @@ class Aligner:
 
                     aligned_class_images.extend(list(align_data_class[image_path]['aligned'].keys()))
 
+            if meta_file is not None and os.path.isdir(output_class_dir):
+                shutil.copyfile(meta_file, os.path.join(output_class_dir, dataset.META_FILENAME))
+                nrof_has_meta += 1
+
             # clear not existing in input already exists aligned class images
             if not self.complementary_align:
                 if os.path.isdir(output_class_dir):
                     for f in os.listdir(output_class_dir):
+                        if f == dataset.META_FILENAME:
+                            continue
                         fp = os.path.join(output_class_dir, f)
                         if os.path.isfile(fp) and fp not in aligned_class_images:
                             os.remove(fp)
@@ -303,6 +314,8 @@ class Aligner:
         print_fun('Total number of images: %d' % nrof_images_total)
         if nrof_images_cached > 0:
             print_fun('Number of cached images: %d' % nrof_images_cached)
+        if nrof_has_meta > 0:
+            print_fun('Number of classes with meta: %d' % nrof_has_meta)
         print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)
 
     def _get_boxes(self, image_path, img):
