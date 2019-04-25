@@ -192,7 +192,11 @@ def process_recognize(inputs, ctx, model_inputs):
                 "name": "image",
                 "label": "Image",
                 "type": "image"
-            }
+            },
+            {
+                "type": "edit",
+                "action": "clarify"
+            },
         ])
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
