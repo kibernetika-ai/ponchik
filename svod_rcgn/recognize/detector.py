@@ -43,7 +43,7 @@ def detector_args(args):
     return Detector(
         device=args.device,
         face_detection_path=args.face_detection_path,
-        model_dir=args.model_dir,
+        model_path=args.model_path,
         classifiers_dir=args.classifiers_dir,
         bg_remove_path=args.bg_remove_path,
         threshold=args.threshold,
@@ -56,7 +56,7 @@ class Detector(object):
             self,
             device=defaults.DEVICE,
             face_detection_path=defaults.FACE_DETECTION_PATH,
-            model_dir=defaults.MODEL_DIR,
+            model_path=defaults.MODEL_PATH,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             bg_remove_path=bg_remove.DEFAULT_BG_REMOVE_DIR,
             threshold=defaults.THRESHOLD,
@@ -67,7 +67,7 @@ class Detector(object):
         self._initialized = False
         self.device = device
         self.face_detection_path = face_detection_path
-        self.model_dir = model_dir
+        self.model_path = model_path
         self.classifiers_dir = classifiers_dir
         self.bg_remove_path = bg_remove_path
         self.bg_remove = None
@@ -99,10 +99,10 @@ class Detector(object):
         net = ie.IENetwork(self.face_detection_path, weights_file)
         self.face_detect = nets.FaceDetect(plugin, net)
 
-        if self.model_dir:
+        if self.model_path:
             print_fun('Load FACENET model')
-            model_file = os.path.join(self.model_dir, "facenet.xml")
-            weights_file = os.path.join(self.model_dir, "facenet.bin")
+            model_file = self.model_path
+            weights_file = self.model_path[:self.model_path.rfind('.')] + '.bin'
             net = ie.IENetwork(model_file, weights_file)
             self.facenet_input = list(net.inputs.keys())[0]
             outputs = list(iter(net.outputs))
@@ -118,7 +118,7 @@ class Detector(object):
         global classes_previews
         classes_previews = {}
 
-        if not bool(self.model_dir):
+        if not bool(self.model_path):
             return
 
         self.use_classifiers = False

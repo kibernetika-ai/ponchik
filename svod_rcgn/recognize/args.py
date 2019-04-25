@@ -14,10 +14,10 @@ def add_common_args(parser):
         default=defaults.CLASSIFIERS_DIR,
     )
     parser.add_argument(
-        '--model_dir',
+        '--model_path',
         type=str,
-        help='OpenVINO IR model directory',
-        default=defaults.MODEL_DIR,
+        help='OpenVINO IR model xml path',
+        default=defaults.MODEL_PATH,
     )
     parser.add_argument(
         '--device',

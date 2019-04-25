@@ -70,7 +70,7 @@ def classifiers_args(args):
         aligned_dir=args.aligned_dir,
         complementary_train=args.complementary_train,
         classifiers_dir=args.classifiers_dir,
-        model_dir=args.model_dir,
+        model_path=args.model_path,
         aug_flip=args.aug_flip,
         aug_noise=args.aug_noise,
         image_size=args.image_size,
@@ -85,7 +85,7 @@ class Classifiers:
             aligned_dir=defaults.ALIGNED_DIR,
             complementary_train=False,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
-            model_dir=defaults.MODEL_DIR,
+            model_path=defaults.MODEL_PATH,
             aug_flip=defaults.AUG_FLIP,
             aug_noise=defaults.AUG_NOISE,
             image_size=defaults.IMAGE_SIZE,
@@ -97,7 +97,7 @@ class Classifiers:
         self.aligned_dir = aligned_dir
         self.complementary_train = complementary_train
         self.classifiers_dir = classifiers_dir
-        self.model_dir = model_dir
+        self.model_path = model_path
         self.aug_flip = aug_flip
         self.aug_noise = aug_noise
         self.image_size = image_size
@@ -126,9 +126,8 @@ class Classifiers:
         # Load and instantinate driver
         drv = driver.load_driver(self.driver_name)
         serving = drv()
-        model_path = os.path.join(self.model_dir, "facenet.xml")
         serving.load_model(
-            model_path,
+            self.model_path,
             inputs='input:0,phase_train:0',
             outputs='embeddings:0',
             device=self.device,
@@ -139,7 +138,7 @@ class Classifiers:
         print_fun('Calculating features for images')
 
         emb_args = {
-            'model': model_path,
+            'model': self.model_path,
             'noise': self.aug_noise,
             'flip': self.aug_flip,
             'image_size': self.image_size,

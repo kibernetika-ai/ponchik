@@ -16,7 +16,7 @@ spec:
         {{- if .bgrm.value }}
         --bg_remove_path $BGRM_DIR
         {{- end }}
-        --model_dir $FACENET_DIR
+        --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
       default_volume_mapping: true
       images:
@@ -86,7 +86,6 @@ spec:
       -o bg_remove_path=$BGRM_DIR
       {{- end }}
       -o classifiers_dir=$MODEL_DIR
-      -o model_dir=$FACENET_DIR
       -o flexible_batch_size=True
       {{- if .detection_debug.value }}
       -o debug=true

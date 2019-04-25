@@ -16,7 +16,6 @@ LOG = logging.getLogger(__name__)
 PARAMS = {
     'device': 'CPU',
     'classifiers_dir': '',
-    'model_dir': '',
     'threshold': [0.3, 0.7, 0.7],
     'debug': 'false',
     'bg_remove_path': '',
@@ -234,7 +233,7 @@ def _load_nets(**kwargs):
     openvino_facenet = detector.Detector(
         device='CPU',
         classifiers_dir=clf_dir,
-        model_dir=PARAMS['model_dir'],
+        model_path=PARAMS['model_path'],
         debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
         loaded_plugin=kwargs['plugin']
