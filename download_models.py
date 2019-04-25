@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import downloader, bg_remove
@@ -22,6 +23,6 @@ args = parser.parse_args()
 err = downloader.Downloader(args.bg_remove_url, bg_remove.DEFAULT_BG_REMOVE_DIR).extract()
 if err is not None:
     raise ValueError(err)
-err = downloader.Downloader(args.facenet_pretrained_openvino_cpu_url, defaults.MODEL_PATH).extract()
+err = downloader.Downloader(args.facenet_pretrained_openvino_cpu_url, os.path.dirname(defaults.MODEL_PATH)).extract()
 if err is not None:
     raise ValueError(err)
