@@ -35,6 +35,14 @@ Download models to default model directories:
 * [coco-bg-rm:1.0.0](https://dev.kibernetika.io/kuberlab-demo/catalog/mlmodel/coco-bg-rm/versions/1.0.0) to `./models/bg_remove`
 * [facenet-pretrained:1.0.0-openvino-cpu](https://dev.kibernetika.io/kuberlab-demo/catalog/mlmodel/facenet-pretrained/versions/1.0.0-openvino-cpu) to `.models/facenet_pretrained_openvino_cpu`
 
+### Fill meta to dataset
+
+Fill scraped meta data info from [scrape-linkedin-profiles](https://github.com/monstarnn/scrape-linkedin-profiles) to dataset: 
+
+```bash
+python fill_meta.py ./data/faces data.linkedin.scraped.csv --column_data name=0 position=1 company=2 linkedin=3 positions=5 companies=6 links=7
+```
+
 ### Prepare and train
 
 Prepare dataset (align images, calculate embeddings) and train SMV and kNN classifiers:
