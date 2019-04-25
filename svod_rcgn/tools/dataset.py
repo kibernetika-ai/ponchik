@@ -31,7 +31,7 @@ def get_image_paths(facedir, limit=None):
     image_paths = []
     if os.path.isdir(facedir):
         images = os.listdir(facedir)
-        image_paths = [os.path.join(facedir, img) for img in images]
+        image_paths = [os.path.join(facedir, img) for img in images if not img.startswith('.')]
     if limit:
         return image_paths[:limit]
     return image_paths
