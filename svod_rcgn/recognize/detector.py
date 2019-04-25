@@ -201,16 +201,19 @@ class Detector(object):
                     cnt = self.classifiers.class_stats[best_class_indices[idx]]['embeddings']
                     (closest_distances, neighbors_indices) = clf.kneighbors(output, n_neighbors=cnt)
                     eval_values = closest_distances[:, 0]
-                    first_cnt = 0
-                    for i in neighbors_indices[0]:
-                        if clf._y[i] != best_class_indices[idx]:
-                            break
-                        first_cnt += 1
-                    ttl_cnt = 0
-                    for i in neighbors_indices[0]:
-                        if clf._y[i] != best_class_indices[idx]:
-                            continue
-                        ttl_cnt += 1
+
+                    candidates = [clf._y[i] for i in neighbors_indices[0]]
+                    counts = {cl: candidates.count(cl) for cl in set(candidates)}
+                    max_candidate = sorted(counts.items(), reverse=True, key=lambda x: x[1])[0]
+
+                    # if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
+                    #     print(
+                    #         "Changed candidate from %s to %s" %
+                    #         (self.classifiers.class_names[best_class_indices[idx]], self.classifiers.class_names[max_candidate[0]])
+                    #     )
+                    #     best_class_indices[idx] = max_candidate[0]
+
+                    ttl_cnt = counts[best_class_indices[idx]]
 
                     # probability:
                     # total matched embeddings
@@ -218,9 +221,9 @@ class Detector(object):
                     # multiplied by distance coefficient:
                     # 0.5 and less is 100%, 1 and more is 0%
                     prob = max(0, min(1, 2 * ttl_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
-                    label_debug = '%.3f %d/%d/%d' % (
+                    label_debug = '%.3f %d/%d' % (
                         eval_values[idx],
-                        first_cnt, ttl_cnt, cnt,
+                        ttl_cnt, cnt,
                     )
                     return prob, label_debug
 
@@ -237,10 +240,10 @@ class Detector(object):
                 continue
 
             for i in range(len(best_class_indices)):
-                detected_indices.append(best_class_indices[i])
-                overlay_label = self.classifiers.class_names[best_class_indices[i]]
-                summary_overlay_label = overlay_label
                 prob, label_debug = process_index(i)
+                overlay_label = self.classifiers.class_names[best_class_indices[i]]
+                detected_indices.append(best_class_indices[i])
+                summary_overlay_label = overlay_label
                 probs.append(prob)
                 if prob <= 0:
                     prob_detected = False
@@ -257,6 +260,16 @@ class Detector(object):
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
         mean_prob = sum(probs) / len(probs) if detected else 0
+        # if not detected:
+        #     candidates = []
+        #     new_probs = []
+        #     for i in range(len(probs)):
+        #         if probs[i] >= 0.35:
+        #             candidates.append(detected_indices[i])
+        #             new_probs.append(probs[i])
+        #
+        #     detected = len(set(candidates)) == 1 and prob_detected
+        #     mean_prob = sum(new_probs) / len(new_probs) if detected else 0
 
         if self.debug:
             if detected:
