@@ -206,12 +206,12 @@ class Detector(object):
                     counts = {cl: candidates.count(cl) for cl in set(candidates)}
                     max_candidate = sorted(counts.items(), reverse=True, key=lambda x: x[1])[0]
 
-                    # if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
-                    #     print(
-                    #         "Changed candidate from %s to %s" %
-                    #         (self.classifiers.class_names[best_class_indices[idx]], self.classifiers.class_names[max_candidate[0]])
-                    #     )
-                    #     best_class_indices[idx] = max_candidate[0]
+                    if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
+                        print(
+                            "Changed candidate from %s to %s" %
+                            (self.classifiers.class_names[best_class_indices[idx]], self.classifiers.class_names[max_candidate[0]])
+                        )
+                        best_class_indices[idx] = max_candidate[0]
 
                     ttl_cnt = counts[best_class_indices[idx]]
 
@@ -260,16 +260,20 @@ class Detector(object):
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
         mean_prob = sum(probs) / len(probs) if detected else 0
-        # if not detected:
-        #     candidates = []
-        #     new_probs = []
-        #     for i in range(len(probs)):
-        #         if probs[i] >= 0.35:
-        #             candidates.append(detected_indices[i])
-        #             new_probs.append(probs[i])
-        #
-        #     detected = len(set(candidates)) == 1 and prob_detected
-        #     mean_prob = sum(new_probs) / len(new_probs) if detected else 0
+        if not detected:
+            candidates = []
+            new_probs = []
+            for i in range(len(probs)):
+                if probs[i] >= 0.35:
+                    candidates.append(detected_indices[i])
+                    new_probs.append(probs[i])
+
+            detected = len(set(candidates)) == 1 and prob_detected
+            mean_prob = sum(new_probs) / len(new_probs) if detected else 0
+            if detected:
+                if not self.debug:
+                    label_strings[0] = self.classifiers.class_names[candidates[0]]
+                summary_overlay_label = self.classifiers.class_names[candidates[0]]
 
         if self.debug:
             if detected:
