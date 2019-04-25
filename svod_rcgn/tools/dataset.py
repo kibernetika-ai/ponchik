@@ -1,3 +1,4 @@
+import json
 import os
 
 import cv2
@@ -43,11 +44,24 @@ def split_to_paths_and_labels(dataset):
     image_paths_flat = []
     labels_flat = []
     for i in range(len(dataset)):
+        images_count = 0
         for image_path in dataset[i].image_paths:
-            if os.path.basename(image_path) != META_FILENAME:
-                image_paths_flat.append(image_path)
-        labels_flat += [i] * len(dataset[i].image_paths)
+            if os.path.basename(image_path) == META_FILENAME:
+                continue
+            image_paths_flat.append(image_path)
+            images_count += 1
+        labels_flat += [i] * images_count
     return image_paths_flat, labels_flat
+
+
+def get_meta(dataset):
+    meta = {}
+    for i in range(len(dataset)):
+        for image_path in dataset[i].image_paths:
+            if os.path.basename(image_path) == META_FILENAME:
+                with open(image_path) as mf:
+                    meta[dataset[i].name] = json.load(mf)
+    return meta
 
 
 def load_data(image_paths, image_size, do_prewhiten=True):

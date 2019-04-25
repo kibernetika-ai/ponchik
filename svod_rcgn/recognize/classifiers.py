@@ -166,7 +166,7 @@ class Classifiers:
                     deleted_classes += 1
             if deleted_embs > 0 or deleted_classes > 0:
                 print_fun("Deleted not existing in aligned data %d embeddings and %d classes"
-                      % (deleted_embs, deleted_classes))
+                          % (deleted_embs, deleted_classes))
 
         total_time = 0.
 
@@ -305,6 +305,16 @@ class Classifiers:
 
         previews_dir = self.store_previews()
         print_fun('Saved class previews to dir "%s"' % previews_dir)
+
+        meta = dataset.get_meta(loaded_dataset)
+        meta_file = os.path.join(classifiers_dir, 'meta.json')
+        if len(meta) > 0:
+            with open(meta_file, 'w') as mw:
+                json.dump(meta, mw)
+                print_fun('Saved metadata to "%s"' % meta_file)
+        else:
+            shutil.rmtree(meta_file, ignore_errors=True)
+            print_fun('No metadata saved')
 
     def load_data(self, paths_batch, labels):
         if len(paths_batch) != len(labels):
