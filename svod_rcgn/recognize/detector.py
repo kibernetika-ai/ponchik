@@ -196,7 +196,7 @@ class Detector(object):
             bounding_boxes_frame = self.bg_remove.apply_mask(frame)
         else:
             bounding_boxes_frame = frame
-        return self.openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
+        return self._openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
 
     def inference_facenet(self, img):
         output = self.face_net.infer(inputs={self.facenet_input: img})
@@ -366,16 +366,13 @@ class Detector(object):
 
     def add_overlay(self, frame, processed, align_to_right=True):
         """Add box and label overlays on frame
-
         :param frame: frame in BGR channels order
         :param processed: processed info - box, label, etc...
         :param align_to_right: align multistring text block to right
         :return:
         """
-        frame_avg = (frame.shape[1] + frame.shape[0]) / 2
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_size = frame_avg / 1200
-        font_thickness = int(font_size * 2)
+
+        fontFace, fontScale, thickness = Detector._getTextProps(frame)
 
         bbox = processed.bbox.astype(int)
         color = self._color(processed.detected)
@@ -383,7 +380,7 @@ class Detector(object):
             frame,
             (bbox[0], bbox[1]), (bbox[2], bbox[3]),  # (left, top), (right, bottom)
             color,
-            font_thickness * (2 if processed.detected else 1),
+            thickness * (2 if processed.detected else 1),
         )
 
         font_inner_padding_w, font_inner_padding_h = 5, 5
@@ -393,7 +390,7 @@ class Detector(object):
             str_w, str_h = 0, 0
             widths = []
             for i, line in enumerate(strs):
-                lw, lh = cv2.getTextSize(line, font, font_size, thickness=font_thickness)[0]
+                lw, lh = self._getTextSize(frame, line)
                 str_w = max(str_w, lw)
                 str_h = max(str_h, lh)
                 widths.append(lw)
@@ -414,28 +411,8 @@ class Detector(object):
                         if bbox[0] + widths[i] > frame.shape[1] - font_inner_padding_w \
                         else bbox[0] + font_inner_padding_w
 
-                cv2.putText(
-                    frame, line,
-                    (
-                        left,
-                        int(top + i * str_h),
-                    ),
-                    font,
-                    font_size,
-                    (0, 0, 0),
-                    thickness=font_thickness + 2, lineType=cv2.LINE_AA
-                )
-                cv2.putText(
-                    frame, line,
-                    (
-                        left,
-                        int(top + i * str_h),
-                    ),
-                    font,
-                    font_size,
-                    color=color,
-                    thickness=font_thickness, lineType=cv2.LINE_AA
-                )
+                self._putText(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
+                self._putText(frame, line, left, int(top + i * str_h), color=color)
 
                 if len(processed.classes) > 0:
                     classes_preview_size = min(
@@ -452,7 +429,7 @@ class Detector(object):
                             (i_left, i_top),
                             (i_left + classes_preview_size, i_top + classes_preview_size),
                             color=color,
-                            thickness=font_thickness + 1,
+                            thickness=thickness + 1,
                         )
                         if cls not in self.classes_previews:
                             print_fun('Init preview for class "%s"' % cls)
@@ -475,11 +452,37 @@ class Detector(object):
                         i_left += int(classes_preview_size * 1.2)
 
     @staticmethod
+    def _getTextProps(frame, thickness=None, thickness_mul=None, fontScale=None, fontFace=None):
+        if fontScale is None or thickness is None:
+            frame_avg = (frame.shape[1] + frame.shape[0]) / 2
+            if fontScale is None:
+                fontScale = frame_avg / 1200
+            if thickness is None:
+                thickness = int(fontScale * 2)
+            if thickness_mul is not None:
+                thickness_m = int(thickness * thickness_mul)
+                thickness = thickness + 1 if thickness == thickness_m else thickness_m
+        if fontFace is None:
+            fontFace = cv2.FONT_HERSHEY_SIMPLEX
+        return fontFace, fontScale, thickness
+
+    @staticmethod
+    def _getTextSize(frame, text, thickness=None, thickness_mul=None, fontScale=None, fontFace=None):
+        fontFace, fontScale, thickness = Detector._getTextProps(frame, thickness, thickness_mul, fontScale, fontFace)
+        return cv2.getTextSize(text, fontFace, fontScale, thickness)[0]
+
+    @staticmethod
+    def _putText(frame, text, left, top, color, thickness=None, thickness_mul=None,
+                 fontScale=None, fontFace=None, lineType=cv2.LINE_AA):
+        fontFace, fontScale, thickness = Detector._getTextProps(frame, thickness, thickness_mul, fontScale, fontFace)
+        cv2.putText(frame, text, (left, top), fontFace, fontScale, color, thickness=thickness, lineType=lineType)
+
+    @staticmethod
     def _color(detected):
         return (0, 255, 0) if detected else (250, 0, 250)
 
     @staticmethod
-    def openvino_detect(face_detect, frame, threshold):
+    def _openvino_detect(face_detect, frame, threshold):
         inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
         inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
         outputs = face_detect(inference_frame)
