@@ -217,3 +217,4 @@ spec:
     - name: clarify
     clusterStorage: {{ .storage.value }}
       subPath: /shared/{{ .app_name }}-clarify
+
