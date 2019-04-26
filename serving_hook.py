@@ -224,7 +224,7 @@ def process_recognize(inputs, ctx, model_inputs):
                 'type': 'edit',
                 'action': 'clarify',
                 'values_label': 'name',
-                'fields': ['name', 'position', 'company', 'image']
+                'fields': ['name', 'position', 'company', 'face']
             },
         ])
 
