@@ -91,6 +91,7 @@ spec:
       -o debug=true
       {{- end }}
       -o threshold=0.25,0.3,0.3
+      -o clarify_dir=$CLARIFY_DIR
     resources:
       accelerators:
         gpu: 0
@@ -145,6 +146,10 @@ spec:
         model: {{ .bgrm.value }}
         version: {{ .bgrm.version }}
     {{- end }}
+    - isLibDir: false
+      name: clarify
+      clusterStorage: {{ .storage.value }}
+      subPath: /shared/svod-clarify
     ports:
     - port: 9000
       targetPort: 9000
@@ -191,3 +196,7 @@ spec:
       model: {{ .bgrm.value }}
       version: {{ .bgrm.version }}
     {{- end }}
+  - isLibDir: false
+    name: clarify
+    clusterStorage: {{ .storage.value }}
+    subPath: /shared/svod-clarify

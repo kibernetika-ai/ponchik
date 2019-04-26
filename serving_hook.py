@@ -2,13 +2,15 @@ import base64
 import json
 import logging
 import os
+import shutil
 import threading
+import time
 
 import cv2
 import numpy as np
 
 from svod_rcgn.recognize import detector
-from svod_rcgn.tools import images
+from svod_rcgn.tools import images, dataset
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -19,7 +21,7 @@ PARAMS = {
     'bg_remove_path': '',
     'output_type': 'bytes',
     'need_table': True,
-    'add_image_dir': '',
+    'clarify_dir': '',
 }
 lock = threading.Lock()
 width = 640
@@ -52,12 +54,6 @@ def process(inputs, ctx, **kwargs):
                 net_loaded = True
 
     action = _string_input_value(inputs, 'action')
-    LOG.info("!!! action")
-    LOG.info(action)
-    LOG.info(type(action))
-    LOG.info(action == 'classes')
-    LOG.info(str(action) == 'classes')
-
     if action == "test":
         return process_test()
     elif action == "classes":
@@ -74,31 +70,36 @@ def process_classes():
 
 
 def process_clarify(inputs):
-    face_image = _load_image(inputs, 'input')
-    face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-    face_class = _string_input_value(inputs, 'name')
-    if face_class is None:
+    if PARAMS['clarify_dir'] == '' or not os.path.isdir(PARAMS['clarify_dir']):
+        raise EnvironmentError('directory for clarified data "%s" is not set or absent' % PARAMS['clarify_dir'])
+    name = _string_input_value(inputs, 'name')
+    if name is None:
         raise ValueError('name is not specified')
+    image = _load_image(inputs, 'input')
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    class_dir = os.path.join(PARAMS['clarify_dir'], name.replace(" ", "_"))
+    if not os.path.isdir(class_dir):
+        shutil.rmtree(class_dir, ignore_errors=True)
+        os.makedirs(class_dir)
+    img_file = os.path.join(class_dir, "clarified_%s.png" % str(round(time.time() * 1000)))
+    cv2.imwrite(img_file, image)
+
+    meta = {}
     position = _string_input_value(inputs, 'position')
-    company = _string_input_value(inputs, 'company')
-    return {
-        'result': "clarified class '%s' (position '%s', company '%s') with image %dx%d" \
-                  % (face_class, position, company, face_image.shape[1], face_image.shape[0]),
-        'mock': True,
-    }
-    # if PARAMS['add_image_dir'] == '' or not os.path.isdir(PARAMS['add_image_dir']):
-    #     raise EnvironmentError('directory for images adding "%s" is not set or absent' % PARAMS['add_image_dir'])
-    # face_class = _string_input_value(inputs, 'class')
-    # if face_class is None:
-    #     raise ValueError('face class is not specified')
-    # face_image = _load_image(inputs, 'input')
-    # face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-    # class_dir = os.path.join(PARAMS['add_image_dir'], face_class)
-    # if not os.path.isdir(class_dir):
-    #     shutil.rmtree(class_dir, ignore_errors=True)
-    #     os.makedirs(class_dir)
-    # cv2.imwrite("%s.png" % os.path.join(class_dir, str(round(time.time() * 1000))), face_image)
-    # return {'added': True}
+    if position is not None:
+        meta['position'] = position
+    position = _string_input_value(inputs, 'position')
+    if position is not None:
+        meta['position'] = position
+
+    res = {'saved': True, 'meta_saved': False}
+
+    if len(meta) > 0:
+        with open(os.path.join(class_dir, dataset.META_FILENAME), 'w') as mw:
+            json.dump(meta, mw)
+        res['meta_saved'] = True
+
+    return res
 
 
 def process_recognize(inputs, ctx, model_inputs):
