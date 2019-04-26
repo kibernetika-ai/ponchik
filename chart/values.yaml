@@ -36,10 +36,16 @@ bgrm:
     name: "Background removal model (uses before faces detection)"
     kind: model
 
-detection_bgrm:
+detection_bgrm_align:
+  value: true
+  wizard:
+    name: Use background removal before face detection on alignment
+    kind: boolean
+
+detection_bgrm_serving:
   value: false
   wizard:
-    name: Use background removal before face detection
+    name: Use background removal before face detection on recognition (serving)
     kind: boolean
 
 detection_debug:
