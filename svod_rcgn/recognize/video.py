@@ -20,8 +20,7 @@ class Video:
         self.detector = detector
         self.video_source = video_source
         self.frame = None
-        self.bounding_boxes = []
-        self.labels = []
+        self.processed = None
         self.vs = None
         self.listener = listener
         self.video_async = video_async
@@ -43,9 +42,9 @@ class Video:
                 if self.frame is None:
                     break
                 if self.video_async:
-                    self.detector.add_overlays(self.frame, self.bounding_boxes, self.labels)
+                    self.detector.add_overlays(self.frame, self.processed)
                 else:
-                    self.bounding_boxes, self.labels = self.detector.process_frame(self.frame, overlays=True)
+                    self.processed = self.detector.process_frame(self.frame)
                 cv2.imshow('Video', self.frame)
                 key = cv2.waitKey(1)
                 # Wait 'q' or Esc or 'q' in russian layout
@@ -75,8 +74,7 @@ class Video:
     def process_frame(self):
         while True:
             if self.frame is not None:
-                self.bounding_boxes, self.labels = \
-                    self.detector.process_frame(self.frame, overlays=False)
+                self.processed = self.detector.process_frame(self.frame, overlays=False)
 
     def listen(self):
         while True:

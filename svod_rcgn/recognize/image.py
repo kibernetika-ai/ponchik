@@ -20,7 +20,7 @@ class Image:
             raise ValueError('Image file "%s" does not exist' % self.image_source)
         self.detector.init()
         img = cv2.imread(self.image_source)
-        self.detector.process_frame(img, overlays=True)
+        self.detector.process_frame(img)
         cv2.imshow('Image', img)
         cv2.waitKey()
 

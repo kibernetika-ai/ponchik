@@ -14,8 +14,6 @@ from svod_rcgn.recognize import nets, defaults, classifiers
 from svod_rcgn.tools import images, bg_remove
 from svod_rcgn.tools.print import print_fun
 
-classes_previews = {}
-
 
 class DetectorClassifiers:
     def __init__(self):
@@ -52,6 +50,26 @@ def detector_args(args):
     )
 
 
+class Processed:
+    def __init__(
+            self,
+            bbox=None,
+            detected=False,
+            label='',
+            overlay_label='',
+            prob=0,
+            classes=None,
+            meta=None,
+    ):
+        self.bbox = bbox
+        self.detected = detected
+        self.label = label
+        self.overlay_label = overlay_label
+        self.prob = prob
+        self.classes = classes
+        self.meta = meta
+
+
 class Detector(object):
     def __init__(
             self,
@@ -78,6 +96,7 @@ class Detector(object):
         self.debug = debug
         self.loaded_plugin = loaded_plugin
         self.meta = {}
+        self.classes_previews = {}
 
     def init(self):
 
@@ -117,8 +136,7 @@ class Detector(object):
 
     def load_classifiers(self):
 
-        global classes_previews
-        classes_previews = {}
+        self.classes_previews = {}
 
         if not bool(self.model_path):
             return
@@ -178,7 +196,7 @@ class Detector(object):
             bounding_boxes_frame = self.bg_remove.apply_mask(frame)
         else:
             bounding_boxes_frame = frame
-        return openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
+        return self.openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
 
     def inference_facenet(self, img):
         output = self.face_net.infer(inputs={self.facenet_input: img})
@@ -264,7 +282,6 @@ class Detector(object):
                     classes.append(overlay_label)
                 elif len(label_strings) == 0:
                     label_strings.append(overlay_label)
-                # print_fun(label_debug_info)
 
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
@@ -293,16 +310,6 @@ class Detector(object):
         if detected:
             classes = [summary_overlay_label]
 
-        thin = not detected
-        color = (250, 0, 250) if thin else (0, 255, 0)
-
-        bb = bbox.astype(int)
-        bounding_boxes_overlay = {
-            'bb': bb,
-            'thin': thin,
-            'color': color,
-        }
-
         overlay_label_str = ""
         if self.debug:
             if len(label_strings) > 0:
@@ -310,35 +317,30 @@ class Detector(object):
         elif detected:
             overlay_label_str = label_strings[0]
 
-        overlay_label = None
-        if overlay_label_str != "":
-            overlay_label = {
-                'label': overlay_label_str,
-                'classes': classes,
-                'left': bb[0],
-                'top': bb[1],
-                'right': bb[2],
-                'bottom': bb[3],
-                'color': color,
-            }
-
         stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
         meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
 
-        return bounding_boxes_overlay, overlay_label, mean_prob, meta
+        return Processed(
+            bbox=bbox.astype(int),
+            detected=detected,
+            label=summary_overlay_label,
+            overlay_label=overlay_label_str,
+            prob=mean_prob,
+            classes=classes,
+            meta=meta,
+        )
 
-    def process_frame(self, frame, frame_rate=None, overlays=True):
+    def process_frame(self, frame, overlays=True):
 
         bounding_boxes_detected = self.detect_faces(frame, self.threshold)
-        bounding_boxes_overlays = []
-        labels = []
+
+        frame_processed = []
+
         if self.use_classifiers:
 
             imgs = images.get_images(frame, bounding_boxes_detected)
 
             for img_idx, img in enumerate(imgs):
-
-                label_strings = []
 
                 # Infer
                 # t = time.time()
@@ -349,67 +351,45 @@ class Detector(object):
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                face_overlay, face_label, _, _ = self.process_output(output, bounding_boxes_detected[img_idx])
-                bounding_boxes_overlays.append(face_overlay)
-                if face_label:
-                    labels.append(face_label)
+                processed = self.process_output(output, bounding_boxes_detected[img_idx])
+                frame_processed.append(processed)
 
-        # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
         if overlays:
-            add_overlays(
-                frame, bounding_boxes_overlays,
-                frame_rate=frame_rate,
-                labels=labels,
-                align_to_right=True,
-                classifiers_dir=self.classifiers_dir,
-            )
-        return bounding_boxes_overlays, labels
+            self.add_overlays(frame, frame_processed)
 
+        return frame_processed
 
-def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True, classifiers_dir=None):
-    """Add boxes and labels overlays on frame
+    def add_overlays(self, frame, frame_processed):
+        for processed in frame_processed:
+            # print("!!!", i, len(bboxes), len(detects), len(labels))
+            self.add_overlay(frame, processed)
 
-    :param frame: frame in BGR channels order
-    :param boxes: bounding boxes
-    :param frame_rate: (optional) frame rate
-    :param labels: text labels - list of dicts
-    :param align_to_right:
-    :param classifiers_dir: classifiers directory
-    :return:
-    """
-    frame_avg = (frame.shape[1] + frame.shape[0]) / 2
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_size = frame_avg / 1200
-    # font_thickness = 2 if frame_avg > 1000 else 1
-    font_thickness = int(font_size * 2)
+    def add_overlay(self, frame, processed, align_to_right=True):
+        """Add box and label overlays on frame
 
-    if boxes is not None:
-        for face in boxes:
-            face_bb = face['bb'].astype(int)
-            cv2.rectangle(
-                frame,
-                (face_bb[0], face_bb[1]), (face_bb[2], face_bb[3]),
-                face['color'],
-                font_thickness * (1 if face['thin'] else 2),
-            )
+        :param frame: frame in BGR channels order
+        :param processed: processed info - box, label, etc...
+        :param align_to_right: align multistring text block to right
+        :return:
+        """
+        frame_avg = (frame.shape[1] + frame.shape[0]) / 2
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_size = frame_avg / 1200
+        font_thickness = int(font_size * 2)
 
-    font_inner_padding_w, font_inner_padding_h = 5, 5
-
-    if frame_rate is not None and frame_rate != 0:
-        fps_txt = "%d fps" % frame_rate
-        _, flh = cv2.getTextSize(fps_txt, font, font_size, thickness=font_thickness)[0]
-        cv2.putText(
-            frame, fps_txt,
-            (font_inner_padding_w, font_inner_padding_h + flh),
-            font, font_size, (0, 255, 0),
-            thickness=font_thickness, lineType=2
+        bbox = processed.bbox.astype(int)
+        color = self._color(processed.detected)
+        cv2.rectangle(
+            frame,
+            (bbox[0], bbox[1]), (bbox[2], bbox[3]),  # (left, top), (right, bottom)
+            color,
+            font_thickness * (2 if processed.detected else 1),
         )
 
-    if labels:
-        for l in labels:
-            if l is None:
-                continue
-            strs = l['label'].split('\n')
+        font_inner_padding_w, font_inner_padding_h = 5, 5
+
+        if processed.overlay_label is not None and processed.overlay_label != "":
+            strs = processed.overlay_label.split('\n')
             str_w, str_h = 0, 0
             widths = []
             for i, line in enumerate(strs):
@@ -419,23 +399,20 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                 widths.append(lw)
             str_h = int(str_h * 1.6) # line height
 
-            to_right = l['left'] + str_w > frame.shape[1] - font_inner_padding_w
-
-            top = l['top'] - int((len(strs) - 0.5) * str_h)
-            if top < str_h + font_inner_padding_h:
-                top = min(l['bottom'] + int(str_h * 1.2), frame.shape[0] - str_h * len(strs) + font_inner_padding_h)
+            to_right = bbox[0] + str_w > frame.shape[1] - font_inner_padding_w
+            top = max(str_h, bbox[1] - int((len(strs) - 0.5) * str_h))
 
             for i, line in enumerate(strs):
                 if align_to_right:
                     # all align to right box border
-                    left = (l['right'] - widths[i] - font_inner_padding_w) \
+                    left = (bbox[2] - widths[i] - font_inner_padding_w) \
                         if to_right \
-                        else l['left'] + font_inner_padding_w
+                        else bbox[0] + font_inner_padding_w
                 else:
                     # move left each string if it's ending not places on the frame
                     left = frame.shape[1] - widths[i] - font_inner_padding_w \
-                        if l['left'] + widths[i] > frame.shape[1] - font_inner_padding_w \
-                        else l['left'] + font_inner_padding_w
+                        if bbox[0] + widths[i] > frame.shape[1] - font_inner_padding_w \
+                        else bbox[0] + font_inner_padding_w
 
                 cv2.putText(
                     frame, line,
@@ -456,57 +433,61 @@ def add_overlays(frame, boxes, frame_rate=None, labels=None, align_to_right=True
                     ),
                     font,
                     font_size,
-                    color=l['color'],
+                    color=color,
                     thickness=font_thickness, lineType=cv2.LINE_AA
                 )
 
-            if 'classes' in l and len(l['classes']) > 0:
-                global classes_previews
-                classes_preview_size = min(
-                    str_h * 3,  # size depends on row height
-                    int((l['right'] - l['left'] - 10) / len(l['classes']) / 1.2),  # size depends on bounding box size
-                )
-                i_left, i_top = max(0, l['left'] + 5), max(0, l['top'] + 5)
-                for cls in l['classes']:
-                    cv2.rectangle(
-                        frame,
-                        (i_left, i_top),
-                        (i_left + classes_preview_size, i_top + classes_preview_size),
-                        color=(0, 0, 0),
-                        thickness=font_thickness + 2,
+                if len(processed.classes) > 0:
+                    classes_preview_size = min(
+                        str_h * 3,  # size depends on row height
+                        int((processed.bbox[2] - processed.bbox[0] - 10) / len(processed.classes) / 1.2),
+                        # size depends on bounding box size
                     )
-                    if cls not in classes_previews:
-                        print_fun('Init preview for class "%s"' % cls)
-                        classes_previews[cls] = None
-                        # todo check it!
-                        cls_img_path = os.path.join(classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
-                        if os.path.isfile(cls_img_path):
+                    i_left = max(0, processed.bbox[0])
+                    i_top = min(processed.bbox[3] + int(classes_preview_size * .1),
+                                frame.shape[0] - int(classes_preview_size * 1.1))
+                    for cls in processed.classes:
+                        cv2.rectangle(
+                            frame,
+                            (i_left, i_top),
+                            (i_left + classes_preview_size, i_top + classes_preview_size),
+                            color=color,
+                            thickness=font_thickness + 1,
+                        )
+                        if cls not in self.classes_previews:
+                            print_fun('Init preview for class "%s"' % cls)
+                            self.classes_previews[cls] = None
+                            cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
+                            if os.path.isfile(cls_img_path):
+                                try:
+                                    self.classes_previews[cls] = cv2.imread(cls_img_path)
+                                except Exception as e:
+                                    print_fun('Error reading preview for "%s": %s' % (cls, e))
+                            else:
+                                print_fun('Error reading preview for "%s": file not found' % cls)
+                        cls_img = self.classes_previews[cls]
+                        if cls_img is not None:
+                            resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
                             try:
-                                classes_previews[cls] = cv2.imread(cls_img_path)
+                                frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
                             except Exception as e:
-                                print_fun('Error reading preview for "%s": %s' % (cls, e))
-                        else:
-                            print_fun('Error reading preview for "%s": file not found' % cls)
-                    cls_img = classes_previews[cls]
-                    if cls_img is not None:
-                        resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
-                        try:
-                            frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
-                        except Exception as e:
-                            print_fun("ERROR: %s" % e)
-                    i_left += int(classes_preview_size * 1.2)
+                                print_fun("ERROR: %s" % e)
+                        i_left += int(classes_preview_size * 1.2)
 
+    @staticmethod
+    def _color(detected):
+        return (0, 255, 0) if detected else (250, 0, 250)
 
-def openvino_detect(face_detect, frame, threshold):
-    inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
-    inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
-    outputs = face_detect(inference_frame)
-    outputs = outputs.reshape(-1, 7)
-    bboxes_raw = outputs[outputs[:, 2] > threshold]
-    bounding_boxes = bboxes_raw[:, 3:7]
-    bounding_boxes[:, 0] = bounding_boxes[:, 0] * frame.shape[1]
-    bounding_boxes[:, 2] = bounding_boxes[:, 2] * frame.shape[1]
-    bounding_boxes[:, 1] = bounding_boxes[:, 1] * frame.shape[0]
-    bounding_boxes[:, 3] = bounding_boxes[:, 3] * frame.shape[0]
-
-    return bounding_boxes
+    @staticmethod
+    def openvino_detect(face_detect, frame, threshold):
+        inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
+        inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
+        outputs = face_detect(inference_frame)
+        outputs = outputs.reshape(-1, 7)
+        bboxes_raw = outputs[outputs[:, 2] > threshold]
+        bounding_boxes = bboxes_raw[:, 3:7]
+        bounding_boxes[:, 0] = bounding_boxes[:, 0] * frame.shape[1]
+        bounding_boxes[:, 2] = bounding_boxes[:, 2] * frame.shape[1]
+        bounding_boxes[:, 1] = bounding_boxes[:, 1] * frame.shape[0]
+        bounding_boxes[:, 3] = bounding_boxes[:, 3] * frame.shape[0]
+        return bounding_boxes

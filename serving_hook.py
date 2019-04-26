@@ -102,69 +102,52 @@ def process_recognize(inputs, ctx, model_inputs):
         outputs = {'dummy': []}
 
     facenet_output = list(outputs.values())[0]
-    # LOG.info('output shape = {}'.format(facenet_output.shape))
 
-    labels = []
-    box_overlays = []
-    scores_out = []
-    meta_out = []
+    processed_frame = []
+
     for img_idx, item_output in enumerate(facenet_output):
         if skip:
             break
-
-        box_overlay, label, prob, meta = openvino_facenet.process_output(
+        processed = openvino_facenet.process_output(
             item_output, bounding_boxes[img_idx]
         )
-        box_overlays.append(box_overlay)
-        labels.append(label)
-        scores_out.append(prob)
-        meta_out.append(meta)
-        # LOG.info("prob = {}".format(prob))
-        # LOG.info("scores_out = {}".format(scores_out))
-
-    text_labels = ["" if l is None else l['label'] for l in labels]
+        processed_frame.append(processed)
 
     ret = {
         'boxes': bounding_boxes,
-        'labels': np.array(text_labels, dtype=np.string_),
+        'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
     }
 
     if PARAMS['need_table']:
 
         table = []
 
-        for i, b in enumerate(bounding_boxes):
-            x_min = int(max(0, b[0]))
-            y_min = int(max(0, b[1]))
-            x_max = int(min(frame.shape[1], b[2]))
-            y_max = int(min(frame.shape[0], b[3]))
+        for processed in processed_frame:
+            x_min = int(max(0, processed.bbox[0]))
+            y_min = int(max(0, processed.bbox[1]))
+            x_max = int(min(frame.shape[1], processed.bbox[2]))
+            y_max = int(min(frame.shape[0], processed.bbox[3]))
             cim = frame[y_min:y_max, x_min:x_max]
             cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
             image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
 
             encoded = base64.encodebytes(image_bytes).decode()
             row_data = {
-                # 'type': 'text',
-                'name': text_labels[i],  # if i in text_labels else '',
-                'prob': float(scores_out[i]),
+                'name': processed.label,
+                'prob': processed.prob,
                 'image': encoded
             }
-            if meta_out[i] is not None:
-                meta = meta_out[i]
-                row_data['meta'] = meta
-                if 'position' in meta:
-                    row_data['position'] = meta['position']
-                if 'company' in meta:
-                    row_data['company'] = meta['company']
+            if processed.meta is not None:
+                row_data['meta'] = processed.meta
+                if 'position' in processed.meta:
+                    row_data['position'] = processed.meta['position']
+                if 'company' in processed.meta:
+                    row_data['company'] = processed.meta['company']
 
             table.append(row_data)
 
         ret['table_output'] = json.dumps(table)
         ret['table_meta'] = json.dumps([
-            # {
-            #     "name": "type",
-            #     "filtered": True
-            # },
             {
                 "name": "name",
                 "label": "Name"
@@ -201,7 +184,7 @@ def process_recognize(inputs, ctx, model_inputs):
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     if not skip:
-        detector.add_overlays(frame, box_overlays, 0, labels=labels, classifiers_dir=PARAMS['classifiers_dir'])
+        openvino_facenet.add_overlays(frame, processed_frame)
 
     if PARAMS['output_type'] == 'bytes':
         image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
