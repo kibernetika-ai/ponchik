@@ -66,6 +66,10 @@ Argument `--clarified` says that alignment input data is from servings images th
 ```bash
 python prepare.py --input_dir ./data/clarify --clarified
 ```
+Alignment can be executed by parts, use argument `--align_images_limit`:
+```bash
+python prepare.py --align_images_limit 100
+```
 
 It's available to skip alignment `--skip_alignment` or skip training `--skip_training`.
 

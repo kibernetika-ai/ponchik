@@ -121,7 +121,7 @@ class Aligner:
             if err is not None:
                 raise RuntimeError(err)
 
-    def align(self):
+    def align(self, images_limit=None):
 
         if self.complementary_align:
             print_fun('Complementary align %simages to %s' % ("clarified " if self.clarified else "", self.aligned_dir))
@@ -307,9 +307,15 @@ class Aligner:
                         cv2.imwrite(output_filename_n, cropped)
                         align_data_class[image_path]['aligned'][output_filename_n] = (bb[0], bb[1], bb[2], bb[3])
 
+                        if images_limit and nrof_successfully_aligned >= images_limit:
+                            break
+
                     aligned_class_images.extend(list(align_data_class[image_path]['aligned'].keys()))
 
                 nrof_images_skipped -= 1
+
+                if images_limit and nrof_successfully_aligned >= images_limit:
+                    break
 
             if meta_file is not None and os.path.isdir(output_class_dir):
                 shutil.copyfile(meta_file, os.path.join(output_class_dir, dataset.META_FILENAME))
@@ -326,6 +332,10 @@ class Aligner:
                             os.remove(fp)
 
             align_data[cls.name] = align_data_class
+
+            if images_limit and images_limit <= nrof_successfully_aligned:
+                print_fun("Limit for aligned images %d is reached" % images_limit)
+                break
 
         # clear not existing in input already exists aligned classes (dirs)
         if not self.complementary_align:

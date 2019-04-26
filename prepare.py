@@ -22,10 +22,16 @@ def main():
         help='Skip calculating embeddings and training, only alignment for source images from input dir.',
         action='store_true',
     )
+    parser.add_argument(
+        '--align_images_limit',
+        type=int,
+        help='Set limit for processed images in alignment.',
+        default=None,
+    )
     args = parser.parse_args()
     if not args.skip_align:
         al = aligner_args(args)
-        al.align()
+        al.align(args.align_images_limit)
     if not args.skip_train:
         clf = classifiers_args(args)
         clf.train()
