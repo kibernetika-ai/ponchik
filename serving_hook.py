@@ -215,7 +215,7 @@ def process_recognize(inputs, ctx, model_inputs):
             },
             {
                 'name': 'face',
-                'label': 'Image',
+                'label': 'Face',
                 'type': 'image'
             },
             {
