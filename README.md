@@ -7,6 +7,7 @@ By default all app data is in the next directories:
 .
 ├── data
 │   ├── aligned
+│   ├── clarify
 │   ├── classifiers
 │   └── faces
 └── models
@@ -61,6 +62,11 @@ So adding some new persons to classifiers from another input directory looks lik
 ```bash
 python prepare.py --input_dir ./data/another_input_dir --complementary_align --complementary_train
 ```
+Argument `--clarified` says that alignment input data is from servings images that was clarified, so this images will not detect for faces and uses as is and alignment will be complementary (key `--complementary_align` is not needed):
+```bash
+python prepare.py --input_dir ./data/clarify --clarified
+```
+
 It's available to skip alignment `--skip_alignment` or skip training `--skip_training`.
 
 If recognizing process is running, this script will reload classifiers for running process (if `--skip_training` is not specified).
