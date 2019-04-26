@@ -61,7 +61,7 @@ spec:
     resources:
       - command: python export_model.py
           --classifiers_dir $TRAINING_DIR/classifiers
-          --model_name svod-faces
+          --model_name {{ .app_name }}
           --model_version 1.0.0
         default_volume_mapping: true
         images:
