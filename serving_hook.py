@@ -75,7 +75,7 @@ def process_clarify(inputs):
     name = _string_input_value(inputs, 'name')
     if name is None:
         raise ValueError('name is not specified')
-    image = _load_image(inputs, 'input')
+    image = _load_image(inputs, 'face')
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     class_dir = os.path.join(PARAMS['clarify_dir'], name.replace(" ", "_"))
     if not os.path.isdir(class_dir):
@@ -158,7 +158,7 @@ def process_recognize(inputs, ctx, model_inputs):
             row_data = {
                 'name': processed.label,
                 'prob': processed.prob,
-                'image': encoded
+                'face': encoded
             }
             if processed.meta is not None:
                 row_data['meta'] = processed.meta
@@ -214,7 +214,7 @@ def process_recognize(inputs, ctx, model_inputs):
                 'type': 'data'
             },
             {
-                'name': 'image',
+                'name': 'face',
                 'label': 'Image',
                 'type': 'image'
             },
