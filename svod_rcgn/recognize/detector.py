@@ -84,7 +84,6 @@ class Detector(object):
             debug=defaults.DEBUG,
             loaded_plugin=None,
     ):
-
         self._initialized = False
         self.device = device
         self.face_detection_path = face_detection_path
@@ -97,6 +96,7 @@ class Detector(object):
         self.threshold = threshold
         self.debug = debug
         self.loaded_plugin = loaded_plugin
+        self.classes = []
         self.meta = {}
         self.classes_previews = {}
 
@@ -173,6 +173,7 @@ class Detector(object):
                     print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
                     if new.class_names is None:
                         new.class_names = class_names
+                        self.classes = class_names
                     elif class_names != new.class_names:
                         raise RuntimeError("Different class names in classifiers")
                     if new.class_stats is None:

@@ -2,9 +2,7 @@ import base64
 import json
 import logging
 import os
-import shutil
 import threading
-import time
 
 import cv2
 import numpy as np
@@ -57,26 +55,45 @@ def process(inputs, ctx, **kwargs):
 
     if action == "test":
         return process_test()
-    elif action == "add_image":
-        return process_add_image(inputs)
+    elif action == "classes":
+        return process_classes()
+    elif action == "clarify":
+        return process_clarify(inputs)
     else:
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
 
-def process_add_image(inputs):
-    if PARAMS['add_image_dir'] == '' or not os.path.isdir(PARAMS['add_image_dir']):
-        raise EnvironmentError('directory for images adding "%s" is not set or absent' % PARAMS['add_image_dir'])
-    face_class = _string_input_value(inputs, 'class')
-    if face_class is None:
-        raise ValueError('face class is not specified')
+def process_classes():
+    global openvino_facenet
+    return {'classes': np.array(openvino_facenet.classes, dtype=np.string_)}
+
+
+def process_clarify(inputs):
     face_image = _load_image(inputs, 'input')
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-    class_dir = os.path.join(PARAMS['add_image_dir'], face_class)
-    if not os.path.isdir(class_dir):
-        shutil.rmtree(class_dir, ignore_errors=True)
-        os.makedirs(class_dir)
-    cv2.imwrite("%s.png" % os.path.join(class_dir, str(round(time.time() * 1000))), face_image)
-    return {'added': True}
+    face_class = _string_input_value(inputs, 'name')
+    if face_class is None:
+        raise ValueError('name is not specified')
+    position = _string_input_value(inputs, 'position')
+    company = _string_input_value(inputs, 'company')
+    return {
+        'result': "clarified class '%s' (position '%s', company '%s') with image %dx%d" \
+                  % (face_class, position, company, face_image.shape[1], face_image.shape[0]),
+        'mock': True,
+    }
+    # if PARAMS['add_image_dir'] == '' or not os.path.isdir(PARAMS['add_image_dir']):
+    #     raise EnvironmentError('directory for images adding "%s" is not set or absent' % PARAMS['add_image_dir'])
+    # face_class = _string_input_value(inputs, 'class')
+    # if face_class is None:
+    #     raise ValueError('face class is not specified')
+    # face_image = _load_image(inputs, 'input')
+    # face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+    # class_dir = os.path.join(PARAMS['add_image_dir'], face_class)
+    # if not os.path.isdir(class_dir):
+    #     shutil.rmtree(class_dir, ignore_errors=True)
+    #     os.makedirs(class_dir)
+    # cv2.imwrite("%s.png" % os.path.join(class_dir, str(round(time.time() * 1000))), face_image)
+    # return {'added': True}
 
 
 def process_recognize(inputs, ctx, model_inputs):
