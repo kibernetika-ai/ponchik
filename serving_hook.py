@@ -144,41 +144,64 @@ def process_recognize(inputs, ctx, model_inputs):
                 if 'company' in processed.meta:
                     row_data['company'] = processed.meta['company']
 
+            image_clarify = {
+                'alternate': True,
+            }
+
+            if not processed.detected:
+                image_clarify['values'] = []
+                for cls in processed.classes:
+                    cl_cls = {'name': cls}
+                    cls_ = cls.replace(" ", "_")
+                    if cls_ in processed.classes_meta:
+                        m = processed.classes_meta[cls_]
+                        if 'position' in m:
+                            cl_cls['position'] = m['position']
+                        if 'company' in m:
+                            cl_cls['company'] = m['company']
+                    image_clarify['values'].append(cl_cls)
+
+            row_data['image_clarify'] = image_clarify
+
             table.append(row_data)
 
         ret['table_output'] = json.dumps(table)
         ret['table_meta'] = json.dumps([
             {
-                "name": "name",
-                "label": "Name"
+                'name': 'name',
+                'label': 'Name'
             },
             {
-                "name": "position",
-                "label": "Position"
+                'name': 'position',
+                'label': 'Position'
             },
             {
-                "name": "company",
-                "label": "Company"
+                'name': 'company',
+                'label': 'Company'
             },
             {
-                "name": "prob",
-                "label": "Probability",
-                "type": "number",
-                "format": ".2f"
+                'name': 'prob',
+                'label': 'Probability',
+                'type': 'number',
+                'format': '.2f'
             },
             {
-                "name": "meta",
-                "label": "Metadata",
-                "type": "data"
+                'name': 'meta',
+                'label': 'Metadata',
+                'type': 'data'
             },
             {
-                "name": "image",
-                "label": "Image",
-                "type": "image"
+                'name': 'image',
+                'label': 'Image',
+                'type': 'image'
             },
             {
-                "type": "edit",
-                "action": "clarify"
+                'name': 'image_clarify',
+                'label': 'Clarify',
+                'type': 'edit',
+                'action': 'clarify',
+                'values_label': 'name',
+                'fields': ['name', 'position', 'company', 'image']
             },
         ])
 

@@ -59,6 +59,7 @@ class Processed:
             overlay_label='',
             prob=0,
             classes=None,
+            classes_meta=None,
             meta=None,
     ):
         self.bbox = bbox
@@ -67,6 +68,7 @@ class Processed:
         self.overlay_label = overlay_label
         self.prob = prob
         self.classes = classes
+        self.classes_meta = classes_meta
         self.meta = meta
 
 
@@ -320,6 +322,12 @@ class Detector(object):
         stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
         meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
 
+        classes_meta = {}
+        for cl in classes:
+            cl_ = cl.replace(" ", "_")
+            if cl_ in self.meta:
+                classes_meta[cl_] = self.meta[cl_]
+
         return Processed(
             bbox=bbox.astype(int),
             detected=detected,
@@ -327,6 +335,7 @@ class Detector(object):
             overlay_label=overlay_label_str,
             prob=mean_prob,
             classes=classes,
+            classes_meta=classes_meta,
             meta=meta,
         )
 
