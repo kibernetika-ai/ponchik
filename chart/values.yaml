@@ -1,8 +1,8 @@
 storage:
- value: default
- wizard:
-   name: "Storage Configuration"
-   kind: cluster_storage
+  value: default
+  wizard:
+    name: "Storage Configuration"
+    kind: cluster_storage
 
 src:
   value: https://github.com/kibernetika-ai/svod_rcgn
@@ -13,20 +13,20 @@ src:
     kind: git
 
 model:
- value: 'facenet-pretrained'
- version: '1.0.0-openvino-cpu'
- workspace: 'kuberlab-demo'
- wizard:
-   name: "Pretrained catalog model"
-   kind: model
+  value: 'facenet-pretrained'
+  version: '1.0.0-openvino-cpu'
+  workspace: 'kuberlab-demo'
+  wizard:
+    name: "Pretrained catalog model"
+    kind: model
 
 faces:
   value: 'svod-faces'
   version: '1.0.0'
   workspace: 'svod'
- wizard:
-   name: "Faces Dataset"
-   kind: dataset
+  wizard:
+    name: "Faces Dataset"
+    kind: dataset
 
 bgrm:
   value: 'coco-bg-rm'
