@@ -2,7 +2,7 @@ import argparse
 import os
 
 from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import downloader, bg_remove
+from svod_rcgn.tools import downloader
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -20,7 +20,7 @@ parser.add_argument(
     help='URL to background remove model',
 )
 args = parser.parse_args()
-err = downloader.Downloader(args.bg_remove_url, bg_remove.DEFAULT_BG_REMOVE_DIR).extract()
+err = downloader.Downloader(args.bg_remove_url, './models/bg_remove').extract()
 if err is not None:
     raise ValueError(err)
 err = downloader.Downloader(args.facenet_pretrained_openvino_cpu_url, os.path.dirname(defaults.MODEL_PATH)).extract()

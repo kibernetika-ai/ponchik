@@ -79,7 +79,7 @@ class Detector(object):
             face_detection_path=defaults.FACE_DETECTION_PATH,
             model_path=defaults.MODEL_PATH,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
-            bg_remove_path=bg_remove.DEFAULT_BG_REMOVE_DIR,
+            bg_remove_path=None,
             threshold=defaults.THRESHOLD,
             debug=defaults.DEBUG,
             loaded_plugin=None,

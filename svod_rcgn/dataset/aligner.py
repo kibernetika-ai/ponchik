@@ -49,6 +49,11 @@ def add_aligner_args(parser):
         default=DEFAULT_INPUT_DIR,
     )
     parser.add_argument(
+        '--clarified',
+        help='Source is clarified data dir. Sets alignment as complementary (see --complementary_align)',
+        action="store_true",
+    )
+    parser.add_argument(
         '--clear_input_dir',
         help='Clear input dir before extracting downloaded archive.',
         action="store_true",
@@ -69,6 +74,7 @@ def add_aligner_args(parser):
 def aligner_args(args):
     return Aligner(
         input_dir=args.input_dir,
+        clarified=args.clarified,
         clear_input_dir=args.clear_input_dir,
         download=args.download,
         aligned_dir=args.aligned_dir,
@@ -86,6 +92,7 @@ class Aligner:
     def __init__(
             self,
             input_dir=DEFAULT_INPUT_DIR,
+            clarified=False,
             clear_input_dir=False,
             download=None,
             aligned_dir=defaults.ALIGNED_DIR,
@@ -94,17 +101,18 @@ class Aligner:
             image_size=defaults.IMAGE_SIZE,
             margin=defaults.IMAGE_MARGIN,
             face_detection_path=defaults.FACE_DETECTION_PATH,
-            bg_remove_path=bg_remove.DEFAULT_BG_REMOVE_DIR,
+            bg_remove_path=None,
             device=defaults.DEVICE,
     ):
         self.input_dir = input_dir
+        self.clarified = clarified
         self.aligned_dir = aligned_dir
-        self.complementary_align = complementary_align
+        self.complementary_align = complementary_align or clarified
         self.min_face_size = min_face_size
         self.image_size = image_size
         self.margin = margin
         self.face_detection_path = face_detection_path
-        self.bg_remove_path = bg_remove_path
+        self.bg_remove_path = None if clarified else bg_remove_path
         self.device = device
         if clear_input_dir:
             shutil.rmtree(self.input_dir, ignore_errors=True)
@@ -115,7 +123,10 @@ class Aligner:
 
     def align(self):
 
-        print_fun('Align images to %s' % self.aligned_dir)
+        if self.complementary_align:
+            print_fun('Complementary align %simages to %s' % ("clarified " if self.clarified else "", self.aligned_dir))
+        else:
+            print_fun('Align images to %s' % self.aligned_dir)
 
         aligned_dir = os.path.expanduser(self.aligned_dir)
         bounding_boxes_filename = os.path.join(aligned_dir, 'bounding_boxes.txt')
@@ -125,7 +136,8 @@ class Aligner:
             "min_face_size": self.min_face_size,
             "image_size": self.image_size,
             "margin": self.margin,
-            "bg_remove_path": self.bg_remove_path,
+            # used for dataset alignment and do not used for clarified alignment
+            # "bg_remove_path": self.bg_remove_path,
         }
 
         align_data = {}
@@ -138,7 +150,7 @@ class Aligner:
                     align_data = align_data_loaded
                 else:
                     print_fun("Previous align data is for another arguments, deleting existing data")
-                    shutil.rmtree(self.aligned_dir, ignore_errors=True)
+                    shutil.rmtree(aligned_dir, ignore_errors=True)
 
         if not os.path.isdir(aligned_dir):
             print_fun("Creating output dir")
@@ -182,6 +194,7 @@ class Aligner:
                     del align_data[adcl]
 
         nrof_images_total = 0
+        nrof_images_skipped = 0
         nrof_images_cached = 0
         nrof_successfully_aligned = 0
         nrof_has_meta = 0
@@ -199,6 +212,7 @@ class Aligner:
                     meta_file = image_path
                     continue
                 nrof_images_total += 1
+                nrof_images_skipped += 1
                 filename = os.path.splitext(os.path.split(image_path)[1])[0]
                 output_filename = os.path.join(output_class_dir, filename + '.png')
                 if not os.path.exists(output_filename):
@@ -227,6 +241,7 @@ class Aligner:
                                             b = align_data_class[image_path]['aligned'][a]
                                             bounding_boxes_contents += \
                                                 '%s %d %d %d %d cached\n' % (a, b[0], b[1], b[2], b[3])
+                                            nrof_images_skipped -= 1
                                     else:
                                         bounding_boxes_contents += \
                                             '%s ERROR no aligned cached\n' % image_path
@@ -242,30 +257,42 @@ class Aligner:
                         bounding_boxes_contents += '%s ERROR invalid shape\n' % image_path
                         continue
 
-                    if bg_rm_drv is not None:
-                        img = bg_rm_drv.apply_mask(img)
+                    if self.clarified:
 
-                    bounding_boxes = None
-                    if bg_rm_drv is not None:
-                        img_masked = bg_rm_drv.apply_mask(img)
-                        bounding_boxes = self._get_boxes(image_path, img_masked)
+                        # get clarified image as is and make one with aligned size
+                        bounding_boxes = np.stack([[0, 0, img.shape[1], img.shape[0]]])
+                        face_crop_margin = 0
+
+                    else:
+
+                        # detect faces previously with bg_remove if set, if not found, try to detect w/o bg_remove
+                        if bg_rm_drv is not None:
+                            img = bg_rm_drv.apply_mask(img)
+
+                        bounding_boxes = None
+                        if bg_rm_drv is not None:
+                            img_masked = bg_rm_drv.apply_mask(img)
+                            bounding_boxes = self._get_boxes(image_path, img_masked)
+                            if bounding_boxes is None:
+                                print_fun('WARNING: no faces on image with removed bg, trying without bg removing')
+
+                        if bounding_boxes is None or bg_rm_drv is not None:
+                            bounding_boxes = self._get_boxes(image_path, img)
+
                         if bounding_boxes is None:
-                            print_fun('WARNING: no faces on image with removed bg, trying without bg removing')
+                            bounding_boxes_contents += '%s ERROR no faces detected\n' % image_path
+                            continue
 
-                    if bounding_boxes is None or bg_rm_drv is not None:
-                        bounding_boxes = self._get_boxes(image_path, img)
-
-                    if bounding_boxes is None:
-                        bounding_boxes_contents += '%s ERROR no faces detected\n' % image_path
-                        continue
+                        face_crop_margin = self.margin
 
                     imgs = images.get_images(
                         img,
                         bounding_boxes,
                         face_crop_size=self.image_size,
-                        face_crop_margin=self.margin,
+                        face_crop_margin=face_crop_margin,
                         do_prewhiten=False,
                     )
+
                     align_data_class[image_path]['aligned'] = {}
                     for i, cropped in enumerate(imgs):
                         nrof_successfully_aligned += 1
@@ -281,6 +308,8 @@ class Aligner:
                         align_data_class[image_path]['aligned'][output_filename_n] = (bb[0], bb[1], bb[2], bb[3])
 
                     aligned_class_images.extend(list(align_data_class[image_path]['aligned'].keys()))
+
+                nrof_images_skipped -= 1
 
             if meta_file is not None and os.path.isdir(output_class_dir):
                 shutil.copyfile(meta_file, os.path.join(output_class_dir, dataset.META_FILENAME))
@@ -314,6 +343,8 @@ class Aligner:
         print_fun('Total number of images: %d' % nrof_images_total)
         if nrof_images_cached > 0:
             print_fun('Number of cached images: %d' % nrof_images_cached)
+        if nrof_images_skipped > 0:
+            print_fun('Number of skipped images: %d' % nrof_images_skipped)
         if nrof_has_meta > 0:
             print_fun('Number of classes with meta: %d' % nrof_has_meta)
         print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)

@@ -318,6 +318,9 @@ class Classifiers:
             shutil.rmtree(meta_file, ignore_errors=True)
             print_fun('No metadata saved')
 
+        print_fun("Training complete: created %d classifiers with %d embeddings (%d images) in %d classes" %
+                  (len(self.algorithms), len(emb_array), nrof_images, len(set(fit_labels))))
+
     def load_data(self, paths_batch, labels):
         if len(paths_batch) != len(labels):
             raise RuntimeError("load_data: len(paths_batch) = %d != len(labels) = %d", len(paths_batch), len(labels))

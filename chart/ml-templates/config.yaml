@@ -8,7 +8,7 @@ spec:
   packages:
   - manager: pip3
   tasks:
-  - name: prepare-classifiers
+    - name: prepare-dataset
     resources:
     - command: python prepare.py
         --input_dir $FACES_DIR
@@ -33,7 +33,30 @@ spec:
           memory: 512Mi
       restartPolicy: Never
       workDir: $SRC_DIR
-  - name: export-classifiers
+    - name: prepare-clarified
+      resources:
+        - command: python prepare.py
+            --input_dir $CLARIFY_DIR
+            --clarified
+            --aligned_dir $TRAINING_DIR/aligned
+            --model_path $FACENET_DIR/facenet.xml
+            --classifiers_dir $TRAINING_DIR/classifiers
+          default_volume_mapping: true
+          images:
+            cpu: kuberlab/serving:latest-openvino
+            gpu: kuberlab/serving:latest-openvino-gpu
+          name: worker
+          replicas: 1
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 512Mi
+          restartPolicy: Never
+          workDir: $SRC_DIR
+    - name: export-model
     type: export
     resources:
       - command: python export_model.py
@@ -75,7 +98,7 @@ spec:
         memory: 512Mi
   serving:
   - name: serving
-    displayName: OpenVino Serving
+    displayName: SVOD faces detection serving
     images:
       cpu: "kuberlab/serving:latest-openvino"
       gpu: "kuberlab/serving:latest-openvino-gpu"
@@ -146,40 +169,36 @@ spec:
         model: {{ .bgrm.value }}
         version: {{ .bgrm.version }}
     {{- end }}
-    - isLibDir: false
-      name: clarify
+    - name: clarify
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/svod-clarify
+      subPath: /shared/{{ .app_name }}-clarify
     ports:
     - port: 9000
       targetPort: 9000
       protocol: TCP
       name: http
   volumes:
-  - clusterStorage: '{{ .storage.value }}'
-    name: training
-  - gitRepo:
+    - name: training
+      clusterStorage: '{{ .storage.value }}'
+    - name: src
+      gitRepo:
       repository: {{ gitRepo .src.value }}
       accountId: '{{ .src.accountId }}'
       revision: '{{ .src.revision }}'
-    isLibDir: false
-    name: src
     subPath: {{ gitSubPath .src.value }}
-  - clusterStorage: '{{ .storage.value }}'
+    - name: lib
+      clusterStorage: '{{ .storage.value }}'
     isLibDir: true
-    name: lib
-  - clusterStorage: '{{ .storage.value }}'
+    - name: code
+      clusterStorage: '{{ .storage.value }}'
     mountPath: /notebooks
-    name: code
     subPath: code
-  - isLibDir: false
-    name: facenet
+    - name: facenet
     model:
       workspace: {{ .model.workspace }}
       model: {{ .model.value }}
       version: {{ .model.version }}
-  - isLibDir: false
-    name: faces
+    - name: faces
     {{- if .faces.value }}
     datasetFS:
       workspace: {{ .faces.workspace }}
@@ -189,14 +208,12 @@ spec:
     clusterStorage: {{ .storage.value }}
     {{- end }}
     {{- if .bgrm.value }}
-  - isLibDir: false
-    name: bgrm
+    - name: bgrm
     model:
       workspace: {{ .bgrm.workspace }}
       model: {{ .bgrm.value }}
       version: {{ .bgrm.version }}
     {{- end }}
-  - isLibDir: false
-    name: clarify
+    - name: clarify
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/svod-clarify
+      subPath: /shared/{{ .app_name }}-clarify

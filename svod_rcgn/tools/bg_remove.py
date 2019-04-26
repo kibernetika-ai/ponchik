@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
 from ml_serving.drivers import driver as sdrv
-from svod_rcgn.tools.print import print_fun
 
-DEFAULT_BG_REMOVE_DIR = ""
+from svod_rcgn.tools.print import print_fun
 
 
 class Driver(object):
@@ -24,7 +23,7 @@ class Driver(object):
 
 
 def get_driver(bg_remove_path):
-    if bg_remove_path and bg_remove_path != "":
+    if bg_remove_path:
         return Driver(bg_remove_path)
     else:
         return None
@@ -34,5 +33,5 @@ def add_bg_remove_args(parser):
     parser.add_argument(
         '--bg_remove_path',
         help='Path to Tensorflow background remove model.',
-        default=DEFAULT_BG_REMOVE_DIR,
+        default=None,
     )
