@@ -242,7 +242,19 @@ def process_test():
 
 
 def _string_input_value(inputs, key):
-    return None if inputs.get(key) is None else inputs.get(key)[0].decode()
+    array = inputs.get(key)
+    if array is None:
+        return None
+
+    if len(array.shape) == 0:
+        elem = array.tolist()
+    else:
+        elem = array[0]
+
+    if isinstance(elem, bytes):
+        elem = elem.decode()
+
+    return str(elem)
 
 
 def _load_image(inputs, image_key):
