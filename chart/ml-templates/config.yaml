@@ -8,7 +8,7 @@ spec:
   packages:
   - manager: pip3
   tasks:
-    - name: prepare-dataset
+  - name: prepare-dataset
     resources:
     - command: python prepare.py
         --input_dir $FACES_DIR
@@ -33,36 +33,14 @@ spec:
           memory: 512Mi
       restartPolicy: Never
       workDir: $SRC_DIR
-    - name: prepare-clarified
-      resources:
-        - command: python prepare.py
-            --input_dir $CLARIFY_DIR
-            --clarified
-            --aligned_dir $TRAINING_DIR/aligned
-            --model_path $FACENET_DIR/facenet.xml
-            --classifiers_dir $TRAINING_DIR/classifiers
-          default_volume_mapping: true
-          images:
-            cpu: kuberlab/serving:latest-openvino
-            gpu: kuberlab/serving:latest-openvino-gpu
-          name: worker
-          replicas: 1
-          resources:
-            limits:
-              cpu: "2"
-              memory: 8Gi
-            requests:
-              cpu: "1"
-              memory: 512Mi
-          restartPolicy: Never
-          workDir: $SRC_DIR
-    - name: export-model
-    type: export
+  - name: prepare-clarified
     resources:
-      - command: python export_model.py
+      - command: python prepare.py
+          --input_dir $CLARIFY_DIR
+          --clarified
+          --aligned_dir $TRAINING_DIR/aligned
+          --model_path $FACENET_DIR/facenet.xml
           --classifiers_dir $TRAINING_DIR/classifiers
-          --model_name {{ .app_name }}
-          --model_version 1.0.0
         default_volume_mapping: true
         images:
           cpu: kuberlab/serving:latest-openvino
@@ -74,10 +52,32 @@ spec:
             cpu: "2"
             memory: 8Gi
           requests:
-            cpu: 100m
-            memory: 64Mi
+            cpu: "1"
+            memory: 512Mi
         restartPolicy: Never
         workDir: $SRC_DIR
+  - name: export-model
+    type: export
+    resources:
+    - command: python export_model.py
+        --classifiers_dir $TRAINING_DIR/classifiers
+        --model_name {{ .app_name }}
+        --model_version 1.0.0
+      default_volume_mapping: true
+      images:
+        cpu: kuberlab/serving:latest-openvino
+        gpu: kuberlab/serving:latest-openvino-gpu
+      name: worker
+      replicas: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      restartPolicy: Never
+      workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
     displayName: Jupyter
@@ -178,27 +178,27 @@ spec:
       protocol: TCP
       name: http
   volumes:
-    - name: training
-      clusterStorage: '{{ .storage.value }}'
-    - name: src
-      gitRepo:
-      repository: {{ gitRepo .src.value }}
-      accountId: '{{ .src.accountId }}'
-      revision: '{{ .src.revision }}'
+  - name: training
+    clusterStorage: '{{ .storage.value }}'
+  - name: src
+    gitRepo:
+    repository: {{ gitRepo .src.value }}
+    accountId: '{{ .src.accountId }}'
+    revision: '{{ .src.revision }}'
     subPath: {{ gitSubPath .src.value }}
-    - name: lib
-      clusterStorage: '{{ .storage.value }}'
+  - name: lib
+    clusterStorage: '{{ .storage.value }}'
     isLibDir: true
-    - name: code
-      clusterStorage: '{{ .storage.value }}'
+  - name: code
+    clusterStorage: '{{ .storage.value }}'
     mountPath: /notebooks
     subPath: code
-    - name: facenet
+  - name: facenet
     model:
       workspace: {{ .model.workspace }}
       model: {{ .model.value }}
       version: {{ .model.version }}
-    - name: faces
+  - name: faces
     {{- if .faces.value }}
     datasetFS:
       workspace: {{ .faces.workspace }}
@@ -208,13 +208,13 @@ spec:
     clusterStorage: {{ .storage.value }}
     {{- end }}
     {{- if .bgrm.value }}
-    - name: bgrm
+  - name: bgrm
     model:
       workspace: {{ .bgrm.workspace }}
       model: {{ .bgrm.value }}
       version: {{ .bgrm.version }}
     {{- end }}
-    - name: clarify
+  - name: clarify
     clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-clarify
+    subPath: /shared/{{ .app_name }}-clarify
 
