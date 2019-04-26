@@ -171,7 +171,7 @@ spec:
     {{- end }}
     - name: clarify
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-clarify
+      subPath: /shared/{{ app_name }}-clarify
     ports:
     - port: 9000
       targetPort: 9000
@@ -182,9 +182,9 @@ spec:
     clusterStorage: '{{ .storage.value }}'
   - name: src
     gitRepo:
-    repository: {{ gitRepo .src.value }}
-    accountId: '{{ .src.accountId }}'
-    revision: '{{ .src.revision }}'
+      repository: {{ gitRepo .src.value }}
+      accountId: '{{ .src.accountId }}'
+      revision: '{{ .src.revision }}'
     subPath: {{ gitSubPath .src.value }}
   - name: lib
     clusterStorage: '{{ .storage.value }}'
@@ -216,5 +216,5 @@ spec:
     {{- end }}
   - name: clarify
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ .app_name }}-clarify
+    subPath: /shared/{{ app_name }}-clarify
 
