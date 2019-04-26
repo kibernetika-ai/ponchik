@@ -282,9 +282,9 @@ class Detector(object):
                     '%s: %.1f%% %s (%s)' % (classifier_name, prob * 100, overlay_label, label_debug)
                 if self.debug:
                     label_strings.append(label_debug_info)
-                    classes.append(overlay_label)
                 elif len(label_strings) == 0:
                     label_strings.append(overlay_label)
+                classes.append(overlay_label)
 
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
