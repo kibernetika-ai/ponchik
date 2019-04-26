@@ -88,9 +88,9 @@ def process_clarify(inputs):
     position = _string_input_value(inputs, 'position')
     if position is not None:
         meta['position'] = position
-    position = _string_input_value(inputs, 'position')
-    if position is not None:
-        meta['position'] = position
+    company = _string_input_value(inputs, 'company')
+    if company is not None:
+        meta['company'] = company
 
     res = {'saved': True, 'meta_saved': False}
 
