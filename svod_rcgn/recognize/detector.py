@@ -311,6 +311,8 @@ class Detector(object):
 
         if detected:
             classes = [summary_overlay_label]
+        else:
+            summary_overlay_label = ''
 
         overlay_label_str = ""
         if self.debug:
