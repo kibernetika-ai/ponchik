@@ -54,6 +54,7 @@ def process(inputs, ctx, **kwargs):
     action = _string_input_value(inputs, 'action')
     LOG.info("!!! action")
     LOG.info(action)
+    LOG.info(type(action))
 
     if action == "test":
         return process_test()
