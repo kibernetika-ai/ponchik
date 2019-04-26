@@ -52,6 +52,7 @@ def process(inputs, ctx, **kwargs):
                 net_loaded = True
 
     action = _string_input_value(inputs, 'action')
+    print("!!! action", action)
 
     if action == "test":
         return process_test()
