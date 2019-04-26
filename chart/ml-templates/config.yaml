@@ -171,7 +171,7 @@ spec:
     {{- end }}
     - name: clarify
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ app_name }}-clarify
+      subPath: /shared/{{ .app_name }}-clarify
     ports:
     - port: 9000
       targetPort: 9000
@@ -216,5 +216,5 @@ spec:
     {{- end }}
   - name: clarify
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ app_name }}-clarify
+    subPath: /shared/{{ .app_name }}-clarify
 
