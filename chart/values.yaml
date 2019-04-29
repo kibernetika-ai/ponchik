@@ -53,3 +53,15 @@ detection_debug:
   wizard:
     name: Return debug info on detection and recognition
     kind: boolean
+
+process_clarified:
+  value: true
+  wizard:
+    name: Process clarified faces with serving, use sent images as is, without preliminary face detection
+    kind: boolean
+
+process_image:
+  value: true
+  wizard:
+    name: Process sent images with preliminary face detection
+    kind: boolean

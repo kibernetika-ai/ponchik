@@ -18,7 +18,6 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
-      default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -32,30 +31,79 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
+      volumes:
+      - src
+      - training
+      - faces
+      - facenet
+      {{- if and .bgrm.value .detection_bgrm_align.value }}
+      - bgrm
+      {{- end }}
       workDir: $SRC_DIR
+`  {{- if .process_clarified.value }}
   - name: prepare-clarified
     resources:
-      - command: python prepare.py
-          --input_dir $CLARIFY_DIR
-          --clarified
-          --aligned_dir $TRAINING_DIR/aligned
-          --model_path $FACENET_DIR/facenet.xml
-          --classifiers_dir $TRAINING_DIR/classifiers
-        default_volume_mapping: true
-        images:
-          cpu: kuberlab/serving:latest-openvino
-          gpu: kuberlab/serving:latest-openvino-gpu
-        name: worker
-        replicas: 1
-        resources:
-          limits:
-            cpu: "2"
-            memory: 8Gi
-          requests:
-            cpu: "1"
-            memory: 512Mi
-        restartPolicy: Never
-        workDir: $SRC_DIR
+    - command: python prepare.py
+        --input_dir $CLARIFY_DIR
+        --clarified
+        --aligned_dir $TRAINING_DIR/aligned
+        --model_path $FACENET_DIR/facenet.xml
+        --classifiers_dir $TRAINING_DIR/classifiers
+      images:
+        cpu: kuberlab/serving:latest-openvino
+        gpu: kuberlab/serving:latest-openvino-gpu
+      name: worker
+      replicas: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: "1"
+          memory: 512Mi
+      restartPolicy: Never
+      volumes:
+      - src
+      - training
+      - clarify
+      - facenet
+      workDir: $SRC_DIR
+  {{- end }}
+  {{- if .process_image.value }}
+  - name: prepare-processed
+    resources:
+    - command: python prepare.py
+        --input_dir $PROCESS_DIR
+        --aligned_dir $TRAINING_DIR/aligned
+        {{- if and .bgrm.value .detection_bgrm_align.value }}
+        --bg_remove_path $BGRM_DIR
+        {{- end }}
+        --model_path $FACENET_DIR/facenet.xml
+        --classifiers_dir $TRAINING_DIR/classifiers
+        --complementary_align --complementary_train
+      images:
+        cpu: kuberlab/serving:latest-openvino
+        gpu: kuberlab/serving:latest-openvino-gpu
+      name: worker
+      replicas: 1
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: "1"
+          memory: 512Mi
+      restartPolicy: Never
+      volumes:
+      - src
+      - training
+      - process
+      - facenet
+      {{- if and .bgrm.value .detection_bgrm_align.value }}
+      - bgrm
+      {{- end }}
+      workDir: $SRC_DIR
+  {{- end }}
   - name: export-classifiers
     type: export
     resources:
@@ -76,6 +124,9 @@ spec:
           cpu: 100m
           memory: 64Mi
       restartPolicy: Never
+      volumes:
+      - name: src
+      - name: training
       workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
@@ -113,7 +164,12 @@ spec:
       -o debug=true
       {{- end }}
       -o threshold=0.25,0.3,0.3
+      {{- if .process_clarified.value }}
       -o clarify_dir=$CLARIFY_DIR
+      {{- end }}
+      {{- if .process_image.value }}
+      -o process_images_dir=$PROCESS_DIR
+      {{- end }}
     resources:
       accelerators:
         gpu: 0
@@ -168,9 +224,16 @@ spec:
         model: {{ .bgrm.value }}
         version: {{ .bgrm.version }}
     {{- end }}
+    {{- if .process_clarified.value }}
     - name: clarify
       clusterStorage: {{ .storage.value }}
       subPath: /shared/{{ .app_name }}-clarify
+    {{- end }}
+    {{- if .process_image.value }}
+    - name: clarify
+      clusterStorage: {{ .storage.value }}
+      subPath: /shared/{{ .app_name }}-process
+    {{- end }}
     ports:
     - port: 9000
       targetPort: 9000
@@ -198,22 +261,28 @@ spec:
       model: {{ .model.value }}
       version: {{ .model.version }}
   - name: faces
-    {{- if .faces.value }}
+  {{- if .faces.value }}
     datasetFS:
       workspace: {{ .faces.workspace }}
       dataset: {{ .faces.value }}
       version: {{ .faces.version }}
-    {{- else }}
+  {{- else }}
     clusterStorage: {{ .storage.value }}
-    {{- end }}
-    {{- if .bgrm.value }}
+  {{- end }}
+  {{- if .bgrm.value }}
   - name: bgrm
     model:
       workspace: {{ .bgrm.workspace }}
       model: {{ .bgrm.value }}
       version: {{ .bgrm.version }}
-    {{- end }}
+  {{- end }}
+  {{- if .process_clarified.value }}
   - name: clarify
     clusterStorage: {{ .storage.value }}
     subPath: /shared/{{ .app_name }}-clarify
-
+  {{- end }}
+  {{- if .process_image.value }}
+  - name: process
+    clusterStorage: {{ .storage.value }}
+    subPath: /shared/{{ .app_name }}-process
+  {{- end }}

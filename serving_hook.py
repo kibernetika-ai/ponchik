@@ -60,6 +60,8 @@ def process(inputs, ctx, **kwargs):
         return process_classes()
     elif action == "clarify":
         return process_clarify(inputs)
+    elif action == "image":
+        return process_image(inputs)
     else:
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
@@ -70,36 +72,17 @@ def process_classes():
 
 
 def process_clarify(inputs):
-    if PARAMS['clarify_dir'] == '' or not os.path.isdir(PARAMS['clarify_dir']):
-        raise EnvironmentError('directory for clarified data "%s" is not set or absent' % PARAMS['clarify_dir'])
-    name = _string_input_value(inputs, 'name')
-    if name is None:
-        raise ValueError('name is not specified')
-    image = _load_image(inputs, 'face')
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    class_dir = os.path.join(PARAMS['clarify_dir'], name.replace(" ", "_"))
-    if not os.path.isdir(class_dir):
-        shutil.rmtree(class_dir, ignore_errors=True)
-        os.makedirs(class_dir)
-    img_file = os.path.join(class_dir, "clarified_%s.png" % str(round(time.time() * 1000)))
-    cv2.imwrite(img_file, image)
+    e, d = _clarify_enabled()
+    if not e:
+        raise EnvironmentError('directory for clarified data "%s" is not set or absent' % d)
+    return _upload_processed_image(inputs, 'face', d, 'clarified')
 
-    meta = {}
-    position = _string_input_value(inputs, 'position')
-    if position is not None:
-        meta['position'] = position
-    company = _string_input_value(inputs, 'company')
-    if company is not None:
-        meta['company'] = company
 
-    res = {'saved': True, 'meta_saved': False}
-
-    if len(meta) > 0:
-        with open(os.path.join(class_dir, dataset.META_FILENAME), 'w') as mw:
-            json.dump(meta, mw)
-        res['meta_saved'] = True
-
-    return res
+def process_image(inputs):
+    e, d = _process_images_enabled()
+    if not e:
+        raise EnvironmentError('directory for images to recognizion "%s" is not set or absent' % d)
+    return _upload_processed_image(inputs, 'image', d)
 
 
 def process_recognize(inputs, ctx, model_inputs):
@@ -144,6 +127,7 @@ def process_recognize(inputs, ctx, model_inputs):
     if PARAMS['need_table']:
 
         table = []
+        clarify_enabled, _ = _clarify_enabled()
 
         for processed in processed_frame:
             x_min = int(max(0, processed.bbox[0]))
@@ -167,29 +151,31 @@ def process_recognize(inputs, ctx, model_inputs):
                 if 'company' in processed.meta:
                     row_data['company'] = processed.meta['company']
 
-            image_clarify = {
-                'alternate': True,
-            }
+            if clarify_enabled:
 
-            if not processed.detected:
-                image_clarify['values'] = []
-                for cls in processed.classes:
-                    cl_cls = {'name': cls}
-                    cls_ = cls.replace(" ", "_")
-                    if cls_ in processed.classes_meta:
-                        m = processed.classes_meta[cls_]
-                        if 'position' in m:
-                            cl_cls['position'] = m['position']
-                        if 'company' in m:
-                            cl_cls['company'] = m['company']
-                    image_clarify['values'].append(cl_cls)
+                image_clarify = {
+                    'alternate': True,
+                }
 
-            row_data['image_clarify'] = image_clarify
+                if not processed.detected:
+                    image_clarify['values'] = []
+                    for cls in processed.classes:
+                        cl_cls = {'name': cls}
+                        cls_ = cls.replace(" ", "_")
+                        if cls_ in processed.classes_meta:
+                            m = processed.classes_meta[cls_]
+                            if 'position' in m:
+                                cl_cls['position'] = m['position']
+                            if 'company' in m:
+                                cl_cls['company'] = m['company']
+                        image_clarify['values'].append(cl_cls)
+
+                row_data['image_clarify'] = image_clarify
 
             table.append(row_data)
 
         ret['table_output'] = json.dumps(table)
-        ret['table_meta'] = json.dumps([
+        meta = [
             {
                 'name': 'name',
                 'label': 'Name'
@@ -218,15 +204,17 @@ def process_recognize(inputs, ctx, model_inputs):
                 'label': 'Face',
                 'type': 'image'
             },
-            {
+        ]
+        if clarify_enabled:
+            meta.append({
                 'name': 'image_clarify',
                 'label': 'Clarify',
                 'type': 'edit',
                 'action': 'clarify',
                 'values_label': 'name',
                 'fields': ['name', 'position', 'company', 'face']
-            },
-        ])
+            })
+        ret['table_meta'] = json.dumps(meta)
 
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     if not skip:
@@ -244,6 +232,49 @@ def process_recognize(inputs, ctx, model_inputs):
 
 def process_test():
     return {'test': 'test'}
+
+
+def _clarify_enabled():
+    cd = PARAMS['clarify_dir'] if 'clarify_dir' in PARAMS else ''
+    e = (cd != '' and os.path.isdir(cd))
+    return e, cd
+
+
+def _process_images_enabled():
+    pid = PARAMS['process_images_dir'] if 'process_images_dir' in PARAMS else ''
+    e = (pid != '' and os.path.isdir(pid))
+    return e, pid
+
+
+def _upload_processed_image(inputs, image_name, upload_dir, file_prefix='uploaded'):
+    name = _string_input_value(inputs, 'name')
+    if name is None:
+        raise ValueError('name is not specified')
+    image = _load_image(inputs, image_name)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    class_dir = os.path.join(upload_dir, name.replace(" ", "_"))
+    if not os.path.isdir(class_dir):
+        shutil.rmtree(class_dir, ignore_errors=True)
+        os.makedirs(class_dir)
+    img_file = os.path.join(class_dir, "%s_%s.png" % (file_prefix, str(round(time.time() * 1000))))
+    cv2.imwrite(img_file, image)
+
+    meta = {}
+    position = _string_input_value(inputs, 'position')
+    if position is not None:
+        meta['position'] = position
+    company = _string_input_value(inputs, 'company')
+    if company is not None:
+        meta['company'] = company
+
+    res = {'saved': True, 'meta_saved': False}
+
+    if len(meta) > 0:
+        with open(os.path.join(class_dir, dataset.META_FILENAME), 'w') as mw:
+            json.dump(meta, mw)
+        res['meta_saved'] = True
+
+    return res
 
 
 def _string_input_value(inputs, key):
