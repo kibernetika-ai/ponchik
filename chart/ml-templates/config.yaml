@@ -32,12 +32,12 @@ spec:
           memory: 512Mi
       restartPolicy: Never
       volumes:
-      - src
-      - training
-      - faces
-      - facenet
+      - name: src
+      - name: training
+      - name: faces
+      - name: facenet
       {{- if and .bgrm.value .detection_bgrm_align.value }}
-      - bgrm
+      - name: bgrm
       {{- end }}
       workDir: $SRC_DIR
   {{- if .process_clarified.value }}
@@ -63,10 +63,10 @@ spec:
           memory: 512Mi
       restartPolicy: Never
       volumes:
-      - src
-      - training
-      - clarify
-      - facenet
+      - name: src
+      - name: training
+      - name: clarify
+      - name: facenet
       workDir: $SRC_DIR
   {{- end }}
   {{- if .process_image.value }}
@@ -95,10 +95,10 @@ spec:
           memory: 512Mi
       restartPolicy: Never
       volumes:
-      - src
-      - training
-      - process
-      - facenet
+      - name: src
+      - name: training
+      - name: process
+      - name: facenet
       {{- if and .bgrm.value .detection_bgrm_align.value }}
       - bgrm
       {{- end }}
