@@ -31,7 +31,6 @@ Each directory can be redefined by command line arguments.
 ```bash
 python download_models.py
 ```
-
 Download models to default model directories:
 * [coco-bg-rm:1.0.0](https://dev.kibernetika.io/kuberlab-demo/catalog/mlmodel/coco-bg-rm/versions/1.0.0) to `./models/bg_remove`
 * [facenet-pretrained:1.0.0-openvino-cpu](https://dev.kibernetika.io/kuberlab-demo/catalog/mlmodel/facenet-pretrained/versions/1.0.0-openvino-cpu) to `.models/facenet_pretrained_openvino_cpu`
@@ -39,7 +38,6 @@ Download models to default model directories:
 ### Fill meta to dataset
 
 Fill scraped meta data info from [scrape-linkedin-profiles](https://github.com/monstarnn/scrape-linkedin-profiles) to dataset: 
-
 ```bash
 python fill_meta.py ./data/faces data.linkedin.scraped.csv --column_data name=0 position=1 company=2 linkedin=3 positions=5 companies=6 links=7
 ```
@@ -47,7 +45,6 @@ python fill_meta.py ./data/faces data.linkedin.scraped.csv --column_data name=0 
 ### Prepare and train
 
 Prepare dataset (align images, calculate embeddings) and train SMV and kNN classifiers:
-
 ```bash
 python prepare.py
 ```
@@ -74,6 +71,14 @@ python prepare.py --align_images_limit 100
 It's available to skip alignment `--skip_alignment` or skip training `--skip_training`.
 
 If recognizing process is running, this script will reload classifiers for running process (if `--skip_training` is not specified).
+
+### Download classifiers
+
+Remote build classifiers can be downloaded with the following script:
+```bash
+python download_classifiers.py https://dev.kibernetika.io/api/v0.2/workspace/svod/mlmodel/svod-rcgn-3/versions/1.0.0/download/model-svod-rcgn-3-1.0.0.tar
+```
+Also you can specify classifiers dir (where to extract to) with argument `--classifiers_dir`
 
 ### Camera and recognizing
 
