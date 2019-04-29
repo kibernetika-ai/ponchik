@@ -18,6 +18,7 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
+      default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -31,14 +32,6 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
-      volumes:
-      - name: src
-      - name: training
-      - name: faces
-      - name: facenet
-      {{- if and .bgrm.value .detection_bgrm_align.value }}
-      - name: bgrm
-      {{- end }}
       workDir: $SRC_DIR
   {{- if .process_clarified.value }}
   - name: prepare-clarified
@@ -49,6 +42,7 @@ spec:
         --aligned_dir $TRAINING_DIR/aligned
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
+      default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -62,11 +56,6 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
-      volumes:
-      - name: src
-      - name: training
-      - name: clarify
-      - name: facenet
       workDir: $SRC_DIR
   {{- end }}
   {{- if .process_image.value }}
@@ -81,6 +70,7 @@ spec:
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
         --complementary_align --complementary_train
+      default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -94,14 +84,6 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
-      volumes:
-      - name: src
-      - name: training
-      - name: process
-      - name: facenet
-      {{- if and .bgrm.value .detection_bgrm_align.value }}
-      - bgrm
-      {{- end }}
       workDir: $SRC_DIR
   {{- end }}
   - name: export-classifiers
@@ -124,9 +106,6 @@ spec:
           cpu: 100m
           memory: 64Mi
       restartPolicy: Never
-      volumes:
-      - name: src
-      - name: training
       workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
