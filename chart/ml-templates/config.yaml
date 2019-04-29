@@ -40,7 +40,7 @@ spec:
       - bgrm
       {{- end }}
       workDir: $SRC_DIR
-`  {{- if .process_clarified.value }}
+  {{- if .process_clarified.value }}
   - name: prepare-clarified
     resources:
     - command: python prepare.py
