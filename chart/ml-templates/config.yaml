@@ -59,10 +59,9 @@ spec:
   - name: export-model
     type: export
     resources:
-    - command: python export_model.py
+    - command: python export_classifiers.py
+        {{ .app_name }} 1.0.0-$(date +%s%N)
         --classifiers_dir $TRAINING_DIR/classifiers
-        --model_name {{ .app_name }}
-        --model_version 1.0.0
       default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino

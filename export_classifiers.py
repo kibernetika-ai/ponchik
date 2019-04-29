@@ -14,16 +14,14 @@ def main():
     parser = argparse.ArgumentParser()
     add_common_args(parser)
     parser.add_argument(
-        '--model_name',
+        'model_name',
         help='Exported model name.',
         type=str,
-        default='svod-faces',
     )
     parser.add_argument(
-        '--model_version',
+        'model_version',
         help='Exported model version.',
         type=str,
-        default='1.0.0',
     )
     args = parser.parse_args()
 

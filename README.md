@@ -80,6 +80,14 @@ python download_classifiers.py https://dev.kibernetika.io/api/v0.2/workspace/svo
 ```
 Also you can specify classifiers dir (where to extract to) with argument `--classifiers_dir`
 
+### Export classifiers to catalog model
+
+Trained classifiers with attendant data can be exported to models catalog (if kdataset is installed or script is going to be run in kibernetika task:
+```bash
+python export_classifiers.py svod-faces 1.0.0
+```
+Classifiers dir (where to export from) can be set with argument `--classifiers_dir`
+
 ### Camera and recognizing
 
 Open window with camera's video stream and draw labeled boxes for recognized faces: 
