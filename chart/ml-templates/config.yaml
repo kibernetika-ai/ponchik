@@ -18,7 +18,6 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
-      default_volume_mapping: true
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -32,6 +31,14 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
+      volumes:
+        - name: src
+        - name: faces
+        - name: training
+        - name: facenet
+        {{- if and .bgrm.value .detection_bgrm_align.value }}
+        - name: bgrm
+        {{- end }}
       workDir: $SRC_DIR
   {{- if .process_clarified.value }}
   - name: prepare-clarified
