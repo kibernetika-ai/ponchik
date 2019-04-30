@@ -22,7 +22,7 @@ model:
 
 faces:
   value: 'svod-faces'
-  version: '1.1.0'
+  version: '1.1.1'
   workspace: 'svod'
   wizard:
     name: "Faces Dataset"
