@@ -22,7 +22,8 @@ PARAMS = {
     'bg_remove_path': '',
     'output_type': 'bytes',
     'need_table': True,
-    'clarify_dir': '',
+    'clarified_dir': '',
+    'uploaded_dir': '',
     'project_name': '',
 }
 load_lock = threading.Lock()
@@ -30,8 +31,8 @@ width = 640
 height = 480
 net_loaded = False
 openvino_facenet: detector.Detector = None
-clarify_in_process = False
-image_in_process = False
+clarified_in_process = False
+uploaded_in_process = False
 process_lock = threading.Lock()
 
 
@@ -67,9 +68,9 @@ def process(inputs, ctx, **kwargs):
     elif action == "classes":
         return process_classes()
     elif action == "clarify":
-        return process_clarify(inputs)
+        return process_clarified(inputs)
     elif action == "image":
-        return process_image(inputs)
+        return process_uploaded(inputs)
     else:
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
@@ -79,23 +80,23 @@ def process_classes():
     return {'classes': np.array(openvino_facenet.classes, dtype=np.string_)}
 
 
-def process_clarify(inputs):
+def process_clarified(inputs):
     e, d = _clarify_enabled()
     if not e:
         raise EnvironmentError('directory for clarified data "%s" is not set or absent' % d)
     res = _upload_processed_image(inputs, 'face', d, 'clarified')
-    global clarify_in_process
-    clarify_in_process = True
+    global clarified_in_process
+    clarified_in_process = True
     return res
 
 
-def process_image(inputs):
-    e, d = _process_images_enabled()
+def process_uploaded(inputs):
+    e, d = _upload_enabled()
     if not e:
         raise EnvironmentError('directory for images to recognition "%s" is not set or absent' % d)
     res = _upload_processed_image(inputs, 'image', d)
-    global image_in_process
-    image_in_process = True
+    global uploaded_in_process
+    uploaded_in_process = True
     return res
 
 
@@ -249,13 +250,13 @@ def process_test():
 
 
 def _clarify_enabled():
-    cd = PARAMS['clarify_dir'] if 'clarify_dir' in PARAMS else ''
+    cd = PARAMS['clarified_dir'] if 'clarified_dir' in PARAMS else ''
     e = (cd != '' and os.path.isdir(cd))
     return e, cd
 
 
-def _process_images_enabled():
-    pid = PARAMS['process_images_dir'] if 'process_images_dir' in PARAMS else ''
+def _upload_enabled():
+    pid = PARAMS['uploaded_dir'] if 'uploaded_dir' in PARAMS else ''
     e = (pid != '' and os.path.isdir(pid))
     return e, pid
 
@@ -359,17 +360,17 @@ def _load_nets(**kwargs):
 
 
 def _retrain_checker():
-    global clarify_in_process, image_in_process
+    global clarified_in_process, uploaded_in_process
     while True:
-        if clarify_in_process:
-            clarify_in_process = False
+        if clarified_in_process:
+            clarified_in_process = False
             with process_lock:
                 _run_retrain_task('prepare-clarified')
-        if image_in_process:
-            image_in_process = False
+        if uploaded_in_process:
+            uploaded_in_process = False
             with process_lock:
                 _run_retrain_task('prepare-uploaded')
-        time.sleep(1)
+        time.sleep(10)
 
 
 def _run_retrain_task(task_name):
@@ -387,8 +388,8 @@ def _run_retrain_task(task_name):
             return
         try:
             task.run()
-            LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
+            # LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
         except Exception as e:
             LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
     else:
-        LOG.warning('mlboard is None')
+        LOG.warning("Unable to retrain: mlboard is absent")
