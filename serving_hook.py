@@ -65,8 +65,10 @@ def process(inputs, ctx, **kwargs):
     action = _string_input_value(inputs, 'action')
     if action == "test":
         return process_test()
-    elif action == "classes":
-        return process_classes()
+    elif action == "classes" or action == "names":
+        return process_names()
+    elif action == "meta":
+        return process_meta()
     elif action == "clarify":
         return process_clarified(inputs)
     elif action == "image":
@@ -75,9 +77,29 @@ def process(inputs, ctx, **kwargs):
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
 
-def process_classes():
+def process_names():
     global openvino_facenet
     return {'classes': np.array(openvino_facenet.classes, dtype=np.string_)}
+
+
+def process_meta():
+    global openvino_facenet
+    ret = []
+    for cl in openvino_facenet.classes:
+        item = {
+            'name': cl,
+            # 'position': None,
+            # 'company': None,
+        }
+        cl_k = cl.replace(' ', '_')
+        if cl_k in openvino_facenet.meta:
+            cl_m = openvino_facenet.meta[cl_k]
+            if 'position' in cl_m:
+                item['position'] = cl_m['position']
+            if 'company' in cl_m:
+                item['company'] = cl_m['company']
+        ret.append(item)
+    return {'meta': json.dumps(ret)}
 
 
 def process_clarified(inputs):
