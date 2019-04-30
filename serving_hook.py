@@ -81,7 +81,7 @@ def process_clarify(inputs):
 def process_image(inputs):
     e, d = _process_images_enabled()
     if not e:
-        raise EnvironmentError('directory for images to recognizion "%s" is not set or absent' % d)
+        raise EnvironmentError('directory for images to recognition "%s" is not set or absent' % d)
     return _upload_processed_image(inputs, 'image', d)
 
 
