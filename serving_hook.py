@@ -368,7 +368,7 @@ def _retrain_checker():
         if image_in_process:
             image_in_process = False
             with process_lock:
-                _run_retrain_task('prepare-processed')
+                _run_retrain_task('prepare-uploaded')
         time.sleep(1)
 
 

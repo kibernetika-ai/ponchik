@@ -60,7 +60,7 @@ process_clarified:
     name: Process clarified faces with serving, use sent images as is, without preliminary face detection
     kind: boolean
 
-process_image:
+process_uploaded:
   value: true
   wizard:
     name: Process sent images with preliminary face detection

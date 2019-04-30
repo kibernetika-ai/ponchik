@@ -46,7 +46,7 @@ spec:
   - name: prepare-clarified
     resources:
     - command: python prepare.py
-        --input_dir $CLARIFY_DIR
+        --input_dir $CLARIFIED_DIR
         --clarified
         --aligned_dir $TRAINING_DIR/aligned
         --model_path $FACENET_DIR/facenet.xml
@@ -68,16 +68,16 @@ spec:
       restartPolicy: Never
       volumes:
       - name: src
-      - name: clarify
+      - name: clarified
       - name: training
       - name: facenet
       workDir: $SRC_DIR
   {{- end }}
-  {{- if .process_image.value }}
-  - name: prepare-processed
+  {{- if .process_uploaded.value }}
+  - name: prepare-uploaded
     resources:
     - command: python prepare.py
-        --input_dir $PROCESS_DIR
+        --input_dir $UPLOADED_DIR
         --aligned_dir $TRAINING_DIR/aligned
         {{- if and .bgrm.value .detection_bgrm_align.value }}
         --bg_remove_path $BGRM_DIR
@@ -102,7 +102,7 @@ spec:
       restartPolicy: Never
       volumes:
       - name: src
-      - name: process
+      - name: uploaded
       - name: training
       - name: facenet
       {{- if and .bgrm.value .detection_bgrm_align.value }}
@@ -146,10 +146,10 @@ spec:
       -o debug=true
       {{- end }}
       {{- if .process_clarified.value }}
-      -o clarify_dir=$CLARIFY_DIR
+      -o clarified_dir=$CLARIFIED_DIR
       {{- end }}
-      {{- if .process_image.value }}
-      -o process_images_dir=$PROCESS_DIR
+      {{- if .process_uploaded.value }}
+      -o uploaded_dir=$UPLOADED_DIR
       {{- end }}
       -o threshold=0.25,0.3,0.3
       -o project_name={{ .app_name }}
@@ -208,14 +208,14 @@ spec:
         version: {{ .bgrm.version }}
     {{- end }}
     {{- if .process_clarified.value }}
-    - name: clarify
+    - name: clarified
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-clarify
+      subPath: /shared/{{ .app_name }}-clarified
     {{- end }}
-    {{- if .process_image.value }}
-    - name: process
+    {{- if .process_uploaded.value }}
+    - name: uploaded
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-process
+      subPath: /shared/{{ .app_name }}-uploaded
     {{- end }}
     ports:
     - port: 9000
@@ -260,12 +260,12 @@ spec:
       version: {{ .bgrm.version }}
   {{- end }}
   {{- if .process_clarified.value }}
-  - name: clarify
+  - name: clarified
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ .app_name }}-clarify
+    subPath: /shared/{{ .app_name }}-clarified
   {{- end }}
-  {{- if .process_image.value }}
-  - name: process
+  {{- if .process_uploaded.value }}
+  - name: uploaded
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ .app_name }}-process
+    subPath: /shared/{{ .app_name }}-uploaded
   {{- end }}
