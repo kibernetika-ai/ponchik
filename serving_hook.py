@@ -381,6 +381,6 @@ def _run_retrain_task(task_name):
             task = app.task(task_name)
             task.run()
         except Exception as e:
-            LOG.error('retrain with task "%s" error' % task_name, e)
+            LOG.error('retrain with task "%s" error: %s' % (task_name, e))
     else:
         LOG.warning('mlboard is None')
