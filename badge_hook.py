@@ -198,13 +198,14 @@ def find_people(image, draw_image, ctx, table):
             xmax = min(xmax0 + int(bw / 2), w)
             ymax = min(ymax0 + bh * 3, h)
             ymin = ymin0
+            offset = (xmin, ymin)
             box_image_original = image[ymin:ymax, xmin:xmax, :]
             xmin = max(xmin0 - int(bw / 2), 0)
             xmax = min(xmax0 + int(bw / 2), w)
             ymax = min(ymax0 + int(bh /2), h)
             ymin = max(ymin0 - int(bh / 2), 0)
             face = image[ymin:ymax, xmin:xmax, :]
-            table, draw_image = badge_select(box_image_original,face, draw_image, (xmin, ymin), ctx, table)
+            table, draw_image = badge_select(box_image_original,face, draw_image, offset, ctx, table)
             draw_image = cv2.rectangle(draw_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), thickness=2)
 
     return table, draw_image
