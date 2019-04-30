@@ -11,6 +11,7 @@ import numpy as np
 
 from svod_rcgn.recognize import detector
 from svod_rcgn.tools import images, dataset
+from svod_rcgn.mlboard import mlboard
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -22,12 +23,16 @@ PARAMS = {
     'output_type': 'bytes',
     'need_table': True,
     'clarify_dir': '',
+    'project_name': '',
 }
-lock = threading.Lock()
+load_lock = threading.Lock()
 width = 640
 height = 480
 net_loaded = False
 openvino_facenet: detector.Detector = None
+clarify_in_process = False
+image_in_process = False
+process_lock = threading.Lock()
 
 
 def init_hook(**kwargs):
@@ -43,12 +48,15 @@ def init_hook(**kwargs):
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
+    clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
+    clarify_checker.start()
+
 
 def process(inputs, ctx, **kwargs):
     global net_loaded
     # check-lock-check
     if not net_loaded:
-        with lock:
+        with load_lock:
             if not net_loaded:
                 _load_nets(**kwargs)
                 net_loaded = True
@@ -75,14 +83,20 @@ def process_clarify(inputs):
     e, d = _clarify_enabled()
     if not e:
         raise EnvironmentError('directory for clarified data "%s" is not set or absent' % d)
-    return _upload_processed_image(inputs, 'face', d, 'clarified')
+    res = _upload_processed_image(inputs, 'face', d, 'clarified')
+    global clarify_in_process
+    clarify_in_process = True
+    return res
 
 
 def process_image(inputs):
     e, d = _process_images_enabled()
     if not e:
         raise EnvironmentError('directory for images to recognition "%s" is not set or absent' % d)
-    return _upload_processed_image(inputs, 'image', d)
+    res = _upload_processed_image(inputs, 'image', d)
+    global image_in_process
+    image_in_process = True
+    return res
 
 
 def process_recognize(inputs, ctx, model_inputs):
@@ -342,3 +356,29 @@ def _load_nets(**kwargs):
     openvino_facenet.init()
 
     LOG.info('Done.')
+
+
+def _retrain_checker():
+    global clarify_in_process, image_in_process
+    while True:
+        if clarify_in_process:
+            clarify_in_process = False
+            with process_lock:
+                _run_retrain_task('prepare-clarified')
+        if image_in_process:
+            image_in_process = False
+            with process_lock:
+                _run_retrain_task('prepare-processed')
+        time.sleep(1)
+
+
+def _run_retrain_task(task_name):
+    if mlboard is not None:
+        try:
+            app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
+            LOG.info('retrain with task "%s:%s" error' % (app_name, task_name))
+            app = mlboard.apps.get(app_name)
+            task = app.task(task_name)
+            task.run()
+        except Exception as e:
+            LOG.error('retrain with task "%s" error' % task_name, e)

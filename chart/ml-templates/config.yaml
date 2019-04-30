@@ -18,6 +18,8 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -49,6 +51,8 @@ spec:
         --aligned_dir $TRAINING_DIR/aligned
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -81,6 +85,8 @@ spec:
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
         --complementary_align --complementary_train
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -104,29 +110,6 @@ spec:
       {{- end }}
       workDir: $SRC_DIR
   {{- end }}
-  - name: export-classifiers
-    type: export
-    resources:
-    - command: python export_classifiers.py
-        {{ .app_name }} 1.0.0-$(date +%s)
-        --classifiers_dir $TRAINING_DIR/classifiers
-      images:
-        cpu: kuberlab/serving:latest-openvino
-        gpu: kuberlab/serving:latest-openvino-gpu
-      name: worker
-      replicas: 1
-      resources:
-        limits:
-          cpu: "2"
-          memory: 8Gi
-        requests:
-          cpu: 100m
-          memory: 64Mi
-      restartPolicy: Never
-      volumes:
-      - name: src
-      - name: training
-      workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
     displayName: Jupyter
@@ -162,13 +145,14 @@ spec:
       {{- if .detection_debug.value }}
       -o debug=true
       {{- end }}
-      -o threshold=0.25,0.3,0.3
       {{- if .process_clarified.value }}
       -o clarify_dir=$CLARIFY_DIR
       {{- end }}
       {{- if .process_image.value }}
       -o process_images_dir=$PROCESS_DIR
       {{- end }}
+      -o threshold=0.25,0.3,0.3
+      -o project_name={{ .app_name }}
     resources:
       accelerators:
         gpu: 0

@@ -18,7 +18,7 @@ if client:
         mlboard = None
         print_fun('Do not use mlboard.')
     else:
-        print_fun('Use mlboard parameters logging.')
+        print_fun('Using mlboard.')
 
 
 def catalog_ref(name, ctype, version):
