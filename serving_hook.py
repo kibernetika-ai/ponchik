@@ -374,13 +374,21 @@ def _retrain_checker():
 
 def _run_retrain_task(task_name):
     if mlboard is not None:
+        app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
+        LOG.info('retrain with task "%s:%s"' % (app_name, task_name))
         try:
-            app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
-            LOG.info('retrain with task "%s:%s" error' % (app_name, task_name))
             app = mlboard.apps.get(app_name)
-            task = app.task(task_name)
-            task.run()
         except Exception as e:
-            LOG.error('retrain with task "%s" error: %s' % (task_name, e))
+            LOG.error('get app "%s" error: %s' % (app_name, e))
+            return
+        task = app.task(task_name)
+        if task is None:
+            LOG.error('app "%s" has no task "%s"' % (app_name, task_name))
+            return
+        try:
+            task.run()
+            LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
+        except Exception as e:
+            LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
     else:
         LOG.warning('mlboard is None')
