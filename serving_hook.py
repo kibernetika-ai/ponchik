@@ -361,7 +361,6 @@ def _load_nets(**kwargs):
 def _retrain_checker():
     global clarify_in_process, image_in_process
     while True:
-        LOG.info('_retrain_checker tick')
         if clarify_in_process:
             clarify_in_process = False
             with process_lock:
@@ -374,7 +373,6 @@ def _retrain_checker():
 
 
 def _run_retrain_task(task_name):
-    LOG.info('_run_retrain_task')
     if mlboard is not None:
         try:
             app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
@@ -382,8 +380,7 @@ def _run_retrain_task(task_name):
             app = mlboard.apps.get(app_name)
             task = app.task(task_name)
             task.run()
-            LOG.info('_run_retrain_task DONE')
         except Exception as e:
             LOG.error('retrain with task "%s" error' % task_name, e)
     else:
-        LOG.info('mlboard is None')
+        LOG.warning('mlboard is None')

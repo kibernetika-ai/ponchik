@@ -5,7 +5,7 @@ from svod_rcgn.recognize.args import add_common_args
 from svod_rcgn.recognize.classifiers import add_classifier_args, classifiers_args
 from svod_rcgn.tools.bg_remove import add_bg_remove_args
 from svod_rcgn.tools.print import print_fun
-from svod_rcgn.mlboard import mlboard, catalog_ref
+from svod_rcgn.mlboard import mlboard, update_task_info, catalog_ref
 
 
 def main():
@@ -55,7 +55,7 @@ def main():
         if args.model_name is not None and args.model_version is not None:
             print_fun('Uploading model...')
             mlboard.model_upload(args.model_name, args.model_version, args.classifiers_dir)
-            mlboard.update_task_info({'model_reference': catalog_ref(args.model_name, 'mlmodel', args.model_version)})
+            update_task_info({'model_reference': catalog_ref(args.model_name, 'mlmodel', args.model_version)})
             print_fun("New model uploaded as '%s', version '%s'." % (args.model_name, args.model_version))
 
 
