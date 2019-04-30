@@ -163,8 +163,8 @@ def badge_select(image,face, draw_image, offset, ctx, table):
             face = base64.encodebytes(buf).decode()
         table.append({
             'type': 'text',
-            'name': data_db[found_name[0]],
-            'prob': float(found_name[1]),
+            'name': data_db[found_name[1]],
+            'prob': float(found_name[0]),
             'image': face
         })
     for i in bboxes:
