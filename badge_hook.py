@@ -5,6 +5,8 @@ import json
 import base64
 import math
 import fuzzyset
+import requests
+from itertools import permutations
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -22,6 +24,7 @@ ENGLISH_CHAR_MAP = [
 names_db = fuzzyset.FuzzySet()
 data_db = {}
 
+
 def read_charset():
     charset = {}
     inv_charset = {}
@@ -34,25 +37,51 @@ def read_charset():
 
 chrset_index = {}
 
+PARAMS = {
+    'people_service': '',
+    'people_service_key': '',
+}
+
 
 def init_hook(**params):
     LOG.info("Init hooks {}".format(params))
+    global PARAMS
+    PARAMS.update(params)
+    people_service = PARAMS['people_service']
+    people_service_key = PARAMS['people_service_key']
+    if len(people_service) > 0:
+        multipart_form_data = {
+            'raw_input': ('', 'yes'),
+            'string_action': ('', 'classes')
+        }
+        resp = requests.request('post', people_service, files=multipart_form_data,
+                                headers={
+                                    'Authorization': 'Bearer ' + people_service_key
+                                })
+        response = resp.json()
+        if 'classes' in response:
+            people = response['classes']
+            for p in people:
+                logging.info('Add: {}'.format(p))
+                tokens = p.split(' ')
+                for t in tokens:
+                    if len(t) > 1:
+                        names_db.add(t)
+                perm = permutations(tokens)
+                for v in list(perm):
+                    v1 = ' '.join(v)
+                    v2 = ''.join(v)
+                    names_db.add(v1)
+                    names_db.add(v2)
+                    data_db[v1] = p
+                    data_db[v2] = p
+
+        else:
+            logging.info('Bad response from people_service {}'.format(response))
+
     charset, _ = read_charset()
     global chrset_index
     chrset_index = charset
-
-    names_db.add('stas khirman')
-    names_db.add('staskhirman')
-    names_db.add('khirman stas')
-    names_db.add('khirmanstas')
-    names_db.add('stas')
-    names_db.add('khirman')
-
-    data_db['stas khirman'] = 'Stas Khirman'
-    data_db['khirman stas'] = 'Stas Khirman'
-    data_db['staskhirman'] = 'Stas Khirman'
-    data_db['khirmanstas'] = 'Stas Khirman'
-
     LOG.info("Init hooks")
 
 
@@ -108,7 +137,8 @@ def choose_one(candidates):
         return None
     return a
 
-def badge_select(image,face, draw_image, offset, ctx, table):
+
+def badge_select(image, face, draw_image, offset, ctx, table):
     box_image = adjust_size(image)
     box_image = box_image.astype(np.float32) / 255.0
     box_image = np.expand_dims(box_image, 0)
@@ -138,7 +168,7 @@ def badge_select(image,face, draw_image, offset, ctx, table):
 
         text_img = norm_image_for_text_prediction(text_img, 32, 320)
         text = extract_text(text_img, ctx)
-        if len(text)>0:
+        if len(text) > 0:
             texts.append(text)
     candidates = []
     found_name = None
@@ -198,13 +228,14 @@ def find_people(image, draw_image, ctx, table):
             xmax = min(xmax0 + int(bw / 2), w)
             ymax = min(ymax0 + bh * 3, h)
             ymin = ymin0
+            offset = (xmin, ymin)
             box_image_original = image[ymin:ymax, xmin:xmax, :]
             xmin = max(xmin0 - int(bw / 2), 0)
             xmax = min(xmax0 + int(bw / 2), w)
-            ymax = min(ymax0 + int(bh /2), h)
+            ymax = min(ymax0 + int(bh / 2), h)
             ymin = max(ymin0 - int(bh / 2), 0)
             face = image[ymin:ymax, xmin:xmax, :]
-            table, draw_image = badge_select(box_image_original,face, draw_image, (xmin, ymin), ctx, table)
+            table, draw_image = badge_select(box_image_original, face, draw_image, offset, ctx, table)
             draw_image = cv2.rectangle(draw_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), thickness=2)
 
     return table, draw_image
