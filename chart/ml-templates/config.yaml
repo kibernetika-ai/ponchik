@@ -216,7 +216,7 @@ spec:
         workspace: kuberlab-demo
         model: openvino-face-detection
         version: 1.4.0-cpu
-    {{- if .bgrm.value }}
+    {{- if and .bgrm.value .detection_bgrm_serving.value }}
     - name: bgrm
       model:
         workspace: {{ .bgrm.workspace }}
