@@ -66,7 +66,7 @@ def process(inputs, ctx, **kwargs):
     if action == "test":
         return process_test()
     elif action == "classes" or action == "names":
-        return process_names()
+        return process_names(action)
     elif action == "meta":
         return process_meta()
     elif action == "clarify":
@@ -77,9 +77,9 @@ def process(inputs, ctx, **kwargs):
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
 
-def process_names():
+def process_names(action):
     global openvino_facenet
-    return {'classes': np.array(openvino_facenet.classes, dtype=np.string_)}
+    return {action: np.array(openvino_facenet.classes, dtype=np.string_)}
 
 
 def process_meta():
