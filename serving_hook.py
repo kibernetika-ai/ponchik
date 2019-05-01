@@ -127,7 +127,9 @@ def process_recognize(inputs, ctx, model_inputs):
     # convert to BGR
     data = frame[:, :, ::-1]
 
+    start = time.time()
     bounding_boxes = openvino_facenet.detect_faces(data, PARAMS['threshold'][0])
+    LOG.info('Face Detection: {}'.format(time.time()-start))
 
     imgs = images.get_images(frame, bounding_boxes)
 
@@ -140,7 +142,9 @@ def process_recognize(inputs, ctx, model_inputs):
 
     model_input = list(model_inputs.keys())[0]
     if not skip:
+        start = time.time()
         outputs = ctx.driver.predict({model_input: imgs})
+        LOG.info('Face Embedding: {}'.format(time.time()-start))
     else:
         outputs = {'dummy': []}
 
@@ -151,9 +155,11 @@ def process_recognize(inputs, ctx, model_inputs):
     for img_idx, item_output in enumerate(facenet_output):
         if skip:
             break
+        start = time.time()
         processed = openvino_facenet.process_output(
             item_output, bounding_boxes[img_idx]
         )
+        LOG.info('Process output: {}'.format(time.time()-start))
         processed_frame.append(processed)
 
     ret = {
