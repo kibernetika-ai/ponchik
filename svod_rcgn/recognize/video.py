@@ -24,6 +24,7 @@ class Video:
         self.vs = None
         self.listener = listener
         self.video_async = video_async
+        self.pipeline = None
 
     def start(self):
         self.detector.init()
@@ -40,7 +41,7 @@ class Video:
                 # Capture frame-by-frame
                 self.get_frame()
                 if self.frame is None:
-                    break
+                    continue
                 if self.video_async:
                     self.detector.add_overlays(self.frame, self.processed)
                 else:
@@ -52,15 +53,28 @@ class Video:
                     break
         except (KeyboardInterrupt, SystemExit) as e:
             print_fun('Caught %s: %s' % (e.__class__.__name__, e))
+        finally:
+            if self.pipeline is not None:
+                self.pipeline.stop()
 
     def init_video(self):
         if self.video_source is None:
             self.vs = cv2.VideoCapture(0)
+        elif self.video_source=="realscense":
+            import pyrealsense2 as rs
+            self.pipeline = rs.pipeline()
+            config = rs.config()
+            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 10)
+            self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
 
     def get_frame(self):
-        new_frame = self.vs.read()
+        if self.pipeline is None:
+            new_frame = self.vs.read()
+        else:
+            frames = self.pipeline.wait_for_frames()
+            new_frame = frames.get_color_frame()
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
