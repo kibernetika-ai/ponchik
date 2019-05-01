@@ -72,6 +72,8 @@ It's available to skip alignment `--skip_alignment` or skip training `--skip_tra
 
 If recognizing process is running, this script will reload classifiers for running process (if `--skip_training` is not specified).
 
+Classifiers can be uploaded to catalog's model right after successful training with name and version specified in arguments `--model-name` and `--model-version`.
+
 ### Download classifiers
 
 Remote build classifiers can be downloaded with the following script:

@@ -11,6 +11,7 @@ import numpy as np
 
 from svod_rcgn.recognize import detector
 from svod_rcgn.tools import images, dataset
+from svod_rcgn.mlboard import mlboard
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -21,13 +22,18 @@ PARAMS = {
     'bg_remove_path': '',
     'output_type': 'bytes',
     'need_table': True,
-    'clarify_dir': '',
+    'clarified_dir': '',
+    'uploaded_dir': '',
+    'project_name': '',
 }
-lock = threading.Lock()
+load_lock = threading.Lock()
 width = 640
 height = 480
 net_loaded = False
 openvino_facenet: detector.Detector = None
+clarified_in_process = False
+uploaded_in_process = False
+process_lock = threading.Lock()
 
 
 def init_hook(**kwargs):
@@ -43,12 +49,15 @@ def init_hook(**kwargs):
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
+    clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
+    clarify_checker.start()
+
 
 def process(inputs, ctx, **kwargs):
     global net_loaded
     # check-lock-check
     if not net_loaded:
-        with lock:
+        with load_lock:
             if not net_loaded:
                 _load_nets(**kwargs)
                 net_loaded = True
@@ -56,33 +65,61 @@ def process(inputs, ctx, **kwargs):
     action = _string_input_value(inputs, 'action')
     if action == "test":
         return process_test()
-    elif action == "classes":
-        return process_classes()
+    elif action == "classes" or action == "names":
+        return process_names(action)
+    elif action == "meta":
+        return process_meta()
     elif action == "clarify":
-        return process_clarify(inputs)
+        return process_clarified(inputs)
     elif action == "image":
-        return process_image(inputs)
+        return process_uploaded(inputs)
     else:
         return process_recognize(inputs, ctx, kwargs['model_inputs'])
 
 
-def process_classes():
+def process_names(action):
     global openvino_facenet
-    return {'classes': np.array(openvino_facenet.classes, dtype=np.string_)}
+    return {action: np.array(openvino_facenet.classes, dtype=np.string_)}
 
 
-def process_clarify(inputs):
+def process_meta():
+    global openvino_facenet
+    ret = []
+    for cl in openvino_facenet.classes:
+        item = {
+            'name': cl,
+            # 'position': None,
+            # 'company': None,
+        }
+        cl_k = cl.replace(' ', '_')
+        if cl_k in openvino_facenet.meta:
+            cl_m = openvino_facenet.meta[cl_k]
+            if 'position' in cl_m:
+                item['position'] = cl_m['position']
+            if 'company' in cl_m:
+                item['company'] = cl_m['company']
+        ret.append(item)
+    return {'meta': json.dumps(ret)}
+
+
+def process_clarified(inputs):
     e, d = _clarify_enabled()
     if not e:
         raise EnvironmentError('directory for clarified data "%s" is not set or absent' % d)
-    return _upload_processed_image(inputs, 'face', d, 'clarified')
+    res = _upload_processed_image(inputs, 'face', d, 'clarified')
+    global clarified_in_process
+    clarified_in_process = True
+    return res
 
 
-def process_image(inputs):
-    e, d = _process_images_enabled()
+def process_uploaded(inputs):
+    e, d = _upload_enabled()
     if not e:
         raise EnvironmentError('directory for images to recognition "%s" is not set or absent' % d)
-    return _upload_processed_image(inputs, 'image', d)
+    res = _upload_processed_image(inputs, 'image', d)
+    global uploaded_in_process
+    uploaded_in_process = True
+    return res
 
 
 def process_recognize(inputs, ctx, model_inputs):
@@ -235,13 +272,13 @@ def process_test():
 
 
 def _clarify_enabled():
-    cd = PARAMS['clarify_dir'] if 'clarify_dir' in PARAMS else ''
+    cd = PARAMS['clarified_dir'] if 'clarified_dir' in PARAMS else ''
     e = (cd != '' and os.path.isdir(cd))
     return e, cd
 
 
-def _process_images_enabled():
-    pid = PARAMS['process_images_dir'] if 'process_images_dir' in PARAMS else ''
+def _upload_enabled():
+    pid = PARAMS['uploaded_dir'] if 'uploaded_dir' in PARAMS else ''
     e = (pid != '' and os.path.isdir(pid))
     return e, pid
 
@@ -342,3 +379,39 @@ def _load_nets(**kwargs):
     openvino_facenet.init()
 
     LOG.info('Done.')
+
+
+def _retrain_checker():
+    global clarified_in_process, uploaded_in_process
+    while True:
+        if clarified_in_process:
+            clarified_in_process = False
+            with process_lock:
+                _run_retrain_task('prepare-clarified')
+        if uploaded_in_process:
+            uploaded_in_process = False
+            with process_lock:
+                _run_retrain_task('prepare-uploaded')
+        time.sleep(10)
+
+
+def _run_retrain_task(task_name):
+    if mlboard is not None:
+        app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
+        LOG.info('retrain with task "%s:%s"' % (app_name, task_name))
+        try:
+            app = mlboard.apps.get(app_name)
+        except Exception as e:
+            LOG.error('get app "%s" error: %s' % (app_name, e))
+            return
+        task = app.task(task_name)
+        if task is None:
+            LOG.error('app "%s" has no task "%s"' % (app_name, task_name))
+            return
+        try:
+            task.run()
+            # LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
+        except Exception as e:
+            LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
+    else:
+        LOG.warning("Unable to retrain: mlboard is absent")

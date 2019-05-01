@@ -3,8 +3,8 @@
 CURRENT_DIR=`pwd`
 docker run -it \
     -v $CURRENT_DIR:/work:ro \
-    -v $CURRENT_DIR/data/clarify:/clarify \
-    -v $CURRENT_DIR/data/process_image:/process_image \
+    -v $CURRENT_DIR/data/clarified:/clarified \
+    -v $CURRENT_DIR/data/uploaded:/uploaded \
     -w /work \
     -p 9001:9001 \
     kuberlab/serving:latest-openvino \
@@ -12,7 +12,7 @@ docker run -it \
         --model-path models/facenet_pretrained_openvino_cpu/facenet.xml \
         --hooks serving_hook.py -o device=CPU \
         -o classifiers_dir=data/classifiers \
-        -o clarify_dir=/clarify \
-        -o process_images_dir=/process_image \
+        -o clarified_dir=/clarified \
+        -o uploaded_dir=/uploaded \
         -o debug=true \
         --http-enable

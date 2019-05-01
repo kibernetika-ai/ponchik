@@ -9,16 +9,23 @@ except ImportError:
 
 
 mlboard = None
+mlboard_logging = False
 
 if client:
     mlboard = client.Client()
+    mlboard_logging = True
     try:
         mlboard.apps.get()
     except Exception:
-        mlboard = None
-        print_fun('Do not use mlboard.')
+        mlboard_logging = False
+        print_fun('Do not use mlboard parameters logging.')
     else:
-        print_fun('Use mlboard parameters logging.')
+        print_fun('Using mlboard parameters logging.')
+
+
+def update_task_info(data):
+    if mlboard and mlboard_logging:
+        mlboard.update_task_info(data)
 
 
 def catalog_ref(name, ctype, version):

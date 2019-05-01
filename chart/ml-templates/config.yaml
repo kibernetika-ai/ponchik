@@ -18,7 +18,8 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
-      default_volume_mapping: true
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -32,17 +33,26 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
+      volumes:
+      - name: src
+      - name: faces
+      - name: training
+      - name: facenet
+      {{- if and .bgrm.value .detection_bgrm_align.value }}
+      - name: bgrm
+      {{- end }}
       workDir: $SRC_DIR
   {{- if .process_clarified.value }}
   - name: prepare-clarified
     resources:
     - command: python prepare.py
-        --input_dir $CLARIFY_DIR
+        --input_dir $CLARIFIED_DIR
         --clarified
         --aligned_dir $TRAINING_DIR/aligned
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
-      default_volume_mapping: true
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -56,13 +66,18 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
+      volumes:
+      - name: src
+      - name: clarified
+      - name: training
+      - name: facenet
       workDir: $SRC_DIR
   {{- end }}
-  {{- if .process_image.value }}
-  - name: prepare-processed
+  {{- if .process_uploaded.value }}
+  - name: prepare-uploaded
     resources:
     - command: python prepare.py
-        --input_dir $PROCESS_DIR
+        --input_dir $UPLOADED_DIR
         --aligned_dir $TRAINING_DIR/aligned
         {{- if and .bgrm.value .detection_bgrm_align.value }}
         --bg_remove_path $BGRM_DIR
@@ -70,7 +85,8 @@ spec:
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
         --complementary_align --complementary_train
-      default_volume_mapping: true
+        --model_name {{ .app_name }}
+        --model_version 1.0.0-$(date +%s)
       images:
         cpu: kuberlab/serving:latest-openvino
         gpu: kuberlab/serving:latest-openvino-gpu
@@ -84,29 +100,16 @@ spec:
           cpu: "1"
           memory: 512Mi
       restartPolicy: Never
+      volumes:
+      - name: src
+      - name: uploaded
+      - name: training
+      - name: facenet
+      {{- if and .bgrm.value .detection_bgrm_align.value }}
+      - name: bgrm
+      {{- end }}
       workDir: $SRC_DIR
   {{- end }}
-  - name: export-classifiers
-    type: export
-    resources:
-    - command: python export_classifiers.py
-        {{ .app_name }} 1.0.0-$(date +%s)
-        --classifiers_dir $TRAINING_DIR/classifiers
-      default_volume_mapping: true
-      images:
-        cpu: kuberlab/serving:latest-openvino
-        gpu: kuberlab/serving:latest-openvino-gpu
-      name: worker
-      replicas: 1
-      resources:
-        limits:
-          cpu: "2"
-          memory: 8Gi
-        requests:
-          cpu: 100m
-          memory: 64Mi
-      restartPolicy: Never
-      workDir: $SRC_DIR
   uix:
   - default_volume_mapping: true
     displayName: Jupyter
@@ -142,13 +145,14 @@ spec:
       {{- if .detection_debug.value }}
       -o debug=true
       {{- end }}
-      -o threshold=0.25,0.3,0.3
       {{- if .process_clarified.value }}
-      -o clarify_dir=$CLARIFY_DIR
+      -o clarified_dir=$CLARIFIED_DIR
       {{- end }}
-      {{- if .process_image.value }}
-      -o process_images_dir=$PROCESS_DIR
+      {{- if .process_uploaded.value }}
+      -o uploaded_dir=$UPLOADED_DIR
       {{- end }}
+      -o threshold=0.25,0.3,0.3
+      -o project_name={{ .app_name }}
     resources:
       accelerators:
         gpu: 0
@@ -196,7 +200,7 @@ spec:
         workspace: kuberlab-demo
         model: openvino-face-detection
         version: 1.4.0-cpu
-    {{- if .bgrm.value }}
+    {{- if and .bgrm.value .detection_bgrm_serving.value }}
     - name: bgrm
       model:
         workspace: {{ .bgrm.workspace }}
@@ -204,14 +208,14 @@ spec:
         version: {{ .bgrm.version }}
     {{- end }}
     {{- if .process_clarified.value }}
-    - name: clarify
+    - name: clarified
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-clarify
+      subPath: /shared/{{ .app_name }}-clarified
     {{- end }}
-    {{- if .process_image.value }}
-    - name: process
+    {{- if .process_uploaded.value }}
+    - name: uploaded
       clusterStorage: {{ .storage.value }}
-      subPath: /shared/{{ .app_name }}-process
+      subPath: /shared/{{ .app_name }}-uploaded
     {{- end }}
     ports:
     - port: 9000
@@ -256,12 +260,12 @@ spec:
       version: {{ .bgrm.version }}
   {{- end }}
   {{- if .process_clarified.value }}
-  - name: clarify
+  - name: clarified
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ .app_name }}-clarify
+    subPath: /shared/{{ .app_name }}-clarified
   {{- end }}
-  {{- if .process_image.value }}
-  - name: process
+  {{- if .process_uploaded.value }}
+  - name: uploaded
     clusterStorage: {{ .storage.value }}
-    subPath: /shared/{{ .app_name }}-process
+    subPath: /shared/{{ .app_name }}-uploaded
   {{- end }}
