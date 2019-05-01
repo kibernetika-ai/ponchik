@@ -67,7 +67,7 @@ class Video:
             config = rs.config()
             #rs-enumerate-devices
             #config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8,6)
-            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.rgb8,6)
+            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8,1)
             self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
