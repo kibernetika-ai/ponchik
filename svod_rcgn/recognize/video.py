@@ -1,6 +1,7 @@
 from threading import Thread
 
 import cv2
+import numpy as np
 
 from svod_rcgn.tools import images
 from svod_rcgn.tools.print import print_fun
@@ -75,6 +76,7 @@ class Video:
         else:
             frames = self.pipeline.wait_for_frames()
             new_frame = frames.get_color_frame()
+            new_frame = np.asanyarray(new_frame.get_data())
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
