@@ -65,7 +65,7 @@ class Video:
             import pyrealsense2 as rs
             self.pipeline = rs.pipeline()
             config = rs.config()
-            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8,3)
+            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8,2)
             self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
