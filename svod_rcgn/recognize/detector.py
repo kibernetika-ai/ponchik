@@ -360,9 +360,7 @@ class Detector(object):
                 # Convert BGR to RGB
                 img = img[:, :, ::-1]
                 img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
-                start = time.time()
                 output = self.inference_facenet(img)
-                print('Facnet time :{}'.format(time.time()-start))
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
@@ -498,12 +496,9 @@ class Detector(object):
 
     @staticmethod
     def _openvino_detect(face_detect, frame, threshold):
-        print('Resize frame for face detection: {}'.format(face_detect.input_size))
         inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
         inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
-        start = time.time()
         outputs = face_detect(inference_frame)
-        print("Face detect time: {}".format(time.time()-start))
         outputs = outputs.reshape(-1, 7)
         bboxes_raw = outputs[outputs[:, 2] > threshold]
         bounding_boxes = bboxes_raw[:, 3:7]
