@@ -82,8 +82,8 @@ class Video:
         if new_frame is None:
             print_fun("frame is None. Possibly camera or display does not work")
             return None
-        if new_frame.shape[0] > 480:
-            new_frame = images.image_resize(new_frame, height=480)
+        #if new_frame.shape[0] > 480:
+        #    new_frame = images.image_resize(new_frame, height=480)
         self.frame = new_frame
         return self.frame
 
