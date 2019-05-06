@@ -3,7 +3,7 @@ from threading import Thread
 import cv2
 import numpy as np
 
-from svod_rcgn.tools import images
+# from svod_rcgn.tools import images
 from svod_rcgn.tools.print import print_fun
 
 
@@ -61,7 +61,7 @@ class Video:
     def init_video(self):
         if self.video_source is None:
             self.vs = cv2.VideoCapture(0)
-        elif self.video_source=="realscense":
+        elif self.video_source == "realsense":
             import pyrealsense2 as rs
             self.pipeline = rs.pipeline()
 
