@@ -3,7 +3,7 @@ from threading import Thread
 import cv2
 import numpy as np
 
-# from svod_rcgn.tools import images
+from svod_rcgn.tools import images
 from svod_rcgn.tools.print import print_fun
 
 
@@ -13,11 +13,15 @@ def video_args(detector, listener, args):
         listener=listener,
         video_source=args.video_source,
         video_async=args.video_async,
+        video_max_width=args.video_max_width,
+        video_max_height=args.video_max_height
     )
 
 
 class Video:
-    def __init__(self, detector, listener=None, video_source=None, video_async=False):
+    def __init__(self, detector,
+                 listener=None, video_source=None, video_async=False,
+                 video_max_width=None, video_max_height=None):
         self.detector = detector
         self.video_source = video_source
         self.frame = None
@@ -26,6 +30,8 @@ class Video:
         self.listener = listener
         self.video_async = video_async
         self.pipeline = None
+        self.video_max_width = video_max_width
+        self.video_max_height = video_max_height
 
     def start(self):
         self.detector.init()
@@ -85,8 +91,9 @@ class Video:
         if new_frame is None:
             print_fun("frame is None. Possibly camera or display does not work")
             return None
-        #if new_frame.shape[0] > 480:
-        #    new_frame = images.image_resize(new_frame, height=480)
+        if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
+                self.video_max_height is not None and new_frame.shape[0] > self.video_max_height:
+            new_frame = images.image_resize(new_frame, width=self.video_max_width, height=self.video_max_height)
         self.frame = new_frame
         return self.frame
 
@@ -124,4 +131,16 @@ def add_video_args(parser):
         '--video_async',
         help='Asynchronous video (each frame does not wait for calculating boxes and labels).',
         action='store_true',
+    )
+    parser.add_argument(
+        '--video_max_width',
+        help='Resize video if width more than specified value.',
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        '--video_max_height',
+        help='Resize video if height more than specified value.',
+        type=int,
+        default=None,
     )
