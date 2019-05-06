@@ -5,6 +5,7 @@ import numpy as np
 
 from svod_rcgn.tools import images
 from svod_rcgn.tools.print import print_fun
+from svod_rcgn.recognize.video_notify import InVideoDetected
 
 
 def video_args(detector, listener, args):
@@ -14,7 +15,7 @@ def video_args(detector, listener, args):
         video_source=args.video_source,
         video_async=args.video_async,
         video_max_width=args.video_max_width,
-        video_max_height=args.video_max_height
+        video_max_height=args.video_max_height,
     )
 
 
@@ -32,7 +33,7 @@ class Video:
         self.pipeline = None
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
-        self.detected = {}
+        self.faces_detected = {}
 
     def start(self):
         self.detector.init()
@@ -107,7 +108,19 @@ class Video:
                 self.check_detected()
 
     def check_detected(self):
-        pass
+        for fd in self.faces_detected:
+            self.faces_detected[fd].prepare()
+        if self.processed:
+            for p in self.processed:
+                if p.detected:
+                    name = p.classes[0]
+                    if name not in self.faces_detected:
+                        self.faces_detected[name] = InVideoDetected(name)
+                    self.faces_detected[name].exists_in_frame(True)
+        for fd in list(self.faces_detected):
+            self.faces_detected[fd].exists_in_frame(False)
+            if self.faces_detected[fd].not_detected_anymore:
+                del self.faces_detected[fd]
 
     def listen(self):
         while True:
