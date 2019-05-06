@@ -2,27 +2,26 @@
 
 ## Default project data and models directories structure
 
-By default all app data is in the next directories:
+By default all app data is in the next directories (with arguments to change default dirs):
 ```
 .
 ├── data
-│   ├── aligned
-│   ├── clarify
-│   ├── classifiers
-│   └── faces
+│   ├── aligned                          --aligned_dir
+│   ├── classifiers                      --classifiers_dir
+│   └── faces                            --input_dir
 └── models
-    ├── bg_remove
-    └── facenet_pretrained_openvino_cpu
+    ├── bg_remove                        --bg_remove_path
+    └── facenet_pretrained_openvino_cpu  --model
 ```
 Each directory can be redefined by command line arguments.
 
-| Directory | CLI argument to redefine | Description |
-|-----------|--------------------------|-------------|
-| `./data/faces` | `--input_dir` | Initial dataset with images in named directories for each man. Initial faces is available in [this dataset](https://dev.kibernetika.io/svod/catalog/dataset/svod-faces/versions/1.0.0). |
-| `./data/aligned` | `--aligned_dir` | Prepared for training dataset's files |
-| `./data/classifiers` | `--classifiers_dir` | Directory for trained classifiers `classifier-*.pkl` |
-| `./models/bg_remove` | `--bg_remove_path` | Directory for background remove tf model. |
-| `./models/facenet_pretrained_openvino_cpu` | `--model` | Directory fot OpenVINO IR model. |
+| Directory | Description |
+|-----------|-------------|
+| `./data/faces` | Initial dataset with images in named directories for each man. Initial faces is available in [this dataset](https://dev.kibernetika.io/svod/catalog/dataset/svod-faces/versions/1.0.0). |
+| `./data/aligned` | Prepared for training dataset's files |
+| `./data/classifiers` | Directory for trained classifiers `classifier-*.pkl`, meta data `meta.json` and faces previews in directory `previews` |
+| `./models/bg_remove` | Directory for background remove tf model. |
+| `./models/facenet_pretrained_openvino_cpu` | Directory fot OpenVINO IR model. |
 
 ## Endpoints
 
@@ -100,6 +99,16 @@ python video.py
 
 Default video source is main web-camera, but it's can be redefined with argument `--video_source`.
 Use argument `--video_async` for asynchronous video rendering (by default **each video's frame** waits for faces recognition, detection and add boxes and labels to this frame).
+
+If any face has been recognized during 5 seconds (period can be changed with `--notify_face_detection_period`)
+in more than 50% frames (default probability value 0.5 can be changed with `--notify_face_detection_prob`)
+notification will be made.
+
+Default notification makes to stdout.
+
+Also notifications can be send to Slack channel if `--notify_slack_token` and `--notify_slack_channel` are filled.
+Slack channel sets without leading `#`.
+
 
 ## Listener interface
 

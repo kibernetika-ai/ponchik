@@ -40,7 +40,7 @@ class InVideoDetected:
                 if self.prob > self.notify_prob and not self.notified:
                     self.notified = True
                     self.notified_ts = now
-                    notify(self.name)
+                    notify('%s has been detected' % self.name)
                 if self.prob == 0:
                     self.not_detected_anymore = True
             self.processed = True
