@@ -373,9 +373,9 @@ class Detector(object):
         return frame_processed
 
     def add_overlays(self, frame, frame_processed):
-        for processed in frame_processed:
-            # print("!!!", i, len(bboxes), len(detects), len(labels))
-            self.add_overlay(frame, processed)
+        if frame_processed:
+            for processed in frame_processed:
+                self.add_overlay(frame, processed)
 
     def add_overlay(self, frame, processed, align_to_right=True):
         """Add box and label overlays on frame

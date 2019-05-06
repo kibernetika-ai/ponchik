@@ -32,6 +32,7 @@ class Video:
         self.pipeline = None
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
+        self.detected = {}
 
     def start(self):
         self.detector.init()
@@ -49,11 +50,13 @@ class Video:
                 self.get_frame()
                 if self.frame is None:
                     continue
+                frame_to_show = self.frame.copy()
                 if self.video_async:
-                    self.detector.add_overlays(self.frame, self.processed)
+                    self.detector.add_overlays(frame_to_show, self.processed)
                 else:
-                    self.processed = self.detector.process_frame(self.frame)
-                cv2.imshow('Video', self.frame)
+                    self.processed = self.detector.process_frame(frame_to_show)
+                    self.check_detected()
+                cv2.imshow('Video', frame_to_show)
                 key = cv2.waitKey(1)
                 # Wait 'q' or Esc or 'q' in russian layout
                 if key in [ord('q'), 202, 27]:
@@ -101,6 +104,10 @@ class Video:
         while True:
             if self.frame is not None:
                 self.processed = self.detector.process_frame(self.frame, overlays=False)
+                self.check_detected()
+
+    def check_detected(self):
+        pass
 
     def listen(self):
         while True:
