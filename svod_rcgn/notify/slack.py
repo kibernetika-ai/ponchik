@@ -24,7 +24,7 @@ class NotifySlack:
         print('Slack channel "%s" is not exists or not available' % self.channel)
         return False
 
-    def notify(self, name, position=None, company=None, image=None, image_title=None):
+    def notify(self, name, position=None, company=None, image=None):
         msg_strings = [':exclamation: *%s* has been detected' % name]
         if position:
             msg_strings.append(':male-student: _position:_ %s' % position)
@@ -41,7 +41,7 @@ class NotifySlack:
             self.client.files_upload(
                 channels=ch,
                 file=tmp_img,
-                title=image_title,
+                title=name,
                 initial_comment=msg,
             )
             os.remove(tmp_img)

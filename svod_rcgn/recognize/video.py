@@ -1,3 +1,4 @@
+import time
 from threading import Thread
 
 import cv2
@@ -35,6 +36,7 @@ class Video:
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
         self.faces_detected = {}
+        self.notifies_queqe = []
 
     def start(self):
         self.detector.init()
@@ -46,6 +48,8 @@ class Video:
         if self.listener is not None:
             listen_thread = Thread(target=self.listen, daemon=True)
             listen_thread.start()
+        notify_thread = Thread(target=self.notify, daemon=True)
+        notify_thread.start()
         try:
             while True:
                 # Capture frame-by-frame
@@ -136,7 +140,12 @@ class Video:
                 if self.frame is not None and bbox is not None:
                     cropped = images.crop_by_boxes(self.frame, [bbox])
                     image = cropped[0]
-                notify(fd, position=position, company=company, image=image, image_title=fd)
+                self.notifies_queqe.append({
+                    'name': fd,
+                    'position': position,
+                    'company': company,
+                    'image': image,
+                })
 
     def listen(self):
         while True:
@@ -155,6 +164,14 @@ class Video:
             else:
                 err = ValueError('unknown command %s' % command)
             self.listener.result(err)
+
+    def notify(self):
+        while True:
+            if len(self.notifies_queqe) == 0:
+                time.sleep(1)
+            else:
+                n = self.notifies_queqe.pop()
+                notify(n['name'], position=n['position'], company=n['company'], image=n['image'])
 
 
 def add_video_args(parser):
