@@ -78,7 +78,7 @@ def aligner_args(args):
         clear_input_dir=args.clear_input_dir,
         download=args.download,
         aligned_dir=args.aligned_dir,
-        complementary_align=args.complementary_align,
+        complementary_align=args.complementary_align or args.complementary,
         min_face_size=args.min_face_size,
         image_size=args.image_size,
         margin=args.margin,

@@ -70,7 +70,7 @@ def add_classifier_args(parser):
 def classifiers_args(args):
     return Classifiers(
         aligned_dir=args.aligned_dir,
-        complementary_train=args.complementary_train,
+        complementary_train=args.complementary_train or args.complementary,
         classifiers_dir=args.classifiers_dir,
         model_path=args.model_path,
         aug_flip=args.aug_flip,

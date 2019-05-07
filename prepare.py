@@ -42,6 +42,11 @@ def main():
         type=str,
         default=None,
     )
+    parser.add_argument(
+        '--complementary',
+        help='Complementary align and training.',
+        action='store_true',
+    )
     args = parser.parse_args()
     if not args.skip_align:
         al = aligner_args(args)

@@ -52,11 +52,12 @@ This argument can be used with `--clear_input_dir` to clear source data dir befo
 ```bash
 python prepare.py --download https://dev.kibernetika.io/api/v0.2/workspace/kuberlab-demo/dataset/faces-svod/versions/0.0.1/download/dataset-faces-svod-0.0.1.tar --clear_input_dir 
 ```
-Argument `--complementary_align` allows to **add** new classes and images to existing alignment data.
-Argument `--complementary_train` uses existing embeddings for classifiers training.
+Argument `--complementary_align` allows to **add** new classes and images to existing alignment data,
+`--complementary_train` uses existing embeddings for classifiers training, `--complementary` means `--complementary_align` and `--complementary_train` both.
+
 So adding some new persons to classifiers from another input directory looks like this: 
 ```bash
-python prepare.py --input_dir ./data/another_input_dir --complementary_align --complementary_train
+python prepare.py --input_dir ./data/another_input_dir --complementary
 ```
 Argument `--clarified` says that alignment input data is from servings images that was clarified, so this images will not detect for faces and uses as is and alignment will be complementary (key `--complementary_align` is not needed):
 ```bash
