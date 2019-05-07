@@ -10,7 +10,9 @@ def init_notifier(args):
     global notifier
     if args.notify_slack_token and args.notify_slack_channel:
         notifier = NotifySlack(args.notify_slack_token, args.notify_slack_channel)
-    else:
+        if not notifier.is_ok():
+            notifier = None
+    if notifier is None:
         notifier = NotifyPrint
 
 

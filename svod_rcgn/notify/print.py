@@ -10,7 +10,7 @@ class NotifyPrint:
             msg_strings.append('Position: %s' % position)
         if company:
             msg_strings.append('Company: %s' % company)
-        if image:
+        if image is not None:
             if image_title:
                 msg_strings.append('[IMAGE: %s]' % image_title)
             else:
