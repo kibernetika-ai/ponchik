@@ -29,6 +29,8 @@ PARAMS = {
     'enable_log': False,
     'logdir': 'faces_dir',
     'timing': True,
+    'skip_frames': True,
+    'inference_fps': 2,
 }
 load_lock = threading.Lock()
 width = 640
@@ -38,6 +40,9 @@ openvino_facenet: detector.Detector = None
 clarified_in_process = False
 uploaded_in_process = False
 process_lock = threading.Lock()
+frame_num = 0
+unknown_num = 0
+last_fully_processed = None
 
 
 def init_hook(**kwargs):
@@ -52,6 +57,8 @@ def init_hook(**kwargs):
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
+    PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
+    PARAMS['inference_fps'] = int(PARAMS['inference_fps'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
@@ -61,6 +68,10 @@ def init_hook(**kwargs):
     if PARAMS['enable_log']:
         if not os.path.exists(PARAMS['logdir']):
             os.mkdir(PARAMS['logdir'])
+
+        log_file = os.path.join(PARAMS['logdir'], 'log.txt')
+        if os.path.exists(log_file):
+            os.remove(log_file)
 
 
 def process(inputs, ctx, **kwargs):
@@ -133,6 +144,14 @@ def process_uploaded(inputs):
 
 
 def process_recognize(inputs, ctx, **kwargs):
+    global frame_num
+    global last_fully_processed
+    frame_num += 1
+
+    if PARAMS['skip_frames'] and last_fully_processed is not None:
+        if frame_num % (int(_get_fps(**kwargs)) // PARAMS['inference_fps']) != 0:
+            return last_fully_processed
+
     frame = _load_image(inputs, 'input')
     # convert to BGR
     data = frame[:, :, ::-1]
@@ -180,6 +199,9 @@ def process_recognize(inputs, ctx, **kwargs):
         'boxes': bounding_boxes,
         'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
     }
+
+    if PARAMS['enable_log']:
+        log_recognition(frame, ret, **kwargs)
 
     if PARAMS['need_table']:
 
@@ -283,6 +305,8 @@ def process_recognize(inputs, ctx, **kwargs):
         image_bytes = frame
 
     ret['output'] = image_bytes
+
+    last_fully_processed = ret
 
     return ret
 
@@ -435,3 +459,43 @@ def _run_retrain_task(task_name):
             LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
     else:
         LOG.warning("Unable to retrain: mlboard is absent")
+
+
+def _get_fps(**kwargs):
+    fps = 30.
+    if kwargs.get('metadata'):
+        fps = int(round(kwargs['metadata']['fps']))
+    return fps
+
+
+def log_recognition(frame, ret, **kwargs):
+    fps = _get_fps(**kwargs)
+
+    current_time = float(frame_num) / fps
+
+    # Log all in text
+    log_file = os.path.join(PARAMS['logdir'], 'log.txt')
+    str_labels = ret['labels'].astype(str)
+    with open(log_file, 'a+') as f:
+        msg = '{:.6f} {}\n'.format(current_time, ','.join(str_labels))
+        f.write(msg)
+
+    # Save unknowns
+    if frame_num % int(fps) == 0:
+        not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
+        not_detected_imgs = images.crop_by_boxes(frame, ret['boxes'][not_detected_indices].astype(int))
+
+        # find free dir
+        global unknown_num
+        for img in not_detected_imgs:
+            dir_name = os.path.join(PARAMS['logdir'], 'unknown_{:05d}'.format(unknown_num))
+            while os.path.exists(dir_name):
+                unknown_num += 1
+                dir_name = os.path.join(PARAMS['logdir'], 'unknown_{:05d}'.format(unknown_num))
+
+            os.mkdir(dir_name)
+
+            # save unknown image
+            image_file = os.path.join(dir_name, 'image.jpg')
+            # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(image_file, img)

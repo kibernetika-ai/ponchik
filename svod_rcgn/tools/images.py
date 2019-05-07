@@ -33,6 +33,15 @@ def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, d
     return images
 
 
+def crop_by_boxes(img, boxes):
+    crops = []
+    for box in boxes:
+        cropped = img[box[1]:box[3], box[0]:box[2]]
+        crops.append(cropped)
+
+    return crops
+
+
 def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
     # initialize the dimensions of the image to be resized and
     # grab the image size
