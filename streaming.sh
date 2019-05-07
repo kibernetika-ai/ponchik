@@ -29,6 +29,6 @@ then
   model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
 fi
 
-kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=clf -o need_table=false -o timing=false -o output_type=image --input server --output-type rtmp --output-rtmp $rtmp_url --initial-stream live --input-name input --output-name output --rtmp-backend rtmp-mux -o enable_log=true -o inference_fps=$inference_fps
+kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input server --output-type rtmp --output-rtmp $rtmp_url --initial-stream live --input-name input --output-name output --rtmp-backend rtmp-mux -o enable_log=true -o inference_fps=$inference_fps
 
 #kstreaming --driver openvino --model-path ~/projects/kiber-facenet/src/train-new/facenet.xml --hooks serving_hook.py -o classifiers_dir=clf -o need_table=false -o timing=false -o output_type=image --input server --output-type display --initial-stream live --input-name input --output-name output --rtmp-backend livego -o enable_log=true
