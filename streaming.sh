@@ -1,16 +1,22 @@
 rtmp_url=$1
-inference_fps=$2
-model_path=$3
+clf_path=$2
+inference_fps=$3
+model_path=$4
 
 if [ -z "$rtmp_url" ];
 then
-  echo "Usage: $0 <output_rtmp_url> [inference_fps; default=2] [facenet-model-path; default=models/facenet_pretrained_openvino_cpu/facenet.xml]"
+  echo "Usage: $0 <output_rtmp_url> [classifiers-dir] [inference_fps; default=2] [facenet-model-path; default=models/facenet_pretrained_openvino_cpu/facenet.xml]"
   echo
   echo "Then, use ffmpeg to stream to this serving, e.g:"
   echo 
   echo "  ffmpeg -re -i <video/source> -vcodec libx264 -acodec aac -f flv rtmp://localhost/live"
   echo 
   exit 1
+fi
+
+if [ -z "$clf_path" ];
+then
+  clf_path=data/classifiers
 fi
 
 if [ -z "$inference_fps" ];
