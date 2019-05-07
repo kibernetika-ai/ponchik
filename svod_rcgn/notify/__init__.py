@@ -11,7 +11,7 @@ def init_notifier(args):
     if args.notify_slack_token and args.notify_slack_channel:
         notifier = NotifySlack(args.notify_slack_token, args.notify_slack_channel)
     else:
-        notifier = NotifyPrint()
+        notifier = NotifyPrint
 
 
 def add_notify_args(parser):
@@ -29,11 +29,11 @@ def add_notify_args(parser):
     )
 
 
-def notify(message):
+def notify(name, position=None, company=None, image=None, image_title=None):
     if notifier is None:
         global not_init_say
         if not_init_say:
             print_fun("=== Notifications aren't initialized ===")
             not_init_say = True
         return
-    notifier.notify(message)
+    notifier.notify(name, position=position, company=company, image=image, image_title=image_title)

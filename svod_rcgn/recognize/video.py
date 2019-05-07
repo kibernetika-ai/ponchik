@@ -6,6 +6,7 @@ import numpy as np
 from svod_rcgn.tools import images
 from svod_rcgn.tools.print import print_fun
 from svod_rcgn.recognize.video_notify import InVideoDetected
+from svod_rcgn.notify import notify
 
 
 def video_args(detector, listener, args):
@@ -115,12 +116,26 @@ class Video:
                 if p.detected:
                     name = p.classes[0]
                     if name not in self.faces_detected:
-                        self.faces_detected[name] = InVideoDetected(name)
-                    self.faces_detected[name].exists_in_frame(True)
+                        self.faces_detected[name] = InVideoDetected()
+                    self.faces_detected[name].exists_in_frame(True, bbox=p.bbox)
         for fd in list(self.faces_detected):
             self.faces_detected[fd].exists_in_frame(False)
             if self.faces_detected[fd].not_detected_anymore and not self.faces_detected[fd].notified:
                 del self.faces_detected[fd]
+                continue
+            if self.faces_detected[fd].make_notify():
+                fd_ = fd.replace(' ', '_')
+                position, company, image = None, None, None
+                if fd_ in self.detector.meta:
+                    meta = self.detector.meta[fd_]
+                    if 'position' in meta:
+                        position = meta['position']
+                    if 'company' in meta:
+                        company = meta['company']
+                bbox = self.faces_detected[fd].bbox
+                if self.frame is not None and bbox is not None:
+                    image = self.frame[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+                notify(fd, position=position, company=company, image=image, image_title=fd)
 
     def listen(self):
         while True:

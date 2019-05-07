@@ -1,5 +1,4 @@
 from time import time
-from svod_rcgn.notify import notify
 
 
 class InVideoDetected:
@@ -8,21 +7,24 @@ class InVideoDetected:
     notify_prob = .5
     stay_notified = 600
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
+        self.bbox = None
         self.processed = False
         self.prob = 0
         self.not_detected_anymore = False
         self.in_frames = []
         self.in_frames_ts = []
+        self.notified_awaiting = False
         self.notified = False
         self.notified_ts = None
 
     def prepare(self):
         self.processed = False
 
-    def exists_in_frame(self, exists):
+    def exists_in_frame(self, exists, bbox=None):
         if not self.processed:
+            if bbox is not None:
+                self.bbox = bbox
             self.in_frames.append(1 if exists else 0)
             now = time()
             self.in_frames_ts.append(now)
@@ -39,11 +41,18 @@ class InVideoDetected:
                         self.notified_ts = None
                 if self.prob > self.notify_prob and not self.notified:
                     self.notified = True
+                    self.notified_awaiting = True
                     self.notified_ts = now
-                    notify('%s has been detected' % self.name)
+                    # notify('%s has been detected' % self.name)
                 if self.prob == 0:
                     self.not_detected_anymore = True
             self.processed = True
+
+    def make_notify(self):
+        if self.notified and self.notified_awaiting:
+            self.notified_awaiting = False
+            return True
+        return False
 
 
 def init_in_video_detected(args):
