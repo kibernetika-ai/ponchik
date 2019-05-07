@@ -134,7 +134,8 @@ class Video:
                         company = meta['company']
                 bbox = self.faces_detected[fd].bbox
                 if self.frame is not None and bbox is not None:
-                    image = self.frame[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+                    cropped = images.crop_by_boxes(self.frame, [bbox])
+                    image = cropped[0]
                 notify(fd, position=position, company=company, image=image, image_title=fd)
 
     def listen(self):
