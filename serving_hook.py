@@ -25,6 +25,10 @@ PARAMS = {
     'clarified_dir': '',
     'uploaded_dir': '',
     'project_name': '',
+
+    'enable_log': False,
+    'logdir': 'faces_dir',
+    'timing': True,
 }
 load_lock = threading.Lock()
 width = 640
@@ -46,11 +50,17 @@ def init_hook(**kwargs):
         ]
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
+    PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
+    PARAMS['timing'] = _boolean_string(PARAMS['timing'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
     clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
     clarify_checker.start()
+
+    if PARAMS['enable_log']:
+        if not os.path.exists(PARAMS['logdir']):
+            os.mkdir(PARAMS['logdir'])
 
 
 def process(inputs, ctx, **kwargs):
@@ -74,7 +84,7 @@ def process(inputs, ctx, **kwargs):
     elif action == "image":
         return process_uploaded(inputs)
     else:
-        return process_recognize(inputs, ctx, kwargs['model_inputs'])
+        return process_recognize(inputs, ctx, **kwargs)
 
 
 def process_names(action):
@@ -122,14 +132,15 @@ def process_uploaded(inputs):
     return res
 
 
-def process_recognize(inputs, ctx, model_inputs):
+def process_recognize(inputs, ctx, **kwargs):
     frame = _load_image(inputs, 'input')
     # convert to BGR
     data = frame[:, :, ::-1]
 
     start = time.time()
     bounding_boxes = openvino_facenet.detect_faces(data, PARAMS['threshold'][0])
-    LOG.info('Face Detection: {}'.format(time.time()-start))
+    if PARAMS['timing']:
+        LOG.info('Face Detection: {}'.format(time.time()-start))
 
     imgs = images.get_images(frame, bounding_boxes)
 
@@ -140,11 +151,13 @@ def process_recognize(inputs, ctx, model_inputs):
         imgs = np.random.randn(1, 3, 160, 160).astype(np.float32)
         skip = True
 
+    model_inputs = kwargs['model_inputs']
     model_input = list(model_inputs.keys())[0]
     if not skip:
         start = time.time()
         outputs = ctx.driver.predict({model_input: imgs})
-        LOG.info('Face Embedding: {}'.format(time.time()-start))
+        if PARAMS['timing']:
+            LOG.info('Face Embedding: {}'.format(time.time()-start))
     else:
         outputs = {'dummy': []}
 
@@ -159,7 +172,8 @@ def process_recognize(inputs, ctx, model_inputs):
         processed = openvino_facenet.process_output(
             item_output, bounding_boxes[img_idx]
         )
-        LOG.info('Process output: {}'.format(time.time()-start))
+        if PARAMS['timing']:
+            LOG.info('Process output: {}'.format(time.time()-start))
         processed_frame.append(processed)
 
     ret = {
