@@ -238,10 +238,12 @@ class Detector(object):
                     max_candidate = sorted(counts.items(), reverse=True, key=lambda x: x[1])[0]
 
                     if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
-                        print(
-                            "Changed candidate from %s to %s" %
-                            (self.classifiers.class_names[best_class_indices[idx]], self.classifiers.class_names[max_candidate[0]])
-                        )
+                        # print_fun(
+                        #     "Changed candidate from %s to %s" % (
+                        #         self.classifiers.class_names[best_class_indices[idx]],
+                        #         self.classifiers.class_names[max_candidate[0]]
+                        #     )
+                        # )
                         best_class_indices[idx] = max_candidate[0]
 
                     ttl_cnt = counts[best_class_indices[idx]]
@@ -252,18 +254,16 @@ class Detector(object):
                     # multiplied by distance coefficient:
                     # 0.5 and less is 100%, 1 and more is 0%
                     prob = max(0, min(1, 2 * ttl_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
-                    label_debug = '%.3f %d/%d' % (
+                    return prob, '%.3f %d/%d' % (
                         eval_values[idx],
                         ttl_cnt, cnt,
                     )
-                    return prob, label_debug
 
             elif isinstance(clf, svm.SVC):
 
                 def process_index(idx):
                     eval_values = predictions[np.arange(len(best_class_indices)), best_class_indices]
-                    label_debug = '%.1f%%' % (eval_values[idx] * 100)
-                    return max(0, min(1, eval_values[idx] * 10)), label_debug
+                    return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100)
 
             else:
 
@@ -445,7 +445,7 @@ class Detector(object):
                             thickness=thickness + 1,
                         )
                         if cls not in self.classes_previews:
-                            print_fun('Init preview for class "%s"' % cls)
+                            # print_fun('Init preview for class "%s"' % cls)
                             self.classes_previews[cls] = None
                             cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
                             if os.path.isfile(cls_img_path):
