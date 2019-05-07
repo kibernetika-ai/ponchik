@@ -119,7 +119,7 @@ class Video:
                     self.faces_detected[name].exists_in_frame(True)
         for fd in list(self.faces_detected):
             self.faces_detected[fd].exists_in_frame(False)
-            if self.faces_detected[fd].not_detected_anymore:
+            if self.faces_detected[fd].not_detected_anymore and not self.faces_detected[fd].notified:
                 del self.faces_detected[fd]
 
     def listen(self):
