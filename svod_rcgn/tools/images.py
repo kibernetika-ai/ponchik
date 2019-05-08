@@ -36,10 +36,13 @@ def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, d
 def crop_by_boxes(img, boxes):
     crops = []
     for box in boxes:
-        cropped = img[box[1]:box[3], box[0]:box[2]]
+        cropped = crop_by_box(img, box)
         crops.append(cropped)
-
     return crops
+
+
+def crop_by_box(img, box):
+    return img[box[1]:box[3], box[0]:box[2]]
 
 
 def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):

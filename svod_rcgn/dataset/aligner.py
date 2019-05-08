@@ -120,6 +120,9 @@ class Aligner:
             err = downloader.Downloader(download, destination=self.input_dir).extract()
             if err is not None:
                 raise RuntimeError(err)
+        self.serving = None
+        self.threshold = 0.5
+        self.min_face_area = self.min_face_size ** 2
 
     def align(self, images_limit=None):
 
@@ -164,23 +167,9 @@ class Aligner:
         print_fun('Creating networks and loading parameters')
 
         # Load driver
-        drv = driver.load_driver("openvino")
-        # Instantinate driver
-        self.serving = drv()
-        self.serving.load_model(
-            self.face_detection_path,
-            device=self.device,
-            flexible_batch_size=True,
-        )
+        self._load_driver()
 
         bg_rm_drv = bg_remove.get_driver(self.bg_remove_path)
-
-        self.input_name = list(self.serving.inputs.keys())[0]
-        self.output_name = list(self.serving.outputs.keys())[0]
-
-        self.threshold = 0.5
-
-        self.min_face_area = self.min_face_size ** 2
 
         bounding_boxes_contents = ""
 
@@ -358,6 +347,19 @@ class Aligner:
         if nrof_has_meta > 0:
             print_fun('Number of classes with meta: %d' % nrof_has_meta)
         print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)
+
+    def _load_driver(self):
+        if self.serving is None:
+            drv = driver.load_driver("openvino")
+            # Instantinate driver
+            self.serving = drv()
+            self.serving.load_model(
+                self.face_detection_path,
+                device=self.device,
+                flexible_batch_size=True,
+            )
+            self.input_name = list(self.serving.inputs.keys())[0]
+            self.output_name = list(self.serving.outputs.keys())[0]
 
     def _get_boxes(self, image_path, img):
         serving_img = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)

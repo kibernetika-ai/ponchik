@@ -1,5 +1,7 @@
 ALIGNED_DIR = "./data/aligned"
 CLASSIFIERS_DIR = "./data/classifiers"
+NOT_DETECTED_DIR = "./data/notdetected"
+NOT_DETECTED_CHECK_PERIOD = 3
 MIN_FACE_SIZE = 25
 IMAGE_SIZE = 160
 IMAGE_MARGIN = 32

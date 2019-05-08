@@ -107,6 +107,7 @@ class Classifiers:
         self.device = device
         self.loading_image_total_time = 0
         self.loading_images = 0
+        self.serving = None
 
     def train(self):
 
@@ -126,15 +127,7 @@ class Classifiers:
         print_fun('Loading feature extraction model')
 
         # Load and instantinate driver
-        drv = driver.load_driver(self.driver_name)
-        serving = drv()
-        serving.load_model(
-            self.model_path,
-            inputs='input:0,phase_train:0',
-            outputs='embeddings:0',
-            device=self.device,
-            flexible_batch_size=True,
-        )
+        self._load_model()
 
         # Run forward pass to calculate embeddings
         print_fun('Calculating features for images')
@@ -218,22 +211,9 @@ class Classifiers:
             images = self.load_data(paths_batch_load, labels_batch_load)
             print_fun("Load & Augmentation: %.3fms" % ((time.time() - t) * 1000))
 
-            if serving.driver_name == 'tensorflow':
-                feed_dict = {'input:0': images, 'phase_train:0': False}
-            elif serving.driver_name == 'openvino':
-                input_name = list(serving.inputs.keys())[0]
-                # Transpose image for channel first format
-                images = images.transpose([0, 3, 1, 2])
-                feed_dict = {input_name: images}
-            else:
-                raise RuntimeError('Driver %s currently not supported' % serving.driver_name)
-
             t = time.time()
-            outputs = serving.predict(feed_dict)
+            emb_outputs = self._predict(images)
             print_fun("Inference: %.3fms" % ((time.time() - t) * 1000))
-            # total_time += time.time() - t
-
-            emb_outputs = list(outputs.values())[0]
 
             for n, e in enumerate(emb_outputs):
                 cls_name = loaded_dataset[labels_batch_load[n]].name
@@ -320,6 +300,31 @@ class Classifiers:
 
         print_fun("Training complete: created %d classifiers with %d embeddings (%d images) in %d classes" %
                   (len(self.algorithms), len(emb_array), nrof_images, len(set(fit_labels))))
+
+    def _load_model(self):
+        if self.serving is None:
+            drv = driver.load_driver(self.driver_name)
+            self.serving = drv()
+            self.serving.load_model(
+                self.model_path,
+                inputs='input:0,phase_train:0',
+                outputs='embeddings:0',
+                device=self.device,
+                flexible_batch_size=True,
+            )
+
+    def _predict(self, imgs):
+        if self.serving.driver_name == 'tensorflow':
+            feed_dict = {'input:0': imgs, 'phase_train:0': False}
+        elif self.serving.driver_name == 'openvino':
+            input_name = list(self.serving.inputs.keys())[0]
+            # Transpose image for channel first format
+            imgs = imgs.transpose([0, 3, 1, 2])
+            feed_dict = {input_name: imgs}
+        else:
+            raise RuntimeError('Driver %s currently not supported' % self.serving.driver_name)
+        outputs = self.serving.predict(feed_dict)
+        return list(outputs.values())[0]
 
     def load_data(self, paths_batch, labels):
         if len(paths_batch) != len(labels):
