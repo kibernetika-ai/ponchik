@@ -201,7 +201,7 @@ def process_recognize(inputs, ctx, **kwargs):
     }
 
     if PARAMS['enable_log']:
-        log_recognition(frame, ret, **kwargs)
+        log_recognition(frame, ret, imgs, **kwargs)
 
     if PARAMS['need_table']:
 
@@ -468,7 +468,7 @@ def _get_fps(**kwargs):
     return fps
 
 
-def log_recognition(frame, ret, **kwargs):
+def log_recognition(frame, ret, imgs, **kwargs):
     fps = _get_fps(**kwargs)
 
     current_time = float(frame_num) / fps
@@ -483,7 +483,7 @@ def log_recognition(frame, ret, **kwargs):
     # Save unknowns
     if frame_num % int(fps) == 0:
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
-        not_detected_imgs = images.crop_by_boxes(frame, ret['boxes'][not_detected_indices].astype(int))
+        not_detected_imgs = imgs[not_detected_indices]
 
         # find free dir
         global unknown_num
