@@ -67,14 +67,13 @@ class Video:
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
-                if self.frame is None:
-                    continue
-                frame = self.frame.copy()
-                if self.video_async:
-                    self.detector.add_overlays(frame, self.processed)
-                else:
-                    self.process_frame(frame=frame)
-                cv2.imshow('Video', frame)
+                if self.frame is not None:
+                    frame = self.frame.copy()
+                    if self.video_async:
+                        self.detector.add_overlays(frame, self.processed)
+                    else:
+                        self.process_frame(frame=frame)
+                    cv2.imshow('Video', frame)
                 key = cv2.waitKey(1)
                 # Wait 'q' or Esc or 'q' in russian layout
                 if key in [ord('q'), 202, 27]:
