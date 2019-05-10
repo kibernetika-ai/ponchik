@@ -64,10 +64,11 @@ class Video:
         notify_thread = Thread(target=self.notify, daemon=True)
         notify_thread.start()
         try:
+            iframe = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
-                if self.frame is not None:
+                if self.frame is not None and (iframe % 3 == 0) :
                     frame = self.frame.copy()
                     if self.video_async:
                         self.detector.add_overlays(frame, self.processed)
