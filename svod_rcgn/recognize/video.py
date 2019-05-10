@@ -111,6 +111,7 @@ class Video:
             new_frame = new_frame[1]
         if new_frame is None:
             print_fun("frame is None. Possibly camera or display does not work")
+            self.frame = None
             return None
         if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
                 self.video_max_height is not None and new_frame.shape[0] > self.video_max_height:
