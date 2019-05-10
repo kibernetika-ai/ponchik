@@ -75,6 +75,7 @@ class Video:
                     else:
                         self.process_frame(frame=frame)
                     cv2.imshow('Video', frame)
+                iframe += 1
                 key = cv2.waitKey(1)
                 # Wait 'q' or Esc or 'q' in russian layout
                 if key in [ord('q'), 202, 27]:
@@ -110,7 +111,7 @@ class Video:
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
-            print_fun("frame is None. Possibly camera or display does not work")
+            print_fun("ops frame is None. Possibly camera or display does not work")
             self.frame = None
             return None
         if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
