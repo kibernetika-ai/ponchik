@@ -31,11 +31,13 @@ def add_notify_args(parser):
     )
 
 
-def notify(name, position=None, company=None, image=None):
+def notify(**kwargs):
     if notifier is None:
         global not_init_say
         if not_init_say:
             print_fun("=== Notifications aren't initialized ===")
             not_init_say = True
         return
-    notifier.notify(name, position=position, company=company, image=image)
+    if not kwargs['name']:
+        kwargs['name'] = '--Somebody--'
+    notifier.notify(**kwargs)

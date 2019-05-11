@@ -198,7 +198,7 @@ class Video:
                 time.sleep(1)
             else:
                 n = self.notifies_queue.pop()
-                notify(n['name'], position=n['position'], company=n['company'], image=n['image'])
+                notify(**n)
 
 
 def add_video_args(parser):

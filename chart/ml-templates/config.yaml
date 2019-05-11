@@ -84,7 +84,7 @@ spec:
         {{- end }}
         --model_path $FACENET_DIR/facenet.xml
         --classifiers_dir $TRAINING_DIR/classifiers
-        --complementary_align --complementary_train
+        --complementary
         --model_name {{ .app_name }}
         --model_version 1.0.0-$(date +%s)
       images:

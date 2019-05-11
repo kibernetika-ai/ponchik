@@ -24,24 +24,95 @@ class NotifySlack:
         print('Slack channel "%s" is not exists or not available' % self.channel)
         return False
 
-    def notify(self, name, position=None, company=None, image=None):
-        msg_strings = [':exclamation: *%s* has been detected' % name]
-        if position:
-            msg_strings.append(':male-student: _position:_ %s' % position)
-        if company:
-            msg_strings.append(':classical_building: _company:_ %s' % company)
-        msg = '\r\n'.join(msg_strings)
+    def notify(self, **kwargs):
 
         ch = '#%s' % self.channel
-        if image is None:
-            self.client.chat_postMessage(channel=ch, text=msg)
-        else:
+        has_image = 'image' in kwargs
+        image_id = None
+
+        if has_image:
             tmp_img = os.path.join(self.tempdir.name, str(time.time()) + '.jpg')
-            cv2.imwrite(tmp_img, image)
-            self.client.files_upload(
-                channels=ch,
-                file=tmp_img,
-                title=name,
-                initial_comment=msg,
-            )
-            os.remove(tmp_img)
+            try:
+                cv2.imwrite(tmp_img, kwargs['image'])
+                r = self.client.files_upload(
+                    channels=ch,
+                    file=tmp_img,
+                    title=kwargs['name'],
+                )
+                assert r['ok']
+                image_id = r['file']['id']
+            except:
+                has_image = False
+            finally:
+                os.remove(tmp_img)
+
+        message_txt = '%s has been detected' % kwargs['name']
+
+        msg_strings = [':exclamation: *%s* has been detected' % kwargs['name']]
+        if 'position' in kwargs:
+            msg_strings.append(':male-student: _position:_ %s' % kwargs['position'])
+        if 'company' in kwargs:
+            msg_strings.append(':classical_building: _company:_ %s' % kwargs['company'])
+
+        actions = []
+        if has_image and image_id:
+            if 'action_confirm' not in kwargs or kwargs['action_confirm']:
+                actions.append({
+                    'type': 'button',
+                    'action_id': 'confirm-%s' % image_id,
+                    'style': 'primary',
+                    'text': {
+                        'type': 'plain_text',
+                        'text': ':white_check_mark: Yes, it\'s %s' % kwargs['name'],
+                    }
+                })
+            if 'action_unknown' not in kwargs or kwargs['action_unknown']:
+                actions.append({
+                    'type': 'button',
+                    'action_id': 'unknown-%s' % image_id,
+                    'style': 'danger',
+                    'text': {
+                        'type': 'plain_text',
+                        'text': 'Unknown',
+                    }
+                })
+            if 'action_options' in kwargs and len(kwargs['action_options']) > 0:
+                options = [{
+                    "text": {
+                        "type": "plain_text",
+                        "text": o
+                    },
+                    "value": o
+                } for o in kwargs['action_options']]
+                actions.append({
+                    'type': 'static_select',
+                    'action_id': 'exists-%s' % image_id,
+                    'options': options,
+                })
+            if len(actions) > 0:
+                actions.append({
+                    'type': 'button',
+                    'action_id': 'close',
+                    'text': {
+                        'type': 'plain_text',
+                        'text': 'Close',
+                    }
+                })
+
+        blocks = [
+            {
+                'type': 'section',
+                'text': {
+                    'type': 'mrkdwn',
+                    'text': '\r\n'.join(msg_strings)
+                }
+            },
+
+        ]
+        if len(actions) > 0:
+            blocks.append({
+                'type': 'actions',
+                'elements': actions
+            })
+
+        self.client.chat_postMessage(channel=ch, text=message_txt, blocks=blocks)
