@@ -60,8 +60,7 @@ spec:
       volumes:
         - name: server-source
           gitRepo:
-            repository: https://github.com/kibernetika-ai/svod_rcgn
-            directory: slack_server/chart
+            repository: https://github.com/kibernetika-ai/svod_rcgn/slack_server/chart
 {{- if .Values.tolerations }}
       tolerations:
       - operator: {{ .Values.tolerations.operator | quote }}
