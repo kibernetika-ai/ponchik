@@ -149,8 +149,9 @@ def process_recognize(inputs, ctx, **kwargs):
     frame_num += 1
 
     if PARAMS['skip_frames'] and last_fully_processed is not None:
-        if frame_num % (int(_get_fps(**kwargs)) // PARAMS['inference_fps']) != 0:
-            return last_fully_processed
+        if PARAMS['inference_fps'] != 0:
+            if frame_num % (int(_get_fps(**kwargs)) // PARAMS['inference_fps']) != 0:
+                return last_fully_processed
 
     frame = _load_image(inputs, 'input')
     # convert to BGR
@@ -483,7 +484,7 @@ def log_recognition(frame, ret, imgs, **kwargs):
     # Save unknowns
     if frame_num % int(fps) == 0:
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
-        not_detected_imgs = imgs[not_detected_indices]
+        not_detected_imgs = imgs[not_detected_indices].transpose(0, 2, 3, 1)
 
         # find free dir
         global unknown_num
