@@ -20,7 +20,7 @@ spec:
           - path: /
             backend:
               serviceName: {{ template "app_name" . }}
-              servicePort: 80
+              servicePort: {{ .Values.service.port }}
 {{- if .Values.ingress.tls }}
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}
