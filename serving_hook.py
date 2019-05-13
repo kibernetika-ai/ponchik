@@ -442,22 +442,26 @@ def _retrain_checker():
 
 def _run_retrain_task(task_name):
     if mlboard is not None:
-        app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
-        LOG.info('retrain with task "%s:%s"' % (app_name, task_name))
-        try:
-            app = mlboard.apps.get(app_name)
-        except Exception as e:
-            LOG.error('get app "%s" error: %s' % (app_name, e))
-            return
-        task = app.task(task_name)
-        if task is None:
-            LOG.error('app "%s" has no task "%s"' % (app_name, task_name))
-            return
-        try:
-            task.run()
-            # LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
-        except Exception as e:
-            LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
+        ws_id, prj_name = os.environ.get('WORKSPACE_ID'), PARAMS['project_name']
+        if ws_id and prj_name:
+            app_name = '%s-%s' % (os.environ.get('WORKSPACE_ID'), PARAMS['project_name'])
+            LOG.info('retrain with task "%s:%s"' % (app_name, task_name))
+            try:
+                app = mlboard.apps.get(app_name)
+            except Exception as e:
+                LOG.error('get app "%s" error: %s' % (app_name, e))
+                return
+            task = app.task(task_name)
+            if task is None:
+                LOG.error('app "%s" has no task "%s"' % (app_name, task_name))
+                return
+            try:
+                task.run()
+                # LOG.info('retrain with task "%s:%s" DONE' % (app_name, task_name))
+            except Exception as e:
+                LOG.error('run task "%s:%s" error "%s"' % (app_name, task_name, e))
+        else:
+            LOG.warning("Unable to retrain: no project info")
     else:
         LOG.warning("Unable to retrain: mlboard is absent")
 
