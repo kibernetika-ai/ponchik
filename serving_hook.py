@@ -155,10 +155,10 @@ def process_recognize(inputs, ctx, **kwargs):
 
     frame = _load_image(inputs, 'input')
     # convert to BGR
-    data = frame[:, :, ::-1]
+    bgr_frame = np.copy(frame[:, :, ::-1])
 
     start = time.time()
-    bounding_boxes = openvino_facenet.detect_faces(data, PARAMS['threshold'][0])
+    bounding_boxes = openvino_facenet.detect_faces(bgr_frame, PARAMS['threshold'][0])
     if PARAMS['timing']:
         LOG.info('Face Detection: {}'.format(time.time()-start))
 
@@ -296,16 +296,16 @@ def process_recognize(inputs, ctx, **kwargs):
             })
         ret['table_meta'] = json.dumps(meta)
 
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    if not skip:
-        openvino_facenet.add_overlays(frame, processed_frame)
+    # Use BGR frame for overlays
+    openvino_facenet.add_overlays(bgr_frame, processed_frame)
 
     if PARAMS['output_type'] == 'bytes':
-        image_bytes = cv2.imencode(".jpg", frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
+        image_output = cv2.imencode(".jpg", bgr_frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
     else:
-        image_bytes = frame
+        rgb_frame = bgr_frame[:, :, ::-1]
+        image_output = rgb_frame
 
-    ret['output'] = image_bytes
+    ret['output'] = image_output
 
     last_fully_processed = ret
 
@@ -379,14 +379,13 @@ def _load_image(inputs, image_key):
     image = inputs.get(image_key)
     if image is None:
         raise RuntimeError('Missing "{0}" key in inputs. Provide an image in "{0}" key'.format(image_key))
-
     if len(image.shape) == 0:
         image = np.stack([image.tolist()])
+        image = image[:, :, ::-1]
 
     if len(image.shape) < 3:
         image = cv2.imdecode(np.frombuffer(image[0], np.uint8), cv2.IMREAD_COLOR)
-
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = image[:, :, ::-1]
 
     return image
 
