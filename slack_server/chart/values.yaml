@@ -22,7 +22,7 @@ resources:
 ## ref: http://kubernetes.io/docs/user-guide/services/
 service:
   type: ClusterIP
-  port: 8123
+  port: 4242
   annotations: {}
   labels: {}
   externalIPs: []
