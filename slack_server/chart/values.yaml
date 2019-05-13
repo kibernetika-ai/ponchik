@@ -1,0 +1,59 @@
+## Number of ClickHouse nodes
+replicas: 1
+
+## Image settings
+## ref: http://kubernetes.io/docs/user-guide/images/
+image: python
+imageTag: 3.7
+imagePullPolicy: Always
+# imagePullSecret: mypullsecret
+
+## Resource limits and requests
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+resources:
+  limits:
+    cpu: .2
+    memory: 256Mi
+  requests:
+    cpu: 1
+    memory: 1Gi
+
+## Specify a service type
+## ref: http://kubernetes.io/docs/user-guide/services/
+service:
+  type: ClusterIP
+  port: 8123
+  annotations: {}
+  labels: {}
+  externalIPs: []
+  ## Manually set NodePort value
+  ## Requires service.type: NodePort
+  # nodePort:
+
+## Specify ingress settings
+## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  annotations: {}
+  labels: {}
+  path: /
+  hosts:
+    - slack-rcgn-example.192.168.99.100.xip.io
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+  enable_https: false
+  host: slack-rcgn.domain.com
+
+## If you want use nodeSelector for install clickhouse on specific node
+# nodeSelector:
+#   key: 'node-role/logging'
+#   value: ''
+
+## If you want use taint for install only clickhouse on specific node
+# tolerations:
+#   key: 'node-role/logging'
+#   operator: 'Exists'
+#   value: 'logging'
+#   effect: 'NoSchedule'

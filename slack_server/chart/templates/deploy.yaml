@@ -1,0 +1,79 @@
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "app_name" . }}
+  labels:
+    heritage: {{ .Release.Service }}
+    release: {{ template "app_name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "app_name" . }}
+{{- with .Values.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ template "app_name" . }}
+      release: {{ template "app_name" . }}
+  serviceName: {{ template "app_name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "app_name" . }}
+        release: {{ template "app_name" . }}
+{{- with .Values.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: {{ template "app_name" . }}
+          image: {{ .Values.image }}:{{ .Values.imageTag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 4242
+          livenessProbe:
+            httpGet:
+              path: /probe
+              port: 4242
+          readinessProbe:
+            httpGet:
+              path: /probe
+              port: 4242
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+          volumeMounts:
+            - name: server-source
+              mountPath: /server/
+      volumes:
+        - name: server-source
+          gitRepo:
+            repository: https://github.com/kibernetika-ai/svod_rcgn
+            directory: slack_server/chart
+{{- if .Values.tolerations }}
+      tolerations:
+      - operator: {{ .Values.tolerations.operator | quote }}
+        key: {{ .Values.tolerations.key | quote }}
+  {{- if .Values.tolerations.value }}
+        value: {{ .Values.tolerations.value | quote }}
+  {{- end }}
+  {{- if .Values.tolerations.effect }}
+        effect: {{ .Values.tolerations.effect | quote }}
+  {{- end }}
+{{- end }}
+{{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+{{- end }}
