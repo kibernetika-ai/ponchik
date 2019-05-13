@@ -1,10 +1,11 @@
 rtmp_url=""
 clf_path=data/classifiers
-inference_fps=5
+inference_fps=10
 model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
 backend=livego # livego / rtmp-mux
 OUTPUT_TYPE="rtmp"
 INPUT="server"
+rs_file=""
 
 usage="""
 Usage:
@@ -19,6 +20,7 @@ Options:
   --output-rtmp <rtmp-url> Output RTMP URL stream address. Optional.
   --input <type> Input type. Can be one of 'camera', 'realsense', 'server' 
                  or any opencv-compatible URL (rtmp/rtsp/filepath etc.). Default $INPUT.
+  --input-realsense Path to realsense .bag file to stream.
 
 
 In case of --output-type rtmp use ffmpeg to stream to this serving, e.g:
@@ -55,6 +57,10 @@ key="$1"
     INPUT="$2"
     shift; shift
     ;;
+    --input-realsense)
+    rs_file="$2"
+    shift; shift;
+    ;;
     *)
     echo "Unknown option $key."
     echo "$usage"
@@ -86,5 +92,5 @@ then
   output_arg=""
 fi
 
-kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps
+kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps
 
