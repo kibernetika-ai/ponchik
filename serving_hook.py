@@ -43,6 +43,8 @@ process_lock = threading.Lock()
 frame_num = 0
 unknown_num = 0
 last_fully_processed = None
+freq = None
+skip_threshold = 0
 
 
 def init_hook(**kwargs):
@@ -146,11 +148,20 @@ def process_uploaded(inputs):
 def process_recognize(inputs, ctx, **kwargs):
     global frame_num
     global last_fully_processed
+    global freq
+    global skip_threshold
     frame_num += 1
 
     if PARAMS['skip_frames'] and last_fully_processed is not None:
+        if freq is None:
+            fps = int(_get_fps(**kwargs))
+
+            freq = (fps - PARAMS['inference_fps']) / float(fps)
+
         if PARAMS['inference_fps'] != 0:
-            if frame_num % (int(_get_fps(**kwargs)) // PARAMS['inference_fps']) != 0:
+            skip_threshold += freq
+            if skip_threshold > 1:
+                skip_threshold -= 1
                 return last_fully_processed
 
     frame = _load_image(inputs, 'input')
