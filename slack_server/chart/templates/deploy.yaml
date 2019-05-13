@@ -42,6 +42,8 @@ spec:
           env:
             - name: SLACK_TOKEN
               value: {{ .Values.slack_token }}
+            - name: SERVING_REQUEST_URL
+              value: {{ .Values.serving_request_url }}
           workingDir: /server
           image: {{ .Values.image }}:{{ .Values.imageTag }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}

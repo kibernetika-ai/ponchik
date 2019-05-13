@@ -1,4 +1,5 @@
 slack_token: xoxb-XXXXXXXXXXXX-YYYYYYYYYYYY-ZZZZZZZZZZZZZZZZZZZZZZZZ
+serving_request_url: http://xxx.yyy.zzz/tfproxy/9000/any
 
 ## Number of ClickHouse nodes
 replicas: 1
