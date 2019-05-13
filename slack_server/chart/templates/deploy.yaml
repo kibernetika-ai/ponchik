@@ -34,6 +34,12 @@ spec:
         runAsUser: 0
       containers:
         - name: {{ template "app_name" . }}
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - sh start.sh
+          workingDir: /server
           image: {{ .Values.image }}:{{ .Values.imageTag }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
@@ -56,12 +62,12 @@ spec:
               memory: {{ .Values.resources.limits.memory }}
           volumeMounts:
             - name: server-source
-              mountPath: /server/
+              mountPath: /server
+              subPath: svod_rcgn/slack_server/server
       volumes:
         - name: server-source
           gitRepo:
             repository: https://github.com/kibernetika-ai/svod_rcgn
-            directory: slack_server/chart
 {{- if .Values.tolerations }}
       tolerations:
       - operator: {{ .Values.tolerations.operator | quote }}
