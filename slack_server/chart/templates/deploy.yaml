@@ -39,6 +39,9 @@ spec:
             - -c
           args:
             - sh start.sh
+          env:
+            - name: SLACK_TOKEN
+              value: {{ .Values.slack_token }}
           workingDir: /server
           image: {{ .Values.image }}:{{ .Values.imageTag }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}

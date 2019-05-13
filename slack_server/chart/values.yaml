@@ -1,3 +1,5 @@
+slack_token: xoxb-XXXXXXXXXXXX-YYYYYYYYYYYY-ZZZZZZZZZZZZZZZZZZZZZZZZ
+
 ## Number of ClickHouse nodes
 replicas: 1
 
