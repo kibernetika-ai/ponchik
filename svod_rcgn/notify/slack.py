@@ -66,16 +66,16 @@ class NotifySlack:
                         'text': ':white_check_mark: Yes, it\'s %s' % kwargs['name'],
                     }
                 })
-            if 'action_unknown' not in kwargs or kwargs['action_unknown']:
-                actions.append({
-                    'type': 'button',
-                    'action_id': 'unknown-%s' % image_id,
-                    'style': 'danger',
-                    'text': {
-                        'type': 'plain_text',
-                        'text': 'Unknown',
-                    }
-                })
+            # if 'action_unknown' not in kwargs or kwargs['action_unknown']:
+            #     actions.append({
+            #         'type': 'button',
+            #         'action_id': 'unknown-%s' % image_id,
+            #         'style': 'danger',
+            #         'text': {
+            #             'type': 'plain_text',
+            #             'text': 'Unknown',
+            #         }
+            #     })
             if 'action_options' in kwargs and len(kwargs['action_options']) > 0:
                 options = [{
                     "text": {
@@ -86,8 +86,18 @@ class NotifySlack:
                 } for o in kwargs['action_options']]
                 actions.append({
                     'type': 'static_select',
-                    'action_id': 'exists-%s' % image_id,
+                    'action_id': 'confirmopt-%s' % image_id,
                     'options': options,
+                })
+            if 'action_dialog' not in kwargs or kwargs['action_dialog']:
+                actions.append({
+                    'type': 'button',
+                    'action_id': 'dialog-%s' % image_id,
+                    'style': 'danger',
+                    'text': {
+                        'type': 'plain_text',
+                        'text': 'Not in list',
+                    }
                 })
             # if len(actions) > 0:
             #     actions.append({
