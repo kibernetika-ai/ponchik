@@ -309,6 +309,7 @@ class BadgePorcessor(object):
             message = {
                 'name': name,
                 'image': face[:,:,::-1],
+                'company': 'Badge Detector'
             }
             notify(**message)
             # TODO Notify face
