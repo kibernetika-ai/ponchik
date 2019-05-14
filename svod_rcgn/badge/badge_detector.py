@@ -7,6 +7,7 @@ import sys
 import logging
 from itertools import permutations
 import fuzzyset
+from svod_rcgn.notify import notify
 
 MAX_DIM = 1024.0
 ENGLISH_CHAR_MAP = [
@@ -164,7 +165,6 @@ class BadgePorcessor(object):
         self.names_db = fuzzyset.FuzzySet()
         self.data_db = {}
         for p in people:
-            logging.info('Add: {}'.format(p))
             tokens = p.split(' ')
             for t in tokens:
                 if len(t) > 1:
@@ -190,10 +190,8 @@ class BadgePorcessor(object):
     def run(self):
         while True:
             try:
-                logging.info('Start exec new task')
                 data = self.queue.get()
                 self._process(data)
-                logging.info('End exec new task')
             except:
                 logging.info('Failed to process: {}'.format(sys.exc_info()))
             finally:
@@ -266,7 +264,6 @@ class BadgePorcessor(object):
         mask = decodeImageByJoin(cls, links, self.pixel_threshold, self.link_threshold)
         bboxes = maskToBoxes(mask, (image.shape[1], image.shape[0]))
         texts = []
-        logging.info('BBoxes: {}'.format(bboxes))
         for i in range(len(bboxes)):
             box = np.int0(cv2.boxPoints(bboxes[i]))
             maxp = np.max(box, axis=0) + 2
@@ -288,7 +285,11 @@ class BadgePorcessor(object):
             text_img = norm_image_for_text_prediction(text_img, 32, 320)
             text = self.extract_text(text_img)
             if len(text) > 0:
-                logging.info('Text: {}'.format(text))
+                message = {
+                    'name': text,
+                    'image': face,
+                }
+                notify(**message)
                 texts.append(text)
         candidates = []
         found_name = None
