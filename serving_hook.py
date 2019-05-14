@@ -138,7 +138,7 @@ def process(inputs, ctx, **kwargs):
     if not net_loaded:
         with load_lock:
             if not net_loaded:
-                _load_nets(**kwargs)
+                _load_nets(ctx=ctx)
                 net_loaded = True
 
     if PARAMS['badge_detector']=='yes':
@@ -434,7 +434,12 @@ def _boolean_string(s):
     return s == 'true'
 
 
-def _load_nets(**kwargs):
+def _load_nets(ctx):
+    if hasattr(ctx, 'drivers'):
+        facenet_driver = ctx.drivers[0]
+    else:
+        facenet_driver = ctx.driver
+
     LOG.info('Load FACE DETECTION')
     clf_dir = PARAMS['classifiers_dir']
     if not os.path.isdir(clf_dir):
@@ -454,11 +459,11 @@ def _load_nets(**kwargs):
     ot = detector.Detector(
         device='CPU',
         classifiers_dir=clf_dir,
-        model_path=PARAMS['model_path'],
+        model_path=PARAMS['model_path'].split(':')[0],
         debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
-        loaded_plugin=kwargs['plugin'],
-        facenet_exec_net=kwargs['exec_net'],
+        loaded_plugin=facenet_driver.plugin,
+        facenet_exec_net=facenet_driver.model,
     )
     ot.init()
     openvino_facenet = ot
