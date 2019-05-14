@@ -156,6 +156,7 @@ def rotate_bound(image, angle):
 
 class BadgePorcessor(object):
     def __init__(self, people, text_detection, ocr, pixel_threshold=0.5, link_threshold=0.5):
+        self.prev_badge = ''
         self.pixel_threshold = pixel_threshold
         self.link_threshold = link_threshold
         self.text_detection = text_detection
@@ -306,13 +307,14 @@ class BadgePorcessor(object):
         if found_name is not None and (found_name[1] in self.data_db):
             name = self.data_db[found_name[1]]
             logging.info('Found name: {}'.format(name))
-            message = {
-                'name': name,
-                'image': face[:,:,::-1],
-                'company': 'Badge Detector'
-            }
-            notify(**message)
-            # TODO Notify face
+            if name != self.prev_badge:
+                self.prev_badge = name
+                message = {
+                    'name': name,
+                    'image': face[:, :, ::-1],
+                    'company': 'Badge Detector'
+                }
+                notify(**message)
 
     def find_people(self, faces, image):
         h = image.shape[0]
