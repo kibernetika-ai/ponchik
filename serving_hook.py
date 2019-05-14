@@ -46,6 +46,7 @@ PARAMS = {
 
     'slack_token': '',
     'slack_channel': '',
+    'badge_detector': '',
 }
 load_lock = threading.Lock()
 width = 640
@@ -62,6 +63,7 @@ unknown_num = 0
 last_fully_processed = None
 freq = None
 skip_threshold = 0
+badge_detector = None
 
 
 def init_hook(**kwargs):
@@ -139,6 +141,10 @@ def process(inputs, ctx, **kwargs):
                 _load_nets(**kwargs)
                 net_loaded = True
 
+    if PARAMS['badge_detector']=='yes':
+        import svod_rcgn.badge.badge_detector as badge
+        global badge_detector
+        badge_detector = badge.BadgePorcessor(openvino_facenet.classes,ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)
     action = _string_input_value(inputs, 'action')
     if action == "test":
         return process_test()
@@ -223,10 +229,12 @@ def process_recognize(inputs, ctx, **kwargs):
     bgr_frame = np.copy(frame[:, :, ::-1])
 
     processing.process_frame(bgr_frame, overlays=True)
-
     processed_frame = processing.processed
+    faces_bbox = [processed.bbox for processed in processed_frame]
+    if badge_detector is not None:
+        badge_detector.process(frame[:, :, :].copy(), faces_bbox)
     ret = {
-        'boxes': np.array([processed.bbox for processed in processed_frame]),
+        'boxes': np.array(faces_bbox),
         'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
     }
 
