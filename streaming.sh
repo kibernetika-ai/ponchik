@@ -9,6 +9,9 @@ rs_file=""
 token=""
 base_url="https://dev.kibernetika.io/api/v0.2"
 
+slack_token=""
+slack_channel=""
+
 usage="""
 Usage:
   $0 <options>
@@ -25,7 +28,10 @@ Options:
   --input-realsense Path to realsense .bag file to stream.
   
   --token Token for authentication in Kibernetika.AI
-  --base-url Base URL of Kibernetika.AI API
+  --base-url Base URL of Kibernetika.AI API. Default $base_url.
+  
+  --slack-token   Slack token for sending notifications to Slack.
+  --slack-channel Slack channel name for notifications.
 
 
 In case of --output-type rtmp use ffmpeg to stream to this serving, e.g:
@@ -74,6 +80,14 @@ key="$1"
     base_url="$2"
     shift; shift;
     ;;
+    --slack-token)
+    slack_token="$2"
+    shift; shift;
+    ;;
+    --slack-channel)
+    slack_channel="$2"
+    shift; shift;
+    ;;
     *)
     echo "Unknown option $key."
     echo "$usage"
@@ -112,5 +126,5 @@ then
   pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token"
 fi
 
-kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args
+kstreaming --driver openvino --model-path $model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args -o slack_token="$slack_token" -o slack_channel="$slack_channel"
 

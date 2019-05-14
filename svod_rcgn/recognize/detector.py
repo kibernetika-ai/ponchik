@@ -85,6 +85,7 @@ class Detector(object):
             threshold=defaults.THRESHOLD,
             debug=defaults.DEBUG,
             loaded_plugin=None,
+            facenet_exec_net=None,
     ):
         self._initialized = False
         self.device = device
@@ -101,6 +102,7 @@ class Detector(object):
         self.classes = []
         self.meta = {}
         self.classes_previews = {}
+        self.face_net = facenet_exec_net
 
     def init(self):
         if self._initialized:
@@ -132,7 +134,8 @@ class Detector(object):
             self.facenet_input = list(net.inputs.keys())[0]
             outputs = list(iter(net.outputs))
             self.facenet_output = outputs[0]
-            self.face_net = plugin.load(net)
+            if self.face_net is None:
+                self.face_net = plugin.load(net)
 
         self.bg_remove = bg_remove.get_driver(self.bg_remove_path)
 
