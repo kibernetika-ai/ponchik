@@ -11,6 +11,9 @@ import cv2
 import numpy as np
 
 from svod_rcgn.recognize import detector
+from svod_rcgn.recognize import video
+from svod_rcgn.recognize import video_notify
+from svod_rcgn import notify
 from svod_rcgn.tools import images, dataset
 from svod_rcgn.mlboard import mlboard
 
@@ -39,12 +42,17 @@ PARAMS = {
     'base_url': 'https://dev.kibernetika.io/api/v0.2',
     'token': '',
     'model_name': 'svod-rcgn',
-    'workspace_name': 'svod'
+    'workspace_name': 'svod',
+
+    'slack_token': '',
+    'slack_channel': '',
 }
 load_lock = threading.Lock()
 width = 640
 height = 480
 net_loaded = False
+
+processing: video.Video = None
 openvino_facenet: detector.Detector = None
 clarified_in_process = False
 uploaded_in_process = False
@@ -76,6 +84,8 @@ def init_hook(**kwargs):
 
     clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
     clarify_checker.start()
+
+    video_notify.InVideoDetected.notify_period = 1.5
 
     if PARAMS['enable_pull_model']:
         assert PARAMS['workspace_name'] != ''
@@ -116,9 +126,8 @@ def reload_detector(version, fileobj):
     os.mkdir(clf_dir)
     tar.extractall(clf_dir)
 
-    plugin = openvino_facenet.loaded_plugin
     LOG.info('Reloading classifiers...')
-    _load_nets(plugin=plugin)
+    openvino_facenet.load_classifiers()
 
 
 def process(inputs, ctx, **kwargs):
@@ -213,52 +222,16 @@ def process_recognize(inputs, ctx, **kwargs):
     # convert to BGR
     bgr_frame = np.copy(frame[:, :, ::-1])
 
-    start = time.time()
-    bounding_boxes = openvino_facenet.detect_faces(bgr_frame, PARAMS['threshold'][0])
-    if PARAMS['timing']:
-        LOG.info('Face Detection: {}'.format(time.time()-start))
+    processing.process_frame(bgr_frame, overlays=True)
 
-    imgs = images.get_images(frame, bounding_boxes)
-
-    if len(imgs) > 0:
-        imgs = np.stack(imgs).transpose([0, 3, 1, 2])
-        skip = False
-    else:
-        imgs = np.random.randn(1, 3, 160, 160).astype(np.float32)
-        skip = True
-
-    model_inputs = kwargs['model_inputs']
-    model_input = list(model_inputs.keys())[0]
-    if not skip:
-        start = time.time()
-        outputs = ctx.driver.predict({model_input: imgs})
-        if PARAMS['timing']:
-            LOG.info('Face Embedding: {}'.format(time.time()-start))
-    else:
-        outputs = {'dummy': []}
-
-    facenet_output = list(outputs.values())[0]
-
-    processed_frame = []
-
-    for img_idx, item_output in enumerate(facenet_output):
-        if skip:
-            break
-        start = time.time()
-        processed = openvino_facenet.process_output(
-            item_output, bounding_boxes[img_idx]
-        )
-        if PARAMS['timing']:
-            LOG.info('Process output: {}'.format(time.time()-start))
-        processed_frame.append(processed)
-
+    processed_frame = processing.processed
     ret = {
-        'boxes': bounding_boxes,
+        'boxes': np.array([processed.bbox for processed in processed_frame]),
         'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
     }
 
     if PARAMS['enable_log']:
-        log_recognition(bgr_frame, ret, imgs, **kwargs)
+        log_recognition(bgr_frame, ret, **kwargs)
 
     if PARAMS['need_table']:
 
@@ -351,9 +324,6 @@ def process_recognize(inputs, ctx, **kwargs):
                 'fields': ['name', 'position', 'company', 'face']
             })
         ret['table_meta'] = json.dumps(meta)
-
-    # Use BGR frame for overlays
-    openvino_facenet.add_overlays(bgr_frame, processed_frame)
 
     if PARAMS['output_type'] == 'bytes':
         image_output = cv2.imencode(".jpg", bgr_frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
@@ -479,10 +449,22 @@ def _load_nets(**kwargs):
         model_path=PARAMS['model_path'],
         debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
-        loaded_plugin=kwargs['plugin']
+        loaded_plugin=kwargs['plugin'],
+        facenet_exec_net=kwargs['exec_net'],
     )
     ot.init()
     openvino_facenet = ot
+
+    if PARAMS['slack_channel'] and PARAMS['slack_token']:
+        notify.init_notifier_params(PARAMS['slack_token'], PARAMS['slack_channel'])
+
+    global processing
+    processing = video.Video(
+        detector=ot,
+        video_async=False,
+        not_detected_store=False,
+    )
+    processing.start_notify()
 
     LOG.info('Done.')
 
@@ -534,7 +516,7 @@ def _get_fps(**kwargs):
     return fps
 
 
-def log_recognition(bgr_frame, ret, imgs, **kwargs):
+def log_recognition(bgr_frame, ret, **kwargs):
     fps = _get_fps(**kwargs)
 
     current_time = float(frame_num) / fps

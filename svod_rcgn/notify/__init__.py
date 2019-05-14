@@ -6,14 +6,18 @@ notifier = None
 not_init_say = False
 
 
-def init_notifier(args):
+def init_notifier_params(slack_token, slack_channel):
     global notifier
-    if args.notify_slack_token and args.notify_slack_channel:
-        notifier = NotifySlack(args.notify_slack_token, args.notify_slack_channel)
+    if slack_token and slack_channel:
+        notifier = NotifySlack(slack_token, slack_channel)
         if not notifier.is_ok():
             notifier = None
     if notifier is None:
         notifier = NotifyPrint
+
+
+def init_notifier(args):
+    init_notifier_params(args.notify_slack_token, args.notify_slack_channel)
 
 
 def add_notify_args(parser):

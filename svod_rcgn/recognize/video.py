@@ -43,6 +43,7 @@ class Video:
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
         self.faces_detected = {}
+        self.notify_started = False
         self.notifies_queue = []
         self.not_detected_store = not_detected_store
         self.not_detected_check_period = not_detected_check_period
@@ -50,6 +51,13 @@ class Video:
         if self.not_detected_store and not os.path.isdir(self.not_detected_dir):
             raise RuntimeError('directory %s is not exists' % self.not_detected_dir)
         self.not_detected_check_ts = time.time()
+
+    def start_notify(self):
+        if self.notify_started:
+            return
+        notify_thread = Thread(target=self.notify, daemon=True)
+        notify_thread.start()
+        self.notify_started = True
 
     def start(self):
         self.detector.init()
@@ -61,8 +69,9 @@ class Video:
         if self.listener is not None:
             listen_thread = Thread(target=self.listen, daemon=True)
             listen_thread.start()
-        notify_thread = Thread(target=self.notify, daemon=True)
-        notify_thread.start()
+
+        self.start_notify()
+
         try:
             iframe = 0
             while True:
@@ -126,10 +135,14 @@ class Video:
 
     def process_frame(self, frame, overlays=True):
         if frame is not None:
+            original_copy = np.copy(frame)
             self.processed = self.detector.process_frame(frame, overlays=overlays)
-            self.research_processed()
+            self.research_processed(frame=original_copy)
 
-    def research_processed(self):
+    def research_processed(self, frame=None):
+        if frame is None:
+            frame = self.frame
+
         for fd in self.faces_detected:
             self.faces_detected[fd].prepare()
         if self.processed is not None:
@@ -147,7 +160,7 @@ class Video:
                         self.faces_detected[name] = InVideoDetected()
                     self.faces_detected[name].exists_in_frame(True, bbox=p.bbox, looks_like=p.looks_like)
                 elif store_not_detected:
-                    img = images.crop_by_box(self.frame, p.bbox)
+                    img = images.crop_by_box(frame, p.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)
 
         for fd in list(self.faces_detected):
@@ -165,8 +178,8 @@ class Video:
                     if 'company' in meta:
                         company = meta['company']
                 bbox = self.faces_detected[fd].bbox
-                if self.frame is not None and bbox is not None:
-                    image = images.crop_by_box(self.frame, bbox)
+                if frame is not None and bbox is not None:
+                    image = images.crop_by_box(frame, bbox)
                 looks_like = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append({
                     'name': fd,
