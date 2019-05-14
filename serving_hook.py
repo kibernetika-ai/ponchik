@@ -144,7 +144,8 @@ def process(inputs, ctx, **kwargs):
     if PARAMS['badge_detector']=='yes':
         import svod_rcgn.badge.badge_detector as badge
         global badge_detector
-        badge_detector = badge.BadgePorcessor(openvino_facenet.classes,ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)
+        if badge_detector is None:
+            badge_detector = badge.BadgePorcessor(openvino_facenet.classes,ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)
     action = _string_input_value(inputs, 'action')
     if action == "test":
         return process_test()

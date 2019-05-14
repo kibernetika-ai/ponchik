@@ -86,6 +86,7 @@ class Detector(object):
             debug=defaults.DEBUG,
             loaded_plugin=None,
             facenet_exec_net=None,
+
     ):
         self._initialized = False
         self.device = device
