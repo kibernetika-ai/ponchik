@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import shutil
+import tarfile
 import threading
 import time
 
@@ -12,6 +13,8 @@ import numpy as np
 from svod_rcgn.recognize import detector
 from svod_rcgn.tools import images, dataset
 from svod_rcgn.mlboard import mlboard
+
+import pull_model
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -31,6 +34,12 @@ PARAMS = {
     'timing': True,
     'skip_frames': True,
     'inference_fps': 2,
+
+    'enable_pull_model': False,
+    'base_url': 'https://dev.kibernetika.io/api/v0.2',
+    'token': '',
+    'model_name': 'svod-rcgn',
+    'workspace_name': 'svod'
 }
 load_lock = threading.Lock()
 width = 640
@@ -60,12 +69,33 @@ def init_hook(**kwargs):
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
     PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
+    PARAMS['enable_pull_model'] = _boolean_string(PARAMS['enable_pull_model'])
     PARAMS['inference_fps'] = int(PARAMS['inference_fps'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
     clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
     clarify_checker.start()
+
+    if PARAMS['enable_pull_model']:
+        assert PARAMS['workspace_name'] != ''
+        assert PARAMS['base_url'] != ''
+        assert PARAMS['model_name'] != ''
+        assert PARAMS['token'] != ''
+
+        pull_thread = threading.Thread(
+            target=pull_model.loop,
+            kwargs=dict(
+                pattern='* * * * * */20',
+                base_url=PARAMS['base_url'],
+                ws=PARAMS['workspace_name'],
+                name=PARAMS['model_name'],
+                token=PARAMS['token'],
+                callback=reload_detector,
+            ),
+            daemon=True
+        )
+        pull_thread.start()
 
     if PARAMS['enable_log']:
         if not os.path.exists(PARAMS['logdir']):
@@ -74,6 +104,21 @@ def init_hook(**kwargs):
         log_file = os.path.join(PARAMS['logdir'], 'log.txt')
         if os.path.exists(log_file):
             os.remove(log_file)
+
+
+def reload_detector(version, fileobj):
+    clf_dir = PARAMS['classifiers_dir']
+
+    tar = tarfile.open(fileobj=fileobj)
+    LOG.info('Extracting new version %s to %s...' % (version, clf_dir))
+
+    shutil.rmtree(clf_dir, ignore_errors=True)
+    os.mkdir(clf_dir)
+    tar.extractall(clf_dir)
+
+    plugin = openvino_facenet.loaded_plugin
+    LOG.info('Reloading classifiers...')
+    _load_nets(plugin=plugin)
 
 
 def process(inputs, ctx, **kwargs):
@@ -416,14 +461,19 @@ def _load_nets(**kwargs):
     clf_dir = PARAMS['classifiers_dir']
     if not os.path.isdir(clf_dir):
         raise RuntimeError("Classifiers path %s is absent or is not directory" % clf_dir)
-    classifiers = \
-        [os.path.join(clf_dir, f) for f in os.listdir(clf_dir) if os.path.isfile(os.path.join(clf_dir, f))]
+
+    classifiers = []
+    for path in os.listdir(clf_dir):
+        file_path = os.path.join(clf_dir, path)
+        if os.path.isfile(file_path):
+            classifiers.append(file_path)
+
     if len(classifiers) == 0:
         raise RuntimeError("Classifiers path %s has no any files" % clf_dir)
     # LOG.info('Classifiers path: {}'.format(classifiers_path))
     # LOG.info('Classifier files: {}'.format(classifiers))
     global openvino_facenet
-    openvino_facenet = detector.Detector(
+    ot = detector.Detector(
         device='CPU',
         classifiers_dir=clf_dir,
         model_path=PARAMS['model_path'],
@@ -431,7 +481,8 @@ def _load_nets(**kwargs):
         bg_remove_path=PARAMS['bg_remove_path'],
         loaded_plugin=kwargs['plugin']
     )
-    openvino_facenet.init()
+    ot.init()
+    openvino_facenet = ot
 
     LOG.info('Done.')
 

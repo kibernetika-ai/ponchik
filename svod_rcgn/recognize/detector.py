@@ -103,7 +103,6 @@ class Detector(object):
         self.classes_previews = {}
 
     def init(self):
-
         if self._initialized:
             return
         self._initialized = True
@@ -113,11 +112,12 @@ class Detector(object):
             plugin = self.loaded_plugin
         else:
             plugin = ie.IEPlugin(device=self.device)
+            if extensions and "CPU" in self.device:
+                for ext in extensions.split(':'):
+                    print_fun("LOAD extension from {}".format(ext))
+                    plugin.add_cpu_extension(ext)
 
-        if extensions and "CPU" in self.device:
-            for ext in extensions.split(':'):
-                print_fun("LOAD extension from {}".format(ext))
-                plugin.add_cpu_extension(ext)
+        self.loaded_plugin = plugin
 
         print_fun('Load FACE DETECTION')
         weights_file = self.face_detection_path[:self.face_detection_path.rfind('.')] + '.bin'
