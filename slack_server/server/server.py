@@ -108,6 +108,12 @@ def process_block_action(action, trigger_id, channel, message):
                         "name": "company",
                         "optional": True,
                     },
+                    {
+                        "type": "text",
+                        "label": "URL",
+                        "name": "url",
+                        "optional": True,
+                    },
                 ]
             }
         client.dialog_open(
@@ -154,12 +160,13 @@ def process_dialog_submission(submission):
             result=':white_check_mark: __ACTOR__ store this face as *__NAME__*',
             position=s['position'],
             company=s['company'],
+            url=s['url'],
         )
 
     return message, channel, res, comment
 
 
-def store_face(file_id, name, position=None, company=None, result=None, comment=None):
+def store_face(file_id, name, position=None, company=None, url=None, result=None, comment=None):
 
     ok = True
     file_bytes = None
@@ -186,8 +193,7 @@ def store_face(file_id, name, position=None, company=None, result=None, comment=
 
         result = "Confirmed image is absent"
         comment = 'Get Slack file info error: %s' % e
-        # res_string = ':exclamation: Confirmed image is absent'
-        # res_comment = 'Get Slack file info error: %s' % e
+        file_bytes = None
         ok = False
 
     if file_bytes is not None:
@@ -202,6 +208,8 @@ def store_face(file_id, name, position=None, company=None, result=None, comment=
                 data['string_position'] = position
             if company is not None:
                 data['string_company'] = company
+            if url is not None:
+                data['string_url'] = url
             r = requests.post(
                 serving_url,
                 data=data,

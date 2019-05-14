@@ -10,6 +10,8 @@ class NotifyPrint:
             msg_strings.append('Position: %s' % kwargs['position'])
         if 'company' in kwargs:
             msg_strings.append('Company: %s' % kwargs['company'])
+        if 'url' in kwargs:
+            msg_strings.append('URL: %s' % kwargs['url'])
         if 'image' in kwargs:
             msg_strings.append('[IMAGE]')
         if 'action_options' in kwargs:

@@ -268,6 +268,8 @@ def process_recognize(inputs, ctx, **kwargs):
                     row_data['position'] = processed.meta['position']
                 if 'company' in processed.meta:
                     row_data['company'] = processed.meta['company']
+                if 'url' in processed.meta:
+                    row_data['url'] = processed.meta['url']
 
             if clarify_enabled:
 
@@ -286,6 +288,8 @@ def process_recognize(inputs, ctx, **kwargs):
                                 cl_cls['position'] = m['position']
                             if 'company' in m:
                                 cl_cls['company'] = m['company']
+                            if 'url' in m:
+                                cl_cls['url'] = m['url']
                         image_clarify['values'].append(cl_cls)
 
                 row_data['image_clarify'] = image_clarify
@@ -305,6 +309,10 @@ def process_recognize(inputs, ctx, **kwargs):
             {
                 'name': 'company',
                 'label': 'Company'
+            },
+            {
+                'name': 'url',
+                'label': 'URL'
             },
             {
                 'name': 'prob',
@@ -330,7 +338,7 @@ def process_recognize(inputs, ctx, **kwargs):
                 'type': 'edit',
                 'action': 'clarify',
                 'values_label': 'name',
-                'fields': ['name', 'position', 'company', 'face']
+                'fields': ['name', 'position', 'company', 'url', 'face']
             })
         ret['table_meta'] = json.dumps(meta)
 
@@ -383,6 +391,9 @@ def _upload_processed_image(inputs, image_name, upload_dir, file_prefix='uploade
     company = _string_input_value(inputs, 'company')
     if company is not None:
         meta['company'] = company
+    url = _string_input_value(inputs, 'url')
+    if url is not None:
+        meta['url'] = url
 
     res = {'saved': True, 'meta_saved': False}
 

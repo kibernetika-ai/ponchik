@@ -53,6 +53,8 @@ class NotifySlack:
             msg_strings.append(':male-student: _position:_ %s' % kwargs['position'])
         if 'company' in kwargs:
             msg_strings.append(':classical_building: _company:_ %s' % kwargs['company'])
+        if 'url' in kwargs:
+            msg_strings.append(':link: %s' % kwargs['url'])
 
         actions = []
         if has_image and image_id:
