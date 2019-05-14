@@ -38,12 +38,13 @@ def slack_interactive():
                 res_strings.append(res_string)
             if res_comment:
                 res_comments.append(res_comment)
-        complete_message(
-            message,
-            channel,
-            ', '.join(res_strings),
-            ', '.join(res_comments),
-        )
+        if len(res_strings) > 0:
+            complete_message(
+                message,
+                channel,
+                ', '.join(res_strings),
+                ', '.join(res_comments),
+            )
         return make_response('', 200)
 
     elif data_type == 'dialog_submission':
