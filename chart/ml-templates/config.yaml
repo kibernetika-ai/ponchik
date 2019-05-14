@@ -135,6 +135,7 @@ spec:
       cpu: "kuberlab/serving:latest-openvino"
       gpu: "kuberlab/serving:latest-openvino-gpu"
     command: >-
+      pip install slackclient croniter &&
       kserving --driver openvino --model-path $FACENET_DIR/facenet.xml
       --hooks serving_hook.py
       {{- if and .bgrm.value .detection_bgrm_serving.value }}
