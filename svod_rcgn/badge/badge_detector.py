@@ -251,7 +251,7 @@ class BadgePorcessor(object):
             return None
         a.sort(key=lambda tup: tup[0])
         a = a[len(a) - 1]
-        if a[0] < 0.8:
+        if a[0] < 0.7:
             return None
         return a
 
@@ -294,7 +294,7 @@ class BadgePorcessor(object):
             if len(text) > 1:
                 found = self.names_db.get(text)
                 if (found is not None) and (len(found) > 0):
-                    if found[0][0] > 0.8:
+                    if found[0][0] > 0.65:
                         text = found[0][1]
                         if ' ' in text:
                             found_name = (found[0][0], text)
@@ -310,7 +310,7 @@ class BadgePorcessor(object):
             if name != self.prev_badge:
                 self.prev_badge = name
                 message = {
-                    'name': name,
+                    'name': '{} - {}'.format(name,found_name[0]),
                     'image': face[:, :, ::-1],
                     'company': 'Badge Detector'
                 }
