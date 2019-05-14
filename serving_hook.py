@@ -226,6 +226,7 @@ def process_recognize(inputs, ctx, **kwargs):
                 return last_fully_processed
 
     frame = _load_image(inputs, 'input')
+    logging.info('Input frame: {}'.format(frame.shape))
     # convert to BGR
     bgr_frame = np.copy(frame[:, :, ::-1])
 
