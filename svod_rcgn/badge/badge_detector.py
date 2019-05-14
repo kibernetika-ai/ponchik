@@ -250,7 +250,7 @@ class BadgePorcessor(object):
             return None
         a.sort(key=lambda tup: tup[0])
         a = a[len(a) - 1]
-        if a[0] < 0.6:
+        if a[0] < 0.8:
             return None
         return a
 
@@ -293,7 +293,7 @@ class BadgePorcessor(object):
             if len(text) > 1:
                 found = self.names_db.get(text)
                 if (found is not None) and (len(found) > 0):
-                    if found[0][0] > 0.7:
+                    if found[0][0] > 0.8:
                         text = found[0][1]
                         if ' ' in text:
                             found_name = (found[0][0], text)
