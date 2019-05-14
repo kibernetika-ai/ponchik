@@ -298,7 +298,7 @@ class Detector(object):
                 classes.append(overlay_label)
                 looks_likes.extend(looks_like)
                 if len(looks_likes):
-                    looks_likes = set(looks_likes)
+                    looks_likes = list(set(looks_likes))
 
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
