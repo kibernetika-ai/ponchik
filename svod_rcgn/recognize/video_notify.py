@@ -17,11 +17,12 @@ class InVideoDetected:
         self.notified_awaiting = False
         self.notified = False
         self.notified_ts = None
+        self.looks_like = []
 
     def prepare(self):
         self.processed = False
 
-    def exists_in_frame(self, exists, bbox=None):
+    def exists_in_frame(self, exists, bbox=None, looks_like=None):
         if not self.processed:
             if bbox is not None:
                 self.bbox = bbox
@@ -46,6 +47,10 @@ class InVideoDetected:
                     # notify('%s has been detected' % self.name)
                 if self.prob == 0:
                     self.not_detected_anymore = True
+            if looks_like:
+                self.looks_like.extend(looks_like)
+                self.looks_like = list(set(self.looks_like))
+                self.looks_like.sort()
             self.processed = True
 
     def make_notify(self):

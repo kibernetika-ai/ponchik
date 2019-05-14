@@ -13,7 +13,6 @@ from sklearn import svm
 from svod_rcgn.recognize import nets, defaults, classifiers
 from svod_rcgn.tools import images, bg_remove
 from svod_rcgn.tools.print import print_fun
-import time
 
 
 class DetectorClassifiers:
@@ -62,6 +61,7 @@ class Processed:
             classes=None,
             classes_meta=None,
             meta=None,
+            looks_like=None,
     ):
         self.bbox = bbox
         self.detected = detected
@@ -71,6 +71,7 @@ class Processed:
         self.classes = classes
         self.classes_meta = classes_meta
         self.meta = meta
+        self.looks_like = looks_like if looks_like else []
 
 
 class Detector(object):
@@ -213,6 +214,7 @@ class Detector(object):
         classes = []
         prob_detected = True
         summary_overlay_label = ""
+        looks_likes = []
 
         for clfi, clf in enumerate(self.classifiers.classifiers):
 
@@ -254,16 +256,20 @@ class Detector(object):
                     # multiplied by distance coefficient:
                     # 0.5 and less is 100%, 1 and more is 0%
                     prob = max(0, min(1, 2 * ttl_cnt / cnt - .5)) * max(0, min(1, 2 - eval_values[idx] * 2))
+                    looks_like = set(candidates)
+                    looks_like.remove(best_class_indices[idx])
+                    if not len(looks_like):
+                        looks_like = []
                     return prob, '%.3f %d/%d' % (
                         eval_values[idx],
                         ttl_cnt, cnt,
-                    )
+                    ), looks_like
 
             elif isinstance(clf, svm.SVC):
 
                 def process_index(idx):
                     eval_values = predictions[np.arange(len(best_class_indices)), best_class_indices]
-                    return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100)
+                    return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100), []
 
             else:
 
@@ -271,7 +277,7 @@ class Detector(object):
                 continue
 
             for i in range(len(best_class_indices)):
-                prob, label_debug = process_index(i)
+                prob, label_debug, looks_like = process_index(i)
                 overlay_label = self.classifiers.class_names[best_class_indices[i]]
                 detected_indices.append(best_class_indices[i])
                 summary_overlay_label = overlay_label
@@ -286,6 +292,9 @@ class Detector(object):
                 elif len(label_strings) == 0:
                     label_strings.append(overlay_label)
                 classes.append(overlay_label)
+                looks_likes.extend(looks_like)
+                if len(looks_likes):
+                    looks_likes = set(looks_likes)
 
         # detected if all classes are the same, and all probs are more than 0
         detected = len(set(detected_indices)) == 1 and prob_detected
@@ -341,6 +350,7 @@ class Detector(object):
             classes=classes,
             classes_meta=classes_meta,
             meta=meta,
+            looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
         )
 
     def process_frame(self, frame, overlays=True):

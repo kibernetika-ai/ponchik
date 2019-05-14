@@ -89,15 +89,15 @@ class NotifySlack:
                     'action_id': 'exists-%s' % image_id,
                     'options': options,
                 })
-            if len(actions) > 0:
-                actions.append({
-                    'type': 'button',
-                    'action_id': 'close',
-                    'text': {
-                        'type': 'plain_text',
-                        'text': 'Close',
-                    }
-                })
+            # if len(actions) > 0:
+            #     actions.append({
+            #         'type': 'button',
+            #         'action_id': 'close',
+            #         'text': {
+            #             'type': 'plain_text',
+            #             'text': 'Close',
+            #         }
+            #     })
 
         blocks = [
             {

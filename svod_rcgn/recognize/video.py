@@ -145,7 +145,7 @@ class Video:
                     name = p.classes[0]
                     if name not in self.faces_detected:
                         self.faces_detected[name] = InVideoDetected()
-                    self.faces_detected[name].exists_in_frame(True, bbox=p.bbox)
+                    self.faces_detected[name].exists_in_frame(True, bbox=p.bbox, looks_like=p.looks_like)
                 elif store_not_detected:
                     img = images.crop_by_box(self.frame, p.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)
@@ -167,11 +167,13 @@ class Video:
                 bbox = self.faces_detected[fd].bbox
                 if self.frame is not None and bbox is not None:
                     image = images.crop_by_box(self.frame, bbox)
+                looks_like = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append({
                     'name': fd,
                     'position': position,
                     'company': company,
                     'image': image,
+                    'action_options': looks_like,
                 })
 
     def listen(self):

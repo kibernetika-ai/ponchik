@@ -20,5 +20,5 @@ notifier.notify(
     image=im,
     action_confirm=True,
     action_unknown=True,
-    # action_options=['Ivan Ivanov', 'Peter Petrov'],
+    action_options=['Ivan Ivanov', 'Peter Petrov'],
 )

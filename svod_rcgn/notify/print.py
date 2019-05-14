@@ -12,7 +12,10 @@ class NotifyPrint:
             msg_strings.append('Company: %s' % kwargs['company'])
         if 'image' in kwargs:
             msg_strings.append('[IMAGE]')
+        if 'action_options' in kwargs:
+            msg_strings.append('[OPTIONS]')
+            msg_strings.extend([' - ' + o for o in kwargs['action_options']])
         sl = max([len(s) for s in msg_strings])
-        print_fun("=" * sl)
+        print_fun('=' * sl)
         print_fun('\r\n'.join(msg_strings))
-        print_fun("=" * sl)
+        print_fun('=' * sl)
