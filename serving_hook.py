@@ -233,7 +233,7 @@ def process_recognize(inputs, ctx, **kwargs):
     processed_frame = processing.processed
     faces_bbox = [processed.bbox for processed in processed_frame]
     if badge_detector is not None:
-        badge_detector.process(frame[:, :, :].copy(), faces_bbox)
+        badge_detector.process(frame[:, :, ::-1].copy(), faces_bbox)
     ret = {
         'boxes': np.array(faces_bbox),
         'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
