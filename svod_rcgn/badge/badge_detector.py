@@ -285,11 +285,6 @@ class BadgePorcessor(object):
             text_img = norm_image_for_text_prediction(text_img, 32, 320)
             text = self.extract_text(text_img)
             if len(text) > 0:
-                message = {
-                    'name': text,
-                    'image': face,
-                }
-                notify(**message)
                 texts.append(text)
         candidates = []
         found_name = None
@@ -310,6 +305,11 @@ class BadgePorcessor(object):
         if found_name is not None and (found_name[1] in self.data_db):
             name = self.data_db[found_name[1]]
             logging.info('Found name: {}'.format(name))
+            message = {
+                'name': name,
+                'image': face,
+            }
+            notify(**message)
             # TODO Notify face
 
     def find_people(self, faces, image):
