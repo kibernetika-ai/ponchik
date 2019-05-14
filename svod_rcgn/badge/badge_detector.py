@@ -182,7 +182,10 @@ class BadgePorcessor(object):
         self.worker.start()
 
     def process(self, image, faces):
-        self.queue.put_nowait({'image': image, 'faces': faces})
+        try:
+            self.queue.put_nowait({'image': image, 'faces': faces})
+        except queue.Full:
+            None
 
     def run(self):
         while True:
