@@ -310,7 +310,8 @@ class BadgePorcessor(object):
             if name != self.prev_badge:
                 self.prev_badge = name
                 message = {
-                    'name': '{} - {}'.format(name,found_name[0]),
+                    'name': name,
+                    'position': 'prob - {}'.format(found_name[0]),
                     'image': face[:, :, ::-1],
                     'company': 'Badge Detector'
                 }
