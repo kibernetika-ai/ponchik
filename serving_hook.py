@@ -553,7 +553,10 @@ def log_recognition(bgr_frame, ret, **kwargs):
         f.write(msg)
 
     # Save unknowns
-    relative_fps = float(fps) / PARAMS['inference_fps']
+    if PARAMS['inference_fps'] == 0:
+        relative_fps = fps
+    else:
+        relative_fps = float(fps) / PARAMS['inference_fps']
     log_freq = 1. / fps
     if int(log_freq * frame_num) - int(log_freq * (frame_num - relative_fps)) == 1:
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
