@@ -193,6 +193,8 @@ class BadgePorcessor(object):
                 logging.info('End exec new task')
             except:
                 logging.info('Failed to process: {}'.format(sys.exc_info()))
+            finally:
+                self.queue.task_done()
 
     def fix_length(self, l, b):
         return int(math.ceil(l / b) * b)
