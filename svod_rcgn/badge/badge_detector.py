@@ -285,6 +285,7 @@ class BadgePorcessor(object):
             text_img = norm_image_for_text_prediction(text_img, 32, 320)
             text = self.extract_text(text_img)
             if len(text) > 0:
+                logging.info('Text: {}'.format(text))
                 texts.append(text)
         candidates = []
         found_name = None
@@ -307,7 +308,7 @@ class BadgePorcessor(object):
             logging.info('Found name: {}'.format(name))
             message = {
                 'name': name,
-                'image': face,
+                'image': face[:,:,::-1],
             }
             notify(**message)
             # TODO Notify face
@@ -329,7 +330,6 @@ class BadgePorcessor(object):
                 ymin = ymin0
                 box_image_original = image[ymin:ymax, xmin:xmax, :]
                 face = image[ymin0:ymax0, xmin0:xmax0, :]
-                logging.info('Process new face')
                 self.badge_select(box_image_original, face)
 
     def _process(self, data):
