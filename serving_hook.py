@@ -226,7 +226,6 @@ def process_recognize(inputs, ctx, **kwargs):
                 return last_fully_processed
 
     frame = _load_image(inputs, 'input')
-    logging.info('Input frame: {}'.format(frame.shape))
     # convert to BGR
     bgr_frame = np.copy(frame[:, :, ::-1])
 
@@ -234,7 +233,7 @@ def process_recognize(inputs, ctx, **kwargs):
     processed_frame = processing.processed
     faces_bbox = [processed.bbox for processed in processed_frame]
     if badge_detector is not None:
-        badge_detector.process(frame[:, :, ::-1].copy(), faces_bbox)
+        badge_detector.process(frame[:, :, :].copy(), faces_bbox)
     ret = {
         'boxes': np.array(faces_bbox),
         'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),

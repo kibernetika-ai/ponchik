@@ -317,7 +317,6 @@ class BadgePorcessor(object):
                 notify(**message)
 
     def find_people(self, faces, image):
-        logging.info('Find badges: {}'.format(image.shape))
         h = image.shape[0]
         w = image.shape[1]
         if faces is not None:
