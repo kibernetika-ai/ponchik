@@ -35,7 +35,7 @@ PARAMS = {
     'enable_log': False,
     'logdir': 'faces_dir',
     'timing': True,
-    'skip_frames': True,
+    'skip_frames': False,
     'inference_fps': 2,
 
     'enable_pull_model': False,
@@ -416,7 +416,6 @@ def _load_image(inputs, image_key):
         raise RuntimeError('Missing "{0}" key in inputs. Provide an image in "{0}" key'.format(image_key))
     if len(image.shape) == 0:
         image = np.stack([image.tolist()])
-        image = image[:, :, ::-1]
 
     if len(image.shape) < 3:
         image = cv2.imdecode(np.frombuffer(image[0], np.uint8), cv2.IMREAD_COLOR)
