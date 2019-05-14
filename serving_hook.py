@@ -35,7 +35,7 @@ PARAMS = {
     'enable_log': False,
     'logdir': 'faces_dir',
     'timing': True,
-    'skip_frames': True,
+    'skip_frames': False,
     'inference_fps': 2,
 
     'enable_pull_model': False,
