@@ -172,8 +172,6 @@ def process_meta():
     for cl in openvino_facenet.classes:
         item = {
             'name': cl,
-            # 'position': None,
-            # 'company': None,
         }
         cl_k = cl.replace(' ', '_')
         if cl_k in openvino_facenet.meta:
@@ -182,6 +180,8 @@ def process_meta():
                 item['position'] = cl_m['position']
             if 'company' in cl_m:
                 item['company'] = cl_m['company']
+            if 'url' in cl_m:
+                item['url'] = cl_m['url']
         ret.append(item)
     return {'meta': json.dumps(ret)}
 

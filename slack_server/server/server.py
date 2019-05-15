@@ -248,6 +248,8 @@ def store_face(file_id, name, position=None, company=None, url=None, result=None
                     meta_strs.append('position: %s' % meta['position'])
                 if 'company' in meta:
                     meta_strs.append('company: %s' % meta['company'])
+                if 'url' in meta:
+                    meta_strs.append(meta['url'])
                 meta_str = ', '.join(meta_strs)
         except Exception as e:
             print('Load metadata error: %s' % e)
