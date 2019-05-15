@@ -8,6 +8,7 @@ import logging
 from itertools import permutations
 import fuzzyset
 from svod_rcgn.notify import notify
+import time
 
 MAX_DIM = 1024.0
 ENGLISH_CHAR_MAP = [
@@ -157,6 +158,7 @@ def rotate_bound(image, angle):
 class BadgePorcessor(object):
     def __init__(self, people, text_detection, ocr, pixel_threshold=0.5, link_threshold=0.5):
         self.prev_badge = ''
+        self.prev_time = 0
         self.pixel_threshold = pixel_threshold
         self.link_threshold = link_threshold
         self.text_detection = text_detection
@@ -307,12 +309,14 @@ class BadgePorcessor(object):
         if found_name is not None and (found_name[1] in self.data_db):
             name = self.data_db[found_name[1]]
             logging.info('Found name: {}'.format(name))
-            if name != self.prev_badge:
+            current = time.time()
+            if name != self.prev_badge or (current-self.prev_time)>60:
                 self.prev_badge = name
+                self.prev_time = current
                 message = {
                     'name': name,
                     'image': face[:, :, ::-1],
-                    'system': 'Badge Detector (prob {})'.format(found_name[0])
+                    'system': 'Badge Detector (prob: {})'.format(found_name[0])
                 }
                 notify(**message)
 
