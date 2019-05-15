@@ -80,9 +80,6 @@ def check(base_url, ws, name, token):
     global versions
     if len(versions) == 0:
 
-        v = vs[0]
-        return True, v['Version'], v['DownloadURL']
-
         for v in vs:
             versions[v['Version']] = v
         return None, None, None
