@@ -169,25 +169,22 @@ class Video:
                 del self.faces_detected[fd]
                 continue
             if self.faces_detected[fd].make_notify():
+                n = {'name': fd}
                 fd_ = fd.replace(' ', '_')
-                position, company, image = None, None, None
                 if fd_ in self.detector.meta:
                     meta = self.detector.meta[fd_]
                     if 'position' in meta:
-                        position = meta['position']
+                        n['position'] = meta['position']
                     if 'company' in meta:
-                        company = meta['company']
+                        n['company'] = meta['company']
+                    if 'url' in meta:
+                        n['url'] = meta['url']
                 bbox = self.faces_detected[fd].bbox
                 if frame is not None and bbox is not None:
-                    image = images.crop_by_box(frame, bbox)
-                looks_like = self.faces_detected[fd].looks_like.copy()
-                self.notifies_queue.append({
-                    'name': fd,
-                    'position': position,
-                    'company': company,
-                    'image': image,
-                    'action_options': looks_like,
-                })
+                    n['image'] = images.crop_by_box(frame, bbox)
+                if len(self.faces_detected[fd].looks_like) > 0:
+                    n['action_options'] = self.faces_detected[fd].looks_like.copy()
+                self.notifies_queue.append(n)
 
     def listen(self):
         while True:
