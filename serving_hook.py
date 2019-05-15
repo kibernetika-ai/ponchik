@@ -119,6 +119,7 @@ def init_hook(**kwargs):
 
 
 def reload_detector(version, fileobj):
+    global openvino_facenet
     clf_dir = PARAMS['classifiers_dir']
 
     tar = tarfile.open(fileobj=fileobj)
@@ -129,7 +130,8 @@ def reload_detector(version, fileobj):
     tar.extractall(clf_dir)
 
     LOG.info('Reloading classifiers...')
-    openvino_facenet.load_classifiers()
+    if openvino_facenet is not None:
+        openvino_facenet.load_classifiers()
 
 
 def process(inputs, ctx, **kwargs):
