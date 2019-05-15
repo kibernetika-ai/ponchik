@@ -2,7 +2,7 @@ rtmp_url=""
 clf_path=data/classifiers
 inference_fps=10
 model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
-backend=livego # livego / rtmp-mux
+backend=srs # livego / rtmp-mux/ srs
 OUTPUT_TYPE="rtmp"
 INPUT="server"
 rs_file=""
@@ -137,5 +137,5 @@ then
   pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token"
 fi
 
-kstreaming --driver openvino --model-path $model_path --driver tensorflow --model-path=$text_model_path --driver tensorflow --model-path=$ocr_model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o badge_detector=yes
+kstreaming --driver openvino --model-path $model_path --driver tensorflow --model-path=$text_model_path --driver tensorflow --model-path=$ocr_model_path --hooks serving_hook.py -o classifiers_dir=$clf_path -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o badge_detector=yes -o skip_frames=true
 
