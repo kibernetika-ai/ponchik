@@ -128,7 +128,7 @@ def process_block_action(action, trigger_id, channel, message):
         res_string = ':white_check_mark: __ACTOR__ confirmed this face as *__NAME__*'
         aimg_id = aparts[1]
     elif aaction == 'confirmopt':
-        res_string = ':white_check_mark: __ACTOR__ selected this face as *__NAME__*'
+        res_string = ':white_check_mark: __ACTOR__ selected this face as *__NAME__*__META__'
         aimg_title = action['selected_option']['value']
         aimg_id = aparts[1]
     elif aaction == 'close':
@@ -225,6 +225,38 @@ def store_face(file_id, name, position=None, company=None, url=None, result=None
             result = "Upload to serving failed"
             comment = 'Serving upload error: %s' % e
             ok = False
+
+    if '__META__' in result:
+        meta_str = ''
+        try:
+            r = requests.post(
+                serving_url,
+                data={'raw_input': 'true'},
+                files={'string_action': 'meta'},
+            )
+            assert r.status_code == 200
+            full_meta = json.loads(r.text)
+            full_meta_arr = json.loads(full_meta['meta'])
+            meta = None
+            for m in full_meta_arr:
+                if 'name' in m and m['name'] == name:
+                    meta = m
+                    break
+            if meta is not None:
+                meta_strs = []
+                if 'position' in meta:
+                    meta_strs.append('position: %s' % meta['position'])
+                if 'company' in meta:
+                    meta_strs.append('company: %s' % meta['company'])
+                meta_str = ', '.join(meta_strs)
+        except Exception as e:
+            print('Load metadata error: %s' % e)
+            meta_str = ':exclamation: Unable to load metadata'
+
+        if meta_str != '':
+            meta_str = ' _(%s)_' % meta_str
+        result = result.replace('__META__', meta_str)
+
 
     return ok, result, comment
 
