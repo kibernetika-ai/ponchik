@@ -311,9 +311,8 @@ class BadgePorcessor(object):
                 self.prev_badge = name
                 message = {
                     'name': name,
-                    'position': 'prob - {}'.format(found_name[0]),
                     'image': face[:, :, ::-1],
-                    'company': 'Badge Detector'
+                    'system': 'Badge Detector (prob {})'.format(found_name[0])
                 }
                 notify(**message)
 
