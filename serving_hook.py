@@ -163,7 +163,7 @@ def process(inputs, ctx, **kwargs):
 
 def process_names(action):
     global openvino_facenet
-    return {action: np.array(openvino_facenet.classes, dtype=np.string_)}
+    return {action: np.array(openvino_facenet.classes, dtype=np.str)}
 
 
 def process_meta():
@@ -236,7 +236,7 @@ def process_recognize(inputs, ctx, **kwargs):
         badge_detector.process(frame[:, :, :].copy(), faces_bbox)
     ret = {
         'boxes': np.array(faces_bbox),
-        'labels': np.array([processed.label for processed in processed_frame], dtype=np.string_),
+        'labels': np.array([processed.label for processed in processed_frame], dtype=np.str),
     }
 
     if PARAMS['enable_log']:
