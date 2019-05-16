@@ -242,7 +242,7 @@ def process_recognize(inputs, ctx, **kwargs):
     }
 
     if PARAMS['enable_log']:
-        log_recognition(bgr_frame, ret, **kwargs)
+        log_recognition(frame, ret, **kwargs)
 
     if PARAMS['need_table']:
 
@@ -542,7 +542,7 @@ def _get_fps(**kwargs):
     return fps
 
 
-def log_recognition(bgr_frame, ret, **kwargs):
+def log_recognition(rgb_frame, ret, **kwargs):
     fps = _get_fps(**kwargs)
 
     current_time = float(frame_num) / fps
@@ -564,7 +564,7 @@ def log_recognition(bgr_frame, ret, **kwargs):
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
         # not_detected_imgs = imgs[not_detected_indices].transpose(0, 2, 3, 1)
         not_detected_imgs = images.get_images(
-            bgr_frame, ret['boxes'][not_detected_indices].astype(int), do_prewhiten=False
+            rgb_frame, ret['boxes'][not_detected_indices].astype(int), do_prewhiten=False
         )
 
         # find free dir
@@ -579,5 +579,5 @@ def log_recognition(bgr_frame, ret, **kwargs):
 
             # save unknown image
             image_file = os.path.join(dir_name, 'image.jpg')
-            # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             cv2.imwrite(image_file, img)
