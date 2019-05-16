@@ -158,13 +158,13 @@ class Video:
                     name = p.classes[0]
                     if name not in self.faces_detected:
                         self.faces_detected[name] = InVideoDetected()
-                    self.faces_detected[name].exists_in_frame(True, bbox=p.bbox, looks_like=p.looks_like)
+                    self.faces_detected[name].exists_in_frame(processed=p, frame=frame)
                 elif p.state == detector.NOT_DETECTED and store_not_detected:
                     img = images.crop_by_box(frame, p.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)
 
         for fd in list(self.faces_detected):
-            self.faces_detected[fd].exists_in_frame(False)
+            self.faces_detected[fd].exists_in_frame()
             if self.faces_detected[fd].not_detected_anymore and not self.faces_detected[fd].notified:
                 del self.faces_detected[fd]
                 continue
@@ -179,9 +179,8 @@ class Video:
                         n['company'] = meta['company']
                     if 'url' in meta:
                         n['url'] = meta['url']
-                bbox = self.faces_detected[fd].bbox
-                if frame is not None and bbox is not None:
-                    n['image'] = images.crop_by_box(frame, bbox)
+                if self.faces_detected[fd].image is not None:
+                    n['image'] = self.faces_detected[fd].image
                 if len(self.faces_detected[fd].looks_like) > 0:
                     n['action_options'] = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append(n)

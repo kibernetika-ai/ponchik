@@ -1,5 +1,7 @@
 from time import time
 
+from svod_rcgn.tools import images
+
 
 class InVideoDetected:
 
@@ -8,8 +10,7 @@ class InVideoDetected:
     stay_notified = 120
 
     def __init__(self):
-        self.bbox = None
-        self.processed = False
+        self.done = False
         self.prob = 0
         self.not_detected_anymore = False
         self.in_frames = []
@@ -18,14 +19,15 @@ class InVideoDetected:
         self.notified = False
         self.notified_ts = None
         self.looks_like = []
+        self.prob = 0
+        self.image = None
 
     def prepare(self):
-        self.processed = False
+        self.done = False
 
-    def exists_in_frame(self, exists, bbox=None, looks_like=None):
-        if not self.processed:
-            if bbox is not None:
-                self.bbox = bbox
+    def exists_in_frame(self, processed=None, frame=None):
+        if not self.done:
+            exists = processed is not None
             self.in_frames.append(1 if exists else 0)
             now = time()
             self.in_frames_ts.append(now)
@@ -44,14 +46,17 @@ class InVideoDetected:
                     self.notified = True
                     self.notified_awaiting = True
                     self.notified_ts = now
-                    # notify('%s has been detected' % self.name)
                 if self.prob == 0:
                     self.not_detected_anymore = True
-            if looks_like:
-                self.looks_like.extend(looks_like)
-                self.looks_like = list(set(self.looks_like))
-                self.looks_like.sort()
-            self.processed = True
+            if processed:
+                if processed.looks_like:
+                    self.looks_like.extend(processed.looks_like)
+                    self.looks_like = list(set(self.looks_like))
+                    self.looks_like.sort()
+                if processed.prob is not None and processed.prob > self.prob and frame is not None:
+                    self.prob = processed.prob
+                    self.image = images.crop_by_box(frame, processed.bbox)
+            self.done = True
 
     def make_notify(self):
         if self.notified and self.notified_awaiting:
