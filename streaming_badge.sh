@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 rtmp_url=""
 clf_path=data/classifiers
 inference_fps=10
@@ -160,5 +161,5 @@ kstreaming --driver openvino --model-path $model_path --driver tensorflow --mode
   -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
   --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output --rtmp-backend $backend \
   -o enable_log=true -o inference_fps=$inference_fps $pull_model_args -o slack_token="$slack_token" \
-  -o slack_channel="$slack_channel" -o badge_detector=yes -o skip_frames=true
+  -o slack_channel="$slack_channel" -o badge_detector=yes -o skip_frames=true -o min_face_size=50
 
