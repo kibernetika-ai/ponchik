@@ -1,15 +1,9 @@
 import pickle
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import print_fun
 
 import zmq
 
 DEFAULT_LISTENER_PORT = 43210
-
-
-def listener_args(args):
-    return SVODListener(
-        port=args.listener_port,
-    )
 
 
 class SVODListener:
@@ -32,12 +26,3 @@ class SVODListener:
 
     def result(self, err=None):
         self.socket.send(pickle.dumps(err))
-
-
-def add_listener_args(parser):
-    parser.add_argument(
-        '--listener_port',
-        type=int,
-        default=DEFAULT_LISTENER_PORT,
-        help='Listener port',
-    )

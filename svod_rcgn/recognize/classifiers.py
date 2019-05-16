@@ -11,8 +11,7 @@ from ml_serving.drivers import driver
 from sklearn import svm, neighbors
 
 from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import dataset, images
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import dataset, images, print_fun
 
 META_FILENAME = 'meta.json'
 

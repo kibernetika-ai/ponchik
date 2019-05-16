@@ -11,8 +11,7 @@ from sklearn import neighbors
 from sklearn import svm
 
 from svod_rcgn.recognize import nets, defaults, classifiers
-from svod_rcgn.tools import images, bg_remove
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import images, bg_remove, print_fun
 
 
 class DetectorClassifiers:

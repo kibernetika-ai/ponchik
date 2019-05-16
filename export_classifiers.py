@@ -1,8 +1,8 @@
 import argparse
 
 from svod_rcgn.mlboard import mlboard, update_task_info, catalog_ref
-from svod_rcgn.recognize.args import add_common_args
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.recognize import add_common_args
+from svod_rcgn.tools import print_fun
 
 
 def main():

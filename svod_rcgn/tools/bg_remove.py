@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from ml_serving.drivers import driver as sdrv
 
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import print_fun
 
 
 class Driver(object):

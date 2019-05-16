@@ -1,7 +1,7 @@
 import io
 import tarfile
 from urllib.request import urlopen
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import print_fun
 
 
 def downloader_args(args):

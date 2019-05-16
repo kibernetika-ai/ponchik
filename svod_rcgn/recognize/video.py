@@ -6,8 +6,7 @@ import cv2
 import numpy as np
 
 from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import images
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import images, print_fun
 from svod_rcgn.recognize.video_notify import InVideoDetected
 from svod_rcgn.notify import notify
 

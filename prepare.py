@@ -1,10 +1,10 @@
 import argparse
 
-from svod_rcgn.dataset.aligner import add_aligner_args, aligner_args
-from svod_rcgn.recognize.args import add_common_args
+from svod_rcgn.dataset import add_aligner_args, aligner_args
+from svod_rcgn.recognize import add_common_args
 from svod_rcgn.recognize.classifiers import add_classifier_args, classifiers_args
 from svod_rcgn.tools.bg_remove import add_bg_remove_args
-from svod_rcgn.tools.print import print_fun
+from svod_rcgn.tools import print_fun
 from svod_rcgn.mlboard import mlboard, update_task_info, catalog_ref
 
 
