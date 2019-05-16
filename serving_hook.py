@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 
 from svod_rcgn.recognize import detector
+from svod_rcgn.recognize import defaults
 from svod_rcgn.recognize import video
 from svod_rcgn.recognize import video_notify
 from svod_rcgn import notify
@@ -24,6 +25,7 @@ PARAMS = {
     'device': 'CPU',
     'classifiers_dir': '',
     'threshold': [0.3, 0.7, 0.7],
+    'head_pose_thresholds': defaults.HEAD_POSE_THRESHOLDS,
     'debug': 'false',
     'bg_remove_path': '',
     'output_type': 'bytes',
@@ -73,6 +75,11 @@ def init_hook(**kwargs):
     if not isinstance(PARAMS['threshold'], list):
         PARAMS['threshold'] = [
             float(x) for x in PARAMS['threshold'].split(',')
+        ]
+
+    if not isinstance(PARAMS['head_pose_thresholds'], list):
+        PARAMS['head_pose_thresholds'] = [
+            float(x) for x in PARAMS['head_pose_thresholds'].split(',')
         ]
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
@@ -448,8 +455,13 @@ def _boolean_string(s):
 
 
 def _load_nets(ctx):
+    head_pose_driver = None
     if hasattr(ctx, 'drivers'):
         facenet_driver = ctx.drivers[0]
+        if len(ctx.drivers) >= 4:
+            head_pose_driver = ctx.drivers[3]
+        elif len(ctx.drivers) == 2:
+            head_pose_driver = ctx.drivers[1]
     else:
         facenet_driver = ctx.driver
 
@@ -475,6 +487,8 @@ def _load_nets(ctx):
         model_path=PARAMS['model_path'].split(':')[0],
         debug=PARAMS['debug'] == 'true',
         bg_remove_path=PARAMS['bg_remove_path'],
+        head_pose_driver=head_pose_driver,
+        head_pose_thresholds=PARAMS['head_pose_thresholds'],
         loaded_plugin=facenet_driver.plugin,
         facenet_exec_net=facenet_driver.model,
     )

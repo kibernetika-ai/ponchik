@@ -14,6 +14,11 @@ from svod_rcgn.recognize import nets, defaults, classifiers
 from svod_rcgn.tools import images, bg_remove, print_fun
 
 
+DETECTED = 1
+NOT_DETECTED = 2
+WRONG_FACE_POS = 3
+
+
 class DetectorClassifiers:
     def __init__(self):
         self.classifiers = []
@@ -53,7 +58,7 @@ class Processed:
     def __init__(
             self,
             bbox=None,
-            detected=False,
+            state=NOT_DETECTED,
             label='',
             overlay_label='',
             prob=0,
@@ -63,7 +68,7 @@ class Processed:
             looks_like=None,
     ):
         self.bbox = bbox
-        self.detected = detected
+        self.state = state
         self.label = label
         self.overlay_label = overlay_label
         self.prob = prob
@@ -81,6 +86,8 @@ class Detector(object):
             model_path=defaults.MODEL_PATH,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             bg_remove_path=None,
+            head_pose_driver=None,
+            head_pose_thresholds=defaults.HEAD_POSE_THRESHOLDS,
             threshold=defaults.THRESHOLD,
             debug=defaults.DEBUG,
             loaded_plugin=None,
@@ -94,6 +101,11 @@ class Detector(object):
         self.classifiers_dir = classifiers_dir
         self.bg_remove_path = bg_remove_path
         self.bg_remove = None
+        self.head_pose_driver = head_pose_driver
+        self.head_pose_thresholds = head_pose_thresholds
+        self.head_pose_yaw = "angle_y_fc"
+        self.head_pose_pitch = "angle_p_fc"
+        self.head_pose_roll = "angle_r_fc"
         self.use_classifiers = False
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
@@ -346,7 +358,7 @@ class Detector(object):
 
         return Processed(
             bbox=bbox.astype(int),
-            detected=detected,
+            state=DETECTED if detected else NOT_DETECTED,
             label=summary_overlay_label,
             overlay_label=overlay_label_str,
             prob=mean_prob,
@@ -356,29 +368,64 @@ class Detector(object):
             looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
         )
 
-    def process_frame(self, frame, overlays=True):
+    def skip_wrong_pose_indices(self, bgr_frame, boxes):
+        if self.head_pose_driver is None:
+            return set()
 
+        if boxes is None or len(boxes) == 0:
+            return set()
+        imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, do_prewhiten=False))
+        outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
+
+        yaw = np.abs(outputs[self.head_pose_yaw].reshape([-1]))
+        pitch = np.abs(outputs[self.head_pose_pitch].reshape([-1]))
+        roll = np.abs(outputs[self.head_pose_roll].reshape([-1]))
+
+        skips = set()
+        # print(yaw, pitch, roll)
+        for i, (y, p, r) in enumerate(zip(yaw, pitch, roll)):
+            if (y > self.head_pose_thresholds[0]
+                    or p > self.head_pose_thresholds[1]
+                    or r > self.head_pose_thresholds[2]):
+                skips.add(i)
+
+        return skips
+
+    def process_frame(self, frame, overlays=True):
         bounding_boxes_detected = self.detect_faces(frame, self.threshold)
+        skips = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
 
         frame_processed = []
 
         if self.use_classifiers:
-
             imgs = images.get_images(frame, bounding_boxes_detected)
 
             for img_idx, img in enumerate(imgs):
-
                 # Infer
                 # t = time.time()
                 # Convert BGR to RGB
-                img = img[:, :, ::-1]
-                img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
-                output = self.inference_facenet(img)
-                # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
-                # output = output[facenet_output]
+                if img_idx not in skips:
+                    img = img[:, :, ::-1]
+                    img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
+                    output = self.inference_facenet(img)
+                    # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
+                    # output = output[facenet_output]
 
-                processed = self.process_output(output, bounding_boxes_detected[img_idx])
-                frame_processed.append(processed)
+                    processed = self.process_output(output, bounding_boxes_detected[img_idx])
+                    frame_processed.append(processed)
+                else:
+                    processed = Processed(
+                        bbox=bounding_boxes_detected[img_idx].astype(int),
+                        state=WRONG_FACE_POS,
+                        label='',
+                        overlay_label='',
+                        prob=0,
+                        classes=[],
+                        classes_meta={},
+                        meta=None,
+                        looks_like=[],
+                    )
+                    frame_processed.append(processed)
 
         if overlays:
             self.add_overlays(frame, frame_processed)
@@ -401,12 +448,12 @@ class Detector(object):
         fontFace, fontScale, thickness = Detector._getTextProps(frame)
 
         bbox = processed.bbox.astype(int)
-        color = self._color(processed.detected)
+        color = self._color(processed.state)
         cv2.rectangle(
             frame,
             (bbox[0], bbox[1]), (bbox[2], bbox[3]),  # (left, top), (right, bottom)
             color,
-            thickness * (2 if processed.detected else 1),
+            thickness * (2 if processed.state == DETECTED else 1),
         )
 
         font_inner_padding_w, font_inner_padding_h = 5, 5
@@ -504,8 +551,13 @@ class Detector(object):
         cv2.putText(frame, text, (left, top), fontFace, fontScale, color, thickness=thickness, lineType=lineType)
 
     @staticmethod
-    def _color(detected):
-        return (0, 255, 0) if detected else (250, 0, 250)
+    def _color(state):
+        if state == DETECTED:
+            return 0, 255, 0
+        elif state == WRONG_FACE_POS:
+            return 0, 0, 250
+        else:
+            return 250, 0, 250
 
     @staticmethod
     def _openvino_detect(face_detect, frame, threshold):

@@ -8,6 +8,7 @@ import numpy as np
 from svod_rcgn.recognize import defaults
 from svod_rcgn.tools import images, print_fun
 from svod_rcgn.recognize.video_notify import InVideoDetected
+from svod_rcgn.recognize import detector
 from svod_rcgn.notify import notify
 
 
@@ -153,12 +154,12 @@ class Video:
                     store_not_detected = True
 
             for p in self.processed:
-                if p.detected:
+                if p.state == detector.DETECTED:
                     name = p.classes[0]
                     if name not in self.faces_detected:
                         self.faces_detected[name] = InVideoDetected()
                     self.faces_detected[name].exists_in_frame(True, bbox=p.bbox, looks_like=p.looks_like)
-                elif store_not_detected:
+                elif p.state == detector.NOT_DETECTED and store_not_detected:
                     img = images.crop_by_box(frame, p.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)
 
