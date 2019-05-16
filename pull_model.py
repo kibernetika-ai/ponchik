@@ -1,11 +1,13 @@
 import datetime
 import io
+import logging
 import time
 
 import croniter
 import requests
 
 
+LOG = logging.getLogger(__name__)
 versions = {}
 
 
@@ -22,7 +24,7 @@ def download_version(url, token):
     content = io.BytesIO()
     length = int(resp.headers['Content-Length'])
     read = 0
-    max_len = 65
+    max_len = 33
     for chunk in resp.iter_content(chunk_size=1024 * 1024):
         if chunk:
             read += content.write(chunk)
@@ -30,7 +32,7 @@ def download_version(url, token):
             progress = '=' * int(float(read) / length * max_len - 1)
             progress += '>'
             progress += ' ' * (max_len - len(progress))
-            print('Downloading... [%s]' % progress)
+            LOG.info('Downloading... [%s]' % progress)
 
     # return cursor to 0
     content.seek(0)
@@ -44,14 +46,14 @@ def loop(pattern, base_url, ws, name, token, callback):
     while True:
         current = datetime.datetime.utcnow()
         if current >= next_time:
-            print('[%s] Check for new version... [model=%s/%s]' % (
+            LOG.info('[%s] Check for new version... [model=%s/%s]' % (
                 next_time.strftime('%Y-%m-%d %H:%M:%S'), ws, name
                 )
             )
             changed, version, url = check(base_url, ws, name, token)
             if changed:
                 # Download
-                print('[%s] Downloading new version %s...' % (next_time.strftime('%Y-%m-%d %H:%M:%S'), version))
+                LOG.info('[%s] Downloading new version %s...' % (next_time.strftime('%Y-%m-%d %H:%M:%S'), version))
                 fileobj = download_version(url, token)
                 callback(version, fileobj)
             next_time = cron.get_next(datetime.datetime)
@@ -63,18 +65,18 @@ def check(base_url, ws, name, token):
     try:
         resp = version_request(base_url, ws, name, token)
     except Exception as e:
-        print('Error: %s' % e)
+        LOG.info('Error: %s' % e)
         return None, None, None
 
     if resp.status_code >= 400:
-        print('Response status %s.' % resp.status_code)
-        print(resp.text)
+        LOG.info('Response status %s.' % resp.status_code)
+        LOG.info(resp.text)
         return None, None, None
 
     try:
         vs = resp.json()
     except (ValueError, TypeError) as e:
-        print('not json: %s' % e)
+        LOG.info('not json: %s' % e)
         return None, None, None
 
     global versions
@@ -90,13 +92,13 @@ def check(base_url, ws, name, token):
             continue
 
         if v['Version'] not in versions:
-            print('New version: %s' % v['Version'])
+            LOG.info('New version: %s' % v['Version'])
             should_add = True
 
         # Changed size
         for _, old in versions.items():
             if v['Version'] == old['Version'] and old['SizeBytes'] != v['SizeBytes']:
-                print(
+                LOG.info(
                     'Old version %s with new size %s'
                     % (v['Version'], v['SizeBytes'])
                 )
