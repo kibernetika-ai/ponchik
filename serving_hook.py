@@ -49,6 +49,8 @@ PARAMS = {
     'slack_token': '',
     'slack_channel': '',
     'badge_detector': '',
+
+    'min_face_size': defaults.MIN_FACE_SIZE,
 }
 load_lock = threading.Lock()
 width = 640
@@ -88,6 +90,7 @@ def init_hook(**kwargs):
     PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
     PARAMS['enable_pull_model'] = _boolean_string(PARAMS['enable_pull_model'])
     PARAMS['inference_fps'] = int(PARAMS['inference_fps'])
+    PARAMS['min_face_size'] = int(PARAMS['min_face_size'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
 
@@ -491,6 +494,7 @@ def _load_nets(ctx):
         head_pose_thresholds=PARAMS['head_pose_thresholds'],
         loaded_plugin=facenet_driver.plugin,
         facenet_exec_net=facenet_driver.model,
+        min_face_size=PARAMS['min_face_size'],
     )
     ot.init()
     openvino_facenet = ot
