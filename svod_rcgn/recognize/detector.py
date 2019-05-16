@@ -43,9 +43,20 @@ def add_detector_args(parser):
 
 
 def detector_args(args):
+    serving = None
+    if args.head_pose_path is not None:
+        if os.path.isfile(args.head_pose_path):
+            from ml_serving.drivers import driver
+            print_fun("Load HEAD POSE ESTIMATION model")
+            drv = driver.load_driver('openvino')
+            serving = drv()
+            serving.load_model(args.head_pose_path)
+        else:
+            print_fun("head-pose-estimation openvino model is not found, skipped")
     return Detector(
         device=args.device,
         face_detection_path=args.face_detection_path,
+        head_pose_driver=serving,
         model_path=args.model_path,
         classifiers_dir=args.classifiers_dir,
         bg_remove_path=args.bg_remove_path,
@@ -84,6 +95,7 @@ class Detector(object):
             self,
             device=defaults.DEVICE,
             face_detection_path=defaults.FACE_DETECTION_PATH,
+            head_pose_path=defaults.HEAD_POSE_PATH,
             model_path=defaults.MODEL_PATH,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             bg_remove_path=None,

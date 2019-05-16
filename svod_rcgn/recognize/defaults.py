@@ -17,4 +17,8 @@ FACE_DETECTION_PATH = (
     '/opt/intel/openvino/deployment_tools/intel_models/'
     'face-detection-retail-0004/FP32/face-detection-retail-0004.xml'
 )
+HEAD_POSE_PATH = (
+    '/opt/intel/openvino/deployment_tools/intel_models/'
+    'head-pose-estimation-adas-0001/FP32/head-pose-estimation-adas-0001.xml'
+)
 DEBUG = False
