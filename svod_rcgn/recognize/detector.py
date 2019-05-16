@@ -211,8 +211,8 @@ class Detector(object):
                         raise RuntimeError("Different class names in classifiers")
                     if new.class_stats is None:
                         new.class_stats = class_stats
-                    elif class_stats != new.class_stats:
-                        raise RuntimeError("Different class stats in classifiers")
+                    # elif class_stats != new.class_stats:
+                    #     raise RuntimeError("Different class stats in classifiers")
                     new.classifier_names.append(classifier_name)
                     new.embedding_sizes.append(embedding_size)
                     new.classifiers.append(clf)
