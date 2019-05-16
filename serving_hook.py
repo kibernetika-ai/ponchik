@@ -286,7 +286,7 @@ def process_recognize(inputs, ctx, **kwargs):
                     'alternate': True,
                 }
 
-                if processed.detected == detector.NOT_DETECTED:
+                if processed.state == detector.NOT_DETECTED:
                     image_clarify['values'] = []
                     for cls in processed.classes:
                         cl_cls = {'name': cls}
