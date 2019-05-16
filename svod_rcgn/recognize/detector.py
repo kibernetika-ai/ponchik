@@ -50,6 +50,7 @@ def detector_args(args):
         classifiers_dir=args.classifiers_dir,
         bg_remove_path=args.bg_remove_path,
         threshold=args.threshold,
+        min_face_size=args.min_face_size,
         debug=args.debug,
     )
 
@@ -89,6 +90,7 @@ class Detector(object):
             head_pose_driver=None,
             head_pose_thresholds=defaults.HEAD_POSE_THRESHOLDS,
             threshold=defaults.THRESHOLD,
+            min_face_size=defaults.MIN_FACE_SIZE,
             debug=defaults.DEBUG,
             loaded_plugin=None,
             facenet_exec_net=None,
@@ -109,6 +111,8 @@ class Detector(object):
         self.use_classifiers = False
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
+        self.min_face_size = min_face_size
+        self.min_face_area = self.min_face_size ** 2
         self.debug = debug
         self.loaded_plugin = loaded_plugin
         self.classes = []
@@ -216,7 +220,9 @@ class Detector(object):
             bounding_boxes_frame = self.bg_remove.apply_mask(frame)
         else:
             bounding_boxes_frame = frame
-        return self._openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
+        detected = self._openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
+
+        return detected[(detected[:, 3] - detected[:, 1]) * (detected[:, 2] - detected[:, 0]) >= self.min_face_area]
 
     def inference_facenet(self, img):
         output = self.face_net.infer(inputs={self.facenet_input: img})

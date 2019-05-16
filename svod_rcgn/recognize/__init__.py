@@ -20,6 +20,12 @@ def add_common_args(parser):
         default=defaults.MODEL_PATH,
     )
     parser.add_argument(
+        '--min_face_size',
+        type=int,
+        help='Minimum face size in pixels.',
+        default=defaults.MIN_FACE_SIZE,
+    )
+    parser.add_argument(
         '--device',
         help='Device for openVINO.',
         default=defaults.DEVICE,

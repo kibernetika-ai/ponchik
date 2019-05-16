@@ -24,12 +24,6 @@ def add_classifier_args(parser):
         default=defaults.ALIGNED_DIR,
     )
     parser.add_argument(
-        '--min_face_size',
-        type=int,
-        help='Minimum face size in pixels.',
-        default=defaults.MIN_FACE_SIZE,
-    )
-    parser.add_argument(
         '--image_size',
         type=int,
         help='Image size (height, width) in pixels.',
