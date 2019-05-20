@@ -26,6 +26,7 @@ from __future__ import division
 from __future__ import print_function
 
 import hashlib
+import json
 import os
 import pickle
 import shutil
@@ -115,6 +116,7 @@ class Aligner:
         src_path, _ = os.path.split(os.path.realpath(__file__))
         # facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
         loaded_dataset = dataset.get_dataset(self.input_dir)
+        loaded_dataset_meta = dataset.get_meta(loaded_dataset)
 
         print_fun('Creating networks and loading parameters')
 
@@ -142,16 +144,16 @@ class Aligner:
         for cls in loaded_dataset:
             output_class_dir = os.path.join(aligned_dir, cls.name)
             output_class_dir_created = False
-            meta_file = None
+            # meta_file = None
             aligned_class_images = []
             if cls.name in align_data:
                 align_data_class = align_data[cls.name]
             else:
                 align_data_class = {}
             for image_path in cls.image_paths:
-                if os.path.basename(image_path) == dataset.META_FILENAME:
-                    meta_file = image_path
-                    continue
+                # if os.path.basename(image_path) == dataset.META_FILENAME:
+                #     meta_file = image_path
+                #     continue
                 nrof_images_total += 1
                 nrof_images_skipped += 1
                 filename = os.path.splitext(os.path.split(image_path)[1])[0]
@@ -258,9 +260,11 @@ class Aligner:
                 if images_limit and nrof_successfully_aligned >= images_limit:
                     break
 
-            if meta_file is not None and os.path.isdir(output_class_dir):
-                shutil.copyfile(meta_file, os.path.join(output_class_dir, dataset.META_FILENAME))
-                nrof_has_meta += 1
+            if os.path.isdir(output_class_dir):
+                cls_ = cls.name.replace(' ', '_')
+                if cls_ in loaded_dataset_meta:
+                    with open(os.path.join(output_class_dir, dataset.META_FILENAME), 'w') as mf:
+                        json.dump(loaded_dataset_meta[cls_], mf)
 
             # clear not existing in input already exists aligned class images
             if not self.complementary_align:
@@ -277,6 +281,8 @@ class Aligner:
             if images_limit and images_limit <= nrof_successfully_aligned:
                 print_fun("Limit for aligned images %d is reached" % images_limit)
                 break
+
+        dataset.get_meta(loaded_dataset)
 
         # clear not existing in input already exists aligned classes (dirs)
         if not self.complementary_align:
