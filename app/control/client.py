@@ -2,8 +2,8 @@ import pickle
 
 import zmq
 
-from svod_rcgn.control import listener
-from svod_rcgn.tools import print_fun
+from app.control import listener
+from app.tools import print_fun
 
 
 class SVODClient:

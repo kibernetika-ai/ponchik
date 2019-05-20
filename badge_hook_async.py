@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import logging
 import json
-import svod_rcgn.badge.badge_detector as badge
+import app.badge.badge_detector as badge
 import requests
 
 LOG = logging.getLogger(__name__)

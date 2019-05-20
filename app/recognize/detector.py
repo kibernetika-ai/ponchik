@@ -10,8 +10,8 @@ from openvino import inference_engine as ie
 from sklearn import neighbors
 from sklearn import svm
 
-from svod_rcgn.recognize import nets, defaults, classifiers
-from svod_rcgn.tools import images, bg_remove, print_fun
+from app.recognize import nets, defaults, classifiers
+from app.tools import images, bg_remove, print_fun
 
 
 DETECTED = 1

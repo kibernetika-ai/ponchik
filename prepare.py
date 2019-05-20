@@ -1,10 +1,10 @@
 import argparse
 
-from svod_rcgn.dataset import add_aligner_args, aligner_args
-from svod_rcgn.recognize import add_common_args
-from svod_rcgn.recognize.classifiers import add_classifier_args, classifiers_args
-from svod_rcgn.tools.bg_remove import add_bg_remove_args
-from svod_rcgn.tools import print_fun
+from app.dataset import add_aligner_args, aligner_args
+from app.recognize import add_common_args
+from app.recognize.classifiers import add_classifier_args, classifiers_args
+from app.tools.bg_remove import add_bg_remove_args
+from app.tools import print_fun
 
 
 def main():
@@ -53,11 +53,11 @@ def main():
     if not args.skip_train:
         clf = classifiers_args(args)
         clf.train()
-        from svod_rcgn.control.client import SVODClient
+        from app.control.client import SVODClient
         cl = SVODClient()
         cl.call('reload_classifiers')
         if args.model_name is not None and args.model_version is not None:
-            from svod_rcgn.mlboard import mlboard, update_task_info, catalog_ref
+            from app.mlboard import mlboard, update_task_info, catalog_ref
             print_fun('Uploading model...')
             mlboard.model_upload(args.model_name, args.model_version, args.classifiers_dir)
             update_task_info({'model_reference': catalog_ref(args.model_name, 'mlmodel', args.model_version)})

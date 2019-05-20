@@ -1,6 +1,6 @@
 kind: MLApp
 metadata:
-  name: svod_rcgn
+  name: ponchik
 spec:
   default_mount_path: /notebooks
   default_read_only: false

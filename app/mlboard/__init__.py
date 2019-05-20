@@ -1,6 +1,6 @@
 import os
 
-from svod_rcgn.tools import print_fun
+from app.tools import print_fun
 
 try:
     from mlboardclient.api import client

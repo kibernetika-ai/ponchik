@@ -1,6 +1,6 @@
 from time import time
 
-from svod_rcgn.tools import images
+from app.tools import images
 
 
 class InVideoDetected:

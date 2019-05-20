@@ -7,7 +7,7 @@ import sys
 import logging
 from itertools import permutations
 import fuzzyset
-from svod_rcgn.notify import notify
+from app.notify import notify
 import time
 
 MAX_DIM = 1024.0

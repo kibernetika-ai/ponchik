@@ -5,11 +5,11 @@ from threading import Thread
 import cv2
 import numpy as np
 
-from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import images, print_fun
-from svod_rcgn.recognize.video_notify import InVideoDetected
-from svod_rcgn.recognize import detector
-from svod_rcgn.notify import notify
+from app.recognize import defaults
+from app.tools import images, print_fun
+from app.recognize.video_notify import InVideoDetected
+from app.recognize import detector
+from app.notify import notify
 
 
 def video_args(detector, listener, args):

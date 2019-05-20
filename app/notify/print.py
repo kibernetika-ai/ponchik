@@ -1,4 +1,4 @@
-from svod_rcgn.tools import print_fun
+from app.tools import print_fun
 
 
 class NotifyPrint:

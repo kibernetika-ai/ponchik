@@ -1,6 +1,6 @@
-from svod_rcgn.notify.slack import NotifySlack
-from svod_rcgn.notify.print import NotifyPrint
-from svod_rcgn.tools import print_fun
+from app.notify.slack import NotifySlack
+from app.notify.print import NotifyPrint
+from app.tools import print_fun
 
 notifier = None
 not_init_say = False

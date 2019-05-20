@@ -10,13 +10,13 @@ import time
 import cv2
 import numpy as np
 
-from svod_rcgn.recognize import detector
-from svod_rcgn.recognize import defaults
-from svod_rcgn.recognize import video
-from svod_rcgn.recognize import video_notify
-from svod_rcgn import notify
-from svod_rcgn.tools import images, dataset
-from svod_rcgn.mlboard import mlboard
+from app.recognize import detector
+from app.recognize import defaults
+from app.recognize import video
+from app.recognize import video_notify
+from app import notify
+from app.tools import images, dataset
+from app.mlboard import mlboard
 
 import pull_model
 
@@ -154,7 +154,7 @@ def process(inputs, ctx, **kwargs):
                 net_loaded = True
 
     if PARAMS['badge_detector']=='yes':
-        import svod_rcgn.badge.badge_detector as badge
+        import app.badge.badge_detector as badge
         global badge_detector
         if badge_detector is None:
             badge_detector = badge.BadgePorcessor(openvino_facenet.classes,ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)

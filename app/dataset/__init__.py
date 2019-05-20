@@ -1,5 +1,5 @@
-from svod_rcgn.dataset import aligner
-from svod_rcgn.dataset.aligner import Aligner
+from app.dataset import aligner
+from app.dataset.aligner import Aligner
 
 
 def add_aligner_args(parser):

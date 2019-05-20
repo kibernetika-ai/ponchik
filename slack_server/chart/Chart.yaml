@@ -1,14 +1,14 @@
 apiVersion: v1
 appVersion: "1.0"
-description: HTTP server to receive Slack button actions from svod_rcgn app.
-name: svod-rcgn-slack-server
+description: HTTP server to receive Slack button actions from ponchik app.
+name: ponchik-slack-server
 version: 0.0.1
 keywords:
 - svod
 - face recognition
-home: https://github.com/kibernetika-ai/svod_rcgn
+home: https://github.com/kibernetika-ai/ponchik
 sources:
-- https://github.com/kibernetika-ai/svod_rcgn
+- https://github.com/kibernetika-ai/ponchik
 maintainers:
 - name: Vadim Grishin
   email: vgrishin@kibernetika.ai

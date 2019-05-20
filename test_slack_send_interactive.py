@@ -9,7 +9,7 @@ client.chat_postMessage(channel=channel, text='test message')
 # import cv2
 # import os
 #
-# from svod_rcgn.notify import NotifySlack
+# from app.notify import NotifySlack
 #
 # notifier = NotifySlack(
 #     os.environ.get('SLACK_TOKEN'),

@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from svod_rcgn.tools import images
+from app.tools import images
 
 META_FILENAME = 'meta.json'
 

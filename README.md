@@ -121,7 +121,7 @@ python video.py
 
 In this time it's available to make calls:
 ```python
-from svod_rcgn.control.client import SVODClient
+from app.control.client import SVODClient
 
 cl = SVODClient()
 cl.call(action, data)

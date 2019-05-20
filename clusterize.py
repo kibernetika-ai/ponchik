@@ -26,8 +26,8 @@
 # import cv2
 # import os
 # import numpy as np
-# from svod_rcgn.dataset.aligner import Aligner
-# from svod_rcgn.tools import images
+# from app.dataset.aligner import Aligner
+# from app.tools import images
 #
 #
 # src_path = './data/to_clusterize'
@@ -62,7 +62,7 @@
 
 
 import os
-from svod_rcgn.recognize.classifiers import Classifiers
+from app.recognize.classifiers import Classifiers
 from sklearn.cluster import DBSCAN
 import numpy as np
 import shutil

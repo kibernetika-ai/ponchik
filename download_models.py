@@ -1,8 +1,8 @@
 import argparse
 import os
 
-from svod_rcgn.recognize import defaults
-from svod_rcgn.tools import downloader
+from app.recognize import defaults
+from app.tools import downloader
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

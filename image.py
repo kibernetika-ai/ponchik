@@ -1,9 +1,9 @@
 import argparse
 
-from svod_rcgn.recognize import add_common_args
-from svod_rcgn.recognize.detector import add_detector_args, detector_args
-from svod_rcgn.recognize.image import add_image_args, image_args
-from svod_rcgn.tools.bg_remove import add_bg_remove_args
+from app.recognize import add_common_args
+from app.recognize.detector import add_detector_args, detector_args
+from app.recognize.image import add_image_args, image_args
+from app.tools.bg_remove import add_bg_remove_args
 
 
 def main():

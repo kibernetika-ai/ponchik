@@ -68,11 +68,11 @@ spec:
           volumeMounts:
             - name: server-source
               mountPath: /server
-              subPath: svod_rcgn/slack_server/server
+              subPath: ponchik/slack_server/server
       volumes:
         - name: server-source
           gitRepo:
-            repository: https://github.com/kibernetika-ai/svod_rcgn
+            repository: https://github.com/kibernetika-ai/ponchik
 {{- if .Values.tolerations }}
       tolerations:
       - operator: {{ .Values.tolerations.operator | quote }}

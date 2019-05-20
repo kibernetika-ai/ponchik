@@ -1,4 +1,4 @@
-from svod_rcgn.control.listener import SVODListener, DEFAULT_LISTENER_PORT
+from app.control.listener import SVODListener, DEFAULT_LISTENER_PORT
 
 
 def listener_args(args):
