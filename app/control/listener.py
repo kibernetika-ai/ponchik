@@ -6,7 +6,7 @@ import zmq
 DEFAULT_LISTENER_PORT = 43210
 
 
-class SVODListener:
+class Listener:
     def __init__(self, port=DEFAULT_LISTENER_PORT):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)

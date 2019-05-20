@@ -53,8 +53,8 @@ def main():
     if not args.skip_train:
         clf = classifiers_args(args)
         clf.train()
-        from app.control.client import SVODClient
-        cl = SVODClient()
+        from app.control.client import Client
+        cl = Client()
         cl.call('reload_classifiers')
         if args.model_name is not None and args.model_version is not None:
             from app.mlboard import mlboard, update_task_info, catalog_ref

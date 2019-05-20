@@ -1,4 +1,4 @@
-# svod-rcgn
+# ponchik
 
 ## Default project data and models directories structure
 

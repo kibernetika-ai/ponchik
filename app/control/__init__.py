@@ -1,8 +1,8 @@
-from app.control.listener import SVODListener, DEFAULT_LISTENER_PORT
+from app.control.listener import Listener, DEFAULT_LISTENER_PORT
 
 
 def listener_args(args):
-    return SVODListener(
+    return Listener(
         port=args.listener_port,
     )
 

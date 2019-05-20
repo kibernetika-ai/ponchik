@@ -6,7 +6,7 @@ from app.control import listener
 from app.tools import print_fun
 
 
-class SVODClient:
+class Client:
     def __init__(self, port=listener.DEFAULT_LISTENER_PORT):
         self.port = port
         self.context = None
