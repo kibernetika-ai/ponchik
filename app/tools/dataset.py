@@ -42,11 +42,8 @@ def get_image_paths(facedir, limit=None):
             for img in images
             if not img.startswith('.') and os.path.basename(img) != META_FILENAME
         ]
-        # path_exp = os.path.expanduser(facedir)
         m_file = os.path.join(os.path.expanduser(facedir), META_FILENAME)
-        print(m_file)
         if os.path.isfile(m_file):
-            print('!!')
             with open(m_file) as mf:
                 meta = json.load(mf)
     if limit:
