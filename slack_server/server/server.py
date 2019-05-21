@@ -1,4 +1,3 @@
-import io
 import os
 import time
 
@@ -148,6 +147,7 @@ def process_block_action(action, trigger_id, channel, message):
         aimg_id = aparts[1]
     elif aaction == 'confirm':
         res_string = ':white_check_mark: __ACTOR__ confirmed this face as *__NAME__*'
+        aimg_title = action['value']
         aimg_id = aparts[1]
     elif aaction == 'confirmopt':
         res_string = ':white_check_mark: __ACTOR__ selected this face as *__NAME__*__META__'
@@ -191,34 +191,13 @@ def process_dialog_submission(submission):
 def store_face(file_id, name, position=None, company=None, url=None, result=None, comment=None):
 
     ok = True
-    file_bytes = None
 
-    try:
-
-        file = client.api_call("files.info", http_verb="GET", params={'file': file_id})
-        f = requests.get(
-            file['file']['url_private_download'],
-            headers={'Authorization': 'Bearer %s' % client.token},
-            stream=True,
-        )
-        assert f.status_code == 200
-
-        file_bytes = io.BytesIO()
-        for chunk in f.iter_content(chunk_size=8192):
-            if chunk:
-                file_bytes.write(chunk)
-        file_bytes.seek(0)
-        if name is None:
-            name = file['file']['title']
-
-    except Exception as e:
+    if not os.path.isfile(file_id):
 
         result = "Confirmed image is absent"
-        comment = 'Get Slack file info error: %s' % e
-        file_bytes = None
         ok = False
 
-    if file_bytes is not None:
+    else:
 
         try:
             data = {
@@ -236,7 +215,7 @@ def store_face(file_id, name, position=None, company=None, url=None, result=None
                 serving_url,
                 data=data,
                 files={
-                    'byte_face': file_bytes
+                    'byte_face': open(file_id, 'rb')
                 }
             )
             assert r.status_code == 200
@@ -280,7 +259,6 @@ def store_face(file_id, name, position=None, company=None, url=None, result=None
         if meta_str != '':
             meta_str = ' _(%s)_' % meta_str
         result = result.replace('__META__', meta_str)
-
 
     return ok, result, comment
 
