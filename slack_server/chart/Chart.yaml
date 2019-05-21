@@ -4,7 +4,6 @@ description: HTTP server to receive Slack button actions from ponchik app.
 name: ponchik-slack-server
 version: 0.0.1
 keywords:
-- svod
 - face recognition
 home: https://github.com/kibernetika-ai/ponchik
 sources:

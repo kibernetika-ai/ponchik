@@ -43,8 +43,8 @@ PARAMS = {
     'enable_pull_model': False,
     'base_url': 'https://dev.kibernetika.io/api/v0.2',
     'token': '',
-    'model_name': 'svod-rcgn',
-    'workspace_name': 'svod',
+    'model_name': 'ponchik',
+    'workspace_name': 'kuberlab-demo',
 
     'slack_token': '',
     'slack_channel': '',

@@ -37,7 +37,7 @@ service:
 ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
     enabled: false
-    hostname: svod-rcgn-slack-server.local
+    hostname: ponchik-slack-server.local
 
 ## If you want use nodeSelector for install clickhouse on specific node
 # nodeSelector:
