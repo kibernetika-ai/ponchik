@@ -1,10 +1,12 @@
 import io
 import os
+import time
 
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, send_from_directory
 import requests
 import json
 import slack
+
 
 slack_token = os.environ.get('SLACK_TOKEN')
 if not slack_token:
@@ -17,6 +19,8 @@ if not serving_url:
 
 app = Flask(__name__)
 client = slack.WebClient(token=slack_token)
+
+uploaded_dir = "uploaded"
 
 
 @app.route("/slack", methods=["POST"])
@@ -61,6 +65,24 @@ def slack_interactive():
 
     else:
         return make_response('unhandled type "%s"' % data_type, 400)
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    try:
+        f = request.files['file']
+        if not os.path.isdir(uploaded_dir):
+            os.makedirs(uploaded_dir)
+        filename = os.path.join(uploaded_dir, str(time.time()) + os.path.splitext(f.filename)[1])
+        f.save(filename)
+        return make_response(filename, 200)
+    except Exception as e:
+        return make_response('uploading error: %s' % e, 5400)
+
+
+@app.route('/uploaded/<path:path>')
+def uploaded_file(path):
+    return send_from_directory('uploaded', path)
 
 
 @app.route("/probe", methods=["GET"])
