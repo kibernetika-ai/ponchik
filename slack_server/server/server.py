@@ -278,6 +278,16 @@ def complete_message(message, channel, result, comment):
             }
         })
         update = True
+
+    # clear accessory block
+    if 'blocks' in message:
+        for i, b in enumerate(message['blocks']):
+            if 'accessory' in b and b['accessory']['type'] == 'image':
+                del message['blocks'][i]['accessory']['fallback']
+                del message['blocks'][i]['accessory']['image_width']
+                del message['blocks'][i]['accessory']['image_height']
+                del message['blocks'][i]['accessory']['image_bytes']
+
     if update:
         client.chat_update(channel=channel, **message)
 
