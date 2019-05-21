@@ -125,12 +125,9 @@ class NotifySlack:
                 }
             }
         if image_id is not None:
-            image_url = os.path.join(self.server, image_id)
-            if 'localhost' in self.server:
-                image_url = 'http://svod-dev.kibernetika.io/uploaded/1558445557.4148765.jpg'
             main_block['accessory'] = {
                 'type': 'image',
-                'image_url': image_url,
+                'image_url': os.path.join(self.server, image_id),
                 'alt_text': kwargs['name'],
             }
 
