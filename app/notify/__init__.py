@@ -6,10 +6,10 @@ notifier = None
 not_init_say = False
 
 
-def init_notifier_params(slack_token, slack_channel):
+def init_notifier_params(slack_token, slack_channel, slack_server):
     global notifier
-    if slack_token and slack_channel:
-        notifier = NotifySlack(slack_token, slack_channel)
+    if slack_token and slack_channel and slack_server:
+        notifier = NotifySlack(slack_token, slack_channel, slack_server)
         if not notifier.is_ok():
             notifier = None
     if notifier is None:
@@ -17,7 +17,7 @@ def init_notifier_params(slack_token, slack_channel):
 
 
 def init_notifier(args):
-    init_notifier_params(args.notify_slack_token, args.notify_slack_channel)
+    init_notifier_params(args.notify_slack_token, args.notify_slack_channel, args.notify_slack_server)
 
 
 def add_notify_args(parser):
@@ -30,6 +30,12 @@ def add_notify_args(parser):
     parser.add_argument(
         '--notify_slack_channel',
         help='Slack channel.',
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        '--notify_slack_server',
+        help='URL for slack server.',
         type=str,
         default=None,
     )

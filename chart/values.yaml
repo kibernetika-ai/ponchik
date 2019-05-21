@@ -33,7 +33,7 @@ bgrm:
   version: '1.0.0'
   workspace: 'kuberlab-demo'
   wizard:
-    name: "Background removal model (uses before faces detection)"
+    name: "Background removal model"
     kind: model
 
 detection_bgrm_align:

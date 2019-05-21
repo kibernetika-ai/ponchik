@@ -1,15 +1,17 @@
 import os
 import time
 
+import requests
 import slack
 import tempfile
 import cv2
 
 
 class NotifySlack:
-    def __init__(self, token, channel):
+    def __init__(self, token, channel, server):
         self.channel = channel
         self.client = slack.WebClient(token=token)
+        self.server = server
         self.tempdir = tempfile.TemporaryDirectory()
 
     def is_ok(self):
@@ -20,13 +22,17 @@ class NotifySlack:
             return False
         for ch in resp['channels']:
             if ch['name'] == self.channel:
+                try:
+                    requests.get(os.path.join(self.server, 'probe'))
+                except Exception as e:
+                    print('Unable to connect to Slack server: %s' % e)
+                    return False
                 return True
         print('Slack channel "%s" is not exists or not available' % self.channel)
         return False
 
     def notify(self, **kwargs):
 
-        ch = '#%s' % self.channel
         has_image = 'image' in kwargs
         image_id = None
 
@@ -34,14 +40,11 @@ class NotifySlack:
             tmp_img = os.path.join(self.tempdir.name, str(time.time()) + '.jpg')
             try:
                 cv2.imwrite(tmp_img, kwargs['image'])
-                r = self.client.files_upload(
-                    channels=ch,
-                    file=tmp_img,
-                    title=kwargs['name'],
-                )
-                assert r['ok']
-                image_id = r['file']['id']
-            except:
+                r = requests.post(os.path.join(self.server, 'upload'), files={'file': open(tmp_img, 'rb')})
+                assert r.status_code == 200
+                image_id = r.text
+            except Exception as e:
+                print('Upload image error: %s' % e)
                 has_image = False
             finally:
                 os.remove(tmp_img)
@@ -68,7 +71,8 @@ class NotifySlack:
                     'text': {
                         'type': 'plain_text',
                         'text': ':white_check_mark: Yes, it\'s %s' % kwargs['name'],
-                    }
+                    },
+                    'value': kwargs['name'],
                 })
             # if 'action_unknown' not in kwargs or kwargs['action_unknown']:
             #     actions.append({
@@ -113,20 +117,28 @@ class NotifySlack:
             #         }
             #     })
 
-        blocks = [
-            {
+        main_block = {
                 'type': 'section',
                 'text': {
                     'type': 'mrkdwn',
                     'text': '\r\n'.join(msg_strings)
                 }
-            },
+            }
+        if image_id is not None:
+            image_url = os.path.join(self.server, image_id)
+            if 'localhost' in self.server:
+                image_url = 'http://svod-dev.kibernetika.io/uploaded/1558445557.4148765.jpg'
+            main_block['accessory'] = {
+                'type': 'image',
+                'image_url': image_url,
+                'alt_text': kwargs['name'],
+            }
 
-        ]
+        blocks = [main_block]
         if len(actions) > 0:
             blocks.append({
                 'type': 'actions',
                 'elements': actions
             })
 
-        self.client.chat_postMessage(channel=ch, text=message_txt, blocks=blocks)
+        self.client.chat_postMessage(channel='#%s' % self.channel, text=message_txt, blocks=blocks)
