@@ -130,7 +130,7 @@ spec:
         memory: 512Mi
   serving:
   - name: serving
-    displayName: SVOD faces detection serving
+    displayName: Faces detection serving
     images:
       cpu: "kuberlab/serving:latest-openvino"
       gpu: "kuberlab/serving:latest-openvino-gpu"

@@ -1,15 +1,14 @@
-Description: SVOD faces recognition
+Description: Faces recognition
 Engine: gotpl
 Home: https://kibernetika.ai/
 Keywords:
 - kibernetika
-- svod
 - openvino
 - face detection
 - face recognition
 Maintainers:
 - Email: support@kuberlab.com
   Name: kuberlab
-Name: svod-rcgn
+Name: ponchik
 Type: mlapp-v2
 Version: 1.0.0
