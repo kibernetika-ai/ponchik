@@ -39,6 +39,7 @@ class Video:
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
                  video_no_output=False):
+        print_fun("initialize video")
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
@@ -64,7 +65,6 @@ class Video:
         self.process_not_detected = process_not_detected
         self.video_export_srt = video_export_srt
         self.video_no_output = video_no_output
-
 
     def start_notify(self):
         if self.notify_started:
