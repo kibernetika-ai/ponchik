@@ -28,6 +28,7 @@ def video_args(detector, listener, args):
         not_detected_dir=args.video_not_detected_dir,
         process_not_detected=args.process_not_detected,
         video_export_srt=args.video_export_srt,
+        video_no_output=args.video_no_output,
     )
 
 
@@ -36,7 +37,8 @@ class Video:
                  listener=None, video_source=None, video_async=False,
                  video_max_width=None, video_max_height=None, video_each_of_frame=1, video_export_srt=False,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
-                 not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False):
+                 not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
+                 video_no_output=False):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
@@ -61,6 +63,7 @@ class Video:
         self.not_detected_check_ts = time.time()
         self.process_not_detected = process_not_detected
         self.video_export_srt = video_export_srt
+        self.video_no_output = video_no_output
 
 
     def start_notify(self):
@@ -98,12 +101,14 @@ class Video:
                         self.detector.add_overlays(frame, self.processed)
                     else:
                         self.process_frame(frame=frame)
-                    cv2.imshow('Video', frame)
+                    if not self.video_no_output:
+                        cv2.imshow('Video', frame)
                 iframe += 1
-                key = cv2.waitKey(1)
-                # Wait 'q' or Esc or 'q' in russian layout
-                if key in [ord('q'), 202, 27]:
-                    break
+                if not self.video_no_output:
+                    key = cv2.waitKey(1)
+                    # Wait 'q' or Esc or 'q' in russian layout
+                    if key in [ord('q'), 202, 27]:
+                        break
                 if iframe % 100 == 0:
                     t = timedelta(milliseconds=rframe / self.video_source_fps * 1000) if self.video_source_fps else '-'
                     print_fun("Processed %d frames, %s" % (iframe, t))
@@ -313,6 +318,11 @@ def add_video_args(parser):
     parser.add_argument(
         '--video_export_srt',
         help='Export SRT-file with detected/recognized persons',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--video_no_output',
+        help='Disable any output',
         action='store_true',
     )
     parser.add_argument(
