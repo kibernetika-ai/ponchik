@@ -12,3 +12,4 @@ requests
 Pillow>=6.0.0
 python-mlboardclient>=1.1.11
 slackclient>=2.0.1
+git+https://github.com/cdown/srt.git

@@ -4,8 +4,10 @@ from threading import Thread
 
 import cv2
 import numpy as np
+from datetime import timedelta
 
 from app.recognize import defaults
+from app.recognize.clusterizator import Clusterizator
 from app.tools import images, print_fun
 from app.recognize.video_notify import InVideoDetected
 from app.recognize import detector
@@ -20,20 +22,25 @@ def video_args(detector, listener, args):
         video_async=args.video_async,
         video_max_width=args.video_max_width,
         video_max_height=args.video_max_height,
+        video_skip_frames=args.video_skip_frames,
         not_detected_store=args.video_not_detected_store,
         not_detected_check_period=args.video_not_detected_check_period,
         not_detected_dir=args.video_not_detected_dir,
+        process_not_detected=args.process_not_detected,
+        video_export_srt=args.video_export_srt,
     )
 
 
 class Video:
     def __init__(self, detector,
                  listener=None, video_source=None, video_async=False,
-                 video_max_width=None, video_max_height=None,
+                 video_max_width=None, video_max_height=None, video_skip_frames=0, video_export_srt=False,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
-                 not_detected_dir=defaults.NOT_DETECTED_DIR):
+                 not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False):
         self.detector = detector
         self.video_source = video_source
+        self.video_source_is_file = False
+        self.video_source_fps = None
         self.frame = None
         self.processed = None
         self.vs = None
@@ -42,6 +49,7 @@ class Video:
         self.pipeline = None
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
+        self.video_skip_frames = video_skip_frames
         self.faces_detected = {}
         self.notify_started = False
         self.notifies_queue = []
@@ -51,6 +59,9 @@ class Video:
         if self.not_detected_store and not os.path.isdir(self.not_detected_dir):
             raise RuntimeError('directory %s is not exists' % self.not_detected_dir)
         self.not_detected_check_ts = time.time()
+        self.process_not_detected = process_not_detected
+        self.video_export_srt = video_export_srt
+
 
     def start_notify(self):
         if self.notify_started:
@@ -77,7 +88,9 @@ class Video:
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
-                if self.frame is not None and (iframe % 3 == 0) :
+                if self.frame is None and self.video_source_is_file:
+                    break
+                if self.frame is not None and ((self.video_skip_frames == 0) or (iframe % self.video_skip_frames == 0)):
                     frame = self.frame.copy()
                     if self.video_async:
                         self.detector.add_overlays(frame, self.processed)
@@ -95,6 +108,49 @@ class Video:
             if self.pipeline is not None:
                 self.pipeline.stop()
 
+        if self.video_export_srt:
+
+            import srt
+
+            detected_persons = self.detector.detected_names
+            not_detected_persons = []
+
+            if self.process_not_detected:
+                print_fun('Start unrecognized faces clusterization')
+                cl = Clusterizator()
+                not_detected_persons = cl.clusterize_frame_faces(self.detector.not_detected_embs)
+                print_fun('Clusterization done')
+
+            subs = []
+            cur_sub, cur_sub_start, cur_sub_end = None, None, None
+            for i in range(max(len(detected_persons), len(not_detected_persons))):
+                frame_persons = []
+                if len(detected_persons) > i:
+                    names = detected_persons[i]
+                    names.sort()
+                    frame_persons.extend(names)
+                if len(not_detected_persons) > i:
+                    persons = [d for d in not_detected_persons[i] if d >= 0]
+                    persons.sort()
+                    frame_persons.extend(['Person %d' % d for d in persons])
+                sub = None if len(frame_persons) == 0 else ", ".join(frame_persons)
+                if sub != cur_sub:
+                    ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000)
+                    if cur_sub is not None:
+                        cur_sub_end = ts
+                        subs.append(
+                            srt.Subtitle(index=len(subs)+1, start=cur_sub_start, end=cur_sub_end, content=cur_sub))
+                    else:
+                        cur_sub_start = ts
+                    cur_sub = sub
+
+            if cur_sub is not None:
+                subs.append(
+                    srt.Subtitle(index=len(subs) + 1, start=cur_sub_start, end=cur_sub_end, content=cur_sub))
+
+            with open(os.path.splitext(self.video_source)[0]+'.srt', 'w') as sw:
+                sw.write(srt.compose(subs))
+
     def init_video(self):
         if self.video_source is None:
             self.vs = cv2.VideoCapture(0)
@@ -109,6 +165,14 @@ class Video:
             self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
+            self.video_source_is_file = os.path.isfile(self.video_source)
+            if self.video_source_is_file:
+                self.video_source_fps = self.vs.get(cv2.CAP_PROP_FPS)
+            if self.video_export_srt:
+                if not self.video_source_is_file:
+                    raise ValueError('srt creation allowed only for video file')
+                if not self.video_source_fps:
+                    raise ValueError('unable to detect fps, srt creation is unavailable')
 
     def get_frame(self):
         if self.pipeline is None:
@@ -120,7 +184,7 @@ class Video:
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
-            print_fun("ops frame is None. Possibly camera or display does not work")
+            print_fun("Oops frame is None. Possibly camera or display does not work")
             self.frame = None
             return None
         if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
@@ -234,6 +298,17 @@ def add_video_args(parser):
         help='Resize video if height more than specified value.',
         type=int,
         default=None,
+    )
+    parser.add_argument(
+        '--video_skip_frames',
+        help='Process every N frame (0 for not skipping).',
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        '--video_export_srt',
+        help='Export SRT-file with detected/recognized persons',
+        action='store_true',
     )
     parser.add_argument(
         '--video_not_detected_store',

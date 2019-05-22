@@ -63,6 +63,7 @@ def detector_args(args):
         threshold=args.threshold,
         min_face_size=args.min_face_size,
         debug=args.debug,
+        process_not_detected=args.process_not_detected,
     )
 
 
@@ -106,7 +107,7 @@ class Detector(object):
             debug=defaults.DEBUG,
             loaded_plugin=None,
             facenet_exec_net=None,
-
+            process_not_detected=False,
     ):
         self._initialized = False
         self.device = device
@@ -131,6 +132,9 @@ class Detector(object):
         self.meta = {}
         self.classes_previews = {}
         self.face_net = facenet_exec_net
+        self.process_not_detected = process_not_detected
+        self.not_detected_embs = []
+        self.detected_names = []
 
     def init(self):
         if self._initialized:
@@ -414,6 +418,8 @@ class Detector(object):
         skips = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
 
         frame_processed = []
+        not_detected_embs = []
+        detected_names = []
 
         if self.use_classifiers:
             imgs = images.get_images(frame, bounding_boxes_detected)
@@ -431,6 +437,14 @@ class Detector(object):
 
                     processed = self.process_output(output, bounding_boxes_detected[img_idx])
                     frame_processed.append(processed)
+
+                    if self.process_not_detected:
+                        if processed.state == NOT_DETECTED:
+                            not_detected_embs.append(output)
+
+                    if processed.state == DETECTED:
+                        detected_names.append(processed.classes[0])
+
                 else:
                     processed = Processed(
                         bbox=bounding_boxes_detected[img_idx].astype(int),
@@ -447,6 +461,11 @@ class Detector(object):
 
         if overlays:
             self.add_overlays(frame, frame_processed)
+
+        if self.process_not_detected:
+            self.not_detected_embs.append(not_detected_embs)
+
+        self.detected_names.append(detected_names)
 
         return frame_processed
 

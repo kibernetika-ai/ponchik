@@ -36,3 +36,8 @@ def add_common_args(parser):
         default=defaults.DEVICE,
         choices=["CPU", "MYRIAD"],
     )
+    parser.add_argument(
+        '--process_not_detected',
+        help='Post process not detected faces.',
+        action='store_true',
+    )
