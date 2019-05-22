@@ -22,7 +22,7 @@ def video_args(detector, listener, args):
         video_async=args.video_async,
         video_max_width=args.video_max_width,
         video_max_height=args.video_max_height,
-        video_skip_frames=args.video_skip_frames,
+        video_each_of_frame=args.video_each_of_frame,
         not_detected_store=args.video_not_detected_store,
         not_detected_check_period=args.video_not_detected_check_period,
         not_detected_dir=args.video_not_detected_dir,
@@ -34,7 +34,7 @@ def video_args(detector, listener, args):
 class Video:
     def __init__(self, detector,
                  listener=None, video_source=None, video_async=False,
-                 video_max_width=None, video_max_height=None, video_skip_frames=0, video_export_srt=False,
+                 video_max_width=None, video_max_height=None, video_each_of_frame=1, video_export_srt=False,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False):
         self.detector = detector
@@ -49,7 +49,7 @@ class Video:
         self.pipeline = None
         self.video_max_width = video_max_width
         self.video_max_height = video_max_height
-        self.video_skip_frames = video_skip_frames
+        self.video_each_of_frame = max(1, video_each_of_frame)
         self.faces_detected = {}
         self.notify_started = False
         self.notifies_queue = []
@@ -85,12 +85,14 @@ class Video:
 
         try:
             iframe = 0
+            rframe = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
+                rframe += 1
                 if self.frame is None and self.video_source_is_file:
                     break
-                if self.frame is not None and ((self.video_skip_frames == 0) or (iframe % self.video_skip_frames == 0)):
+                if self.frame is not None and (iframe % self.video_each_of_frame == 0):
                     frame = self.frame.copy()
                     if self.video_async:
                         self.detector.add_overlays(frame, self.processed)
@@ -102,6 +104,9 @@ class Video:
                 # Wait 'q' or Esc or 'q' in russian layout
                 if key in [ord('q'), 202, 27]:
                     break
+                if iframe % 100 == 0:
+                    t = timedelta(milliseconds=rframe / self.video_source_fps * 1000) if self.video_source_fps else '-'
+                    print_fun("Processed %d frames, %s" % (iframe, t))
         except (KeyboardInterrupt, SystemExit) as e:
             print_fun('Caught %s: %s' % (e.__class__.__name__, e))
         finally:
@@ -124,6 +129,7 @@ class Video:
             subs = []
             cur_sub, cur_sub_start, cur_sub_end = None, None, None
             for i in range(max(len(detected_persons), len(not_detected_persons))):
+                ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000 * self.video_each_of_frame)
                 frame_persons = []
                 if len(detected_persons) > i:
                     names = detected_persons[i]
@@ -135,7 +141,6 @@ class Video:
                     frame_persons.extend(['Person %d' % d for d in persons])
                 sub = None if len(frame_persons) == 0 else ", ".join(frame_persons)
                 if sub != cur_sub:
-                    ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000)
                     if cur_sub is not None:
                         cur_sub_end = ts
                         subs.append(
@@ -300,10 +305,10 @@ def add_video_args(parser):
         default=None,
     )
     parser.add_argument(
-        '--video_skip_frames',
-        help='Process every N frame (0 for not skipping).',
+        '--video_each_of_frame',
+        help='Process every N frame (1 for not skipping).',
         type=int,
-        default=0,
+        default=1,
     )
     parser.add_argument(
         '--video_export_srt',
