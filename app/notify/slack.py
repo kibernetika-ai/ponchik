@@ -2,13 +2,13 @@ import os
 import time
 
 import requests
-import slack
 import tempfile
 import cv2
 
 
 class NotifySlack:
     def __init__(self, token, channel, server):
+        import slack
         self.channel = channel
         self.client = slack.WebClient(token=token)
         self.server = server
