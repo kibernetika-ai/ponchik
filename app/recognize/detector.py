@@ -440,9 +440,11 @@ class Detector(object):
 
                     if self.process_not_detected:
                         if processed.state == NOT_DETECTED:
+                            print('!! NOT_DETECTED')
                             not_detected_embs.append(output)
 
                     if processed.state == DETECTED:
+                        print('!! DETECTED')
                         detected_names.append(processed.classes[0])
 
                 else:

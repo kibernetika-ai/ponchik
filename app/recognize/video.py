@@ -194,7 +194,8 @@ class Video:
         if isinstance(new_frame, tuple):
             new_frame = new_frame[1]
         if new_frame is None:
-            print_fun("Oops frame is None. Possibly camera or display does not work")
+            if not self.video_source_is_file:
+                print_fun("Oops frame is None. Possibly camera or display does not work")
             self.frame = None
             return None
         if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
