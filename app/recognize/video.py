@@ -111,7 +111,7 @@ class Video:
                     # Wait 'q' or Esc or 'q' in russian layout
                     if key in [ord('q'), 202, 27]:
                         break
-                if iframe % 100 == 0:
+                if iframe % 500 == 0:
                     t = timedelta(milliseconds=rframe / self.video_source_fps * 1000) if self.video_source_fps else '-'
                     print_fun("Processed %d frames, %s" % (iframe, t))
         except (KeyboardInterrupt, SystemExit) as e:
@@ -133,11 +133,9 @@ class Video:
                 not_detected_persons = cl.clusterize_frame_faces(self.detector.not_detected_embs)
                 print_fun('Clusterization done')
 
-            subs = []
-            cur_sub, cur_sub_start, cur_sub_end, cur_sub_i = None, None, None, None
-            ts = None
+            # plain subtitles
+            subs_strs = []
             for i in range(max(len(detected_persons), len(not_detected_persons))):
-                ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000 * self.video_each_of_frame)
                 frame_persons = []
                 if len(detected_persons) > i:
                     names = detected_persons[i]
@@ -147,16 +145,29 @@ class Video:
                     persons = [d for d in not_detected_persons[i] if d >= 0]
                     persons.sort()
                     frame_persons.extend(['Person %d' % d for d in persons])
-                sub = None if len(frame_persons) == 0 else ", ".join(frame_persons)
-                if sub != cur_sub:
+                sub_str = None if len(frame_persons) == 0 else ", ".join(frame_persons)
+                subs_strs.append(sub_str)
+
+            # plain subtitles w/o one frame "holes"
+            for i in range(len(subs_strs) - 2):
+                if subs_strs[i] is not None and subs_strs[i+1] != subs_strs[i] and subs_strs[i+2] == subs_strs[i]:
+                    subs_strs[i+1] = subs_strs[i]
+
+            subs = []
+            cur_sub, cur_sub_start, cur_sub_i = None, None, None
+            ts = None
+            for i in range(len(subs_strs)):
+                ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000 * self.video_each_of_frame)
+                sub = subs_strs[i]
+                prev_sub = cur_sub
+                if sub != cur_sub or (sub is not None and sub != prev_sub):
                     if cur_sub is not None:
-                        # content = "%d-%d: %s" % (cur_sub_i, i, cur_sub)
+                        # content = "%d-%d:\n%s\n%s" % (cur_sub_i, i, cur_sub, prev_sub)
                         content = cur_sub
-                        cur_sub_end = ts
                         subs.append(srt.Subtitle(
                             index=len(subs)+1,
                             start=cur_sub_start,
-                            end=cur_sub_end,
+                            end=ts,
                             content=content,
                         ))
                     cur_sub_start = ts
