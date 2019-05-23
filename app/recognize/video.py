@@ -28,6 +28,7 @@ def video_args(detector, listener, args):
         not_detected_dir=args.video_not_detected_dir,
         process_not_detected=args.process_not_detected,
         video_export_srt=args.video_export_srt,
+        video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
     )
 
@@ -35,7 +36,8 @@ def video_args(detector, listener, args):
 class Video:
     def __init__(self, detector,
                  listener=None, video_source=None, video_async=False,
-                 video_max_width=None, video_max_height=None, video_each_of_frame=1, video_export_srt=False,
+                 video_max_width=None, video_max_height=None, video_each_of_frame=1,
+                 video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
                  video_no_output=False):
@@ -63,6 +65,7 @@ class Video:
         self.not_detected_check_ts = time.time()
         self.process_not_detected = process_not_detected
         self.video_export_srt = video_export_srt
+        self.video_export_srt_file = video_export_srt_file
         self.video_no_output = video_no_output
 
     def start_notify(self):
@@ -131,7 +134,8 @@ class Video:
                 print_fun('Clusterization done')
 
             subs = []
-            cur_sub, cur_sub_start, cur_sub_end = None, None, None
+            cur_sub, cur_sub_start, cur_sub_end, cur_sub_i = None, None, None, None
+            ts = None
             for i in range(max(len(detected_persons), len(not_detected_persons))):
                 ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000 * self.video_each_of_frame)
                 frame_persons = []
@@ -146,18 +150,27 @@ class Video:
                 sub = None if len(frame_persons) == 0 else ", ".join(frame_persons)
                 if sub != cur_sub:
                     if cur_sub is not None:
+                        # content = "%d-%d: %s" % (cur_sub_i, i, cur_sub)
+                        content = cur_sub
                         cur_sub_end = ts
-                        subs.append(
-                            srt.Subtitle(index=len(subs)+1, start=cur_sub_start, end=cur_sub_end, content=cur_sub))
-                    else:
-                        cur_sub_start = ts
+                        subs.append(srt.Subtitle(
+                            index=len(subs)+1,
+                            start=cur_sub_start,
+                            end=cur_sub_end,
+                            content=content,
+                        ))
+                    cur_sub_start = ts
+                    cur_sub_i = i
                     cur_sub = sub
 
             if cur_sub is not None:
                 subs.append(
-                    srt.Subtitle(index=len(subs) + 1, start=cur_sub_start, end=cur_sub_end, content=cur_sub))
+                    srt.Subtitle(index=len(subs) + 1, start=cur_sub_start, end=ts, content=cur_sub))
 
-            with open(os.path.splitext(self.video_source)[0]+'.srt', 'w') as sw:
+            video_export_srt_file = self.video_export_srt_file \
+                if self.video_export_srt_file \
+                else os.path.splitext(self.video_source)[0]+'.srt'
+            with open(video_export_srt_file, 'w') as sw:
                 sw.write(srt.compose(subs))
 
     def init_video(self):
@@ -319,6 +332,12 @@ def add_video_args(parser):
         '--video_export_srt',
         help='Export SRT-file with detected/recognized persons',
         action='store_true',
+    )
+    parser.add_argument(
+        '--video_export_srt_file',
+        help='SRT file name (if not set - filename as for video)',
+        type=str,
+        default=None,
     )
     parser.add_argument(
         '--video_no_output',
