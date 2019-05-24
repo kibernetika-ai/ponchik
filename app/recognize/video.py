@@ -353,11 +353,12 @@ class Video:
         if not self.build_h5py_to:
             return
 
+        print(processed.bbox)
         img = images.crop_by_box(frame, processed.bbox)
-        if img.shape[0] * img.shape[1] > 10:
-            img_bytes = cv2.imencode('.jpg', img)[1].tostring()
-        else:
-            img_bytes = b''
+        # if img.shape[0] * img.shape[1] > 10:
+        img_bytes = cv2.imencode('.jpg', img)[1].tostring()
+        # else:
+        #     img_bytes = b''
 
         n = self.h5['embeddings'].shape[0]
 
