@@ -341,7 +341,11 @@ class Video:
             return
 
         img = images.crop_by_box(frame, processed.bbox)
-        img_bytes = cv2.imencode('.jpg', img)[1].tostring()
+        if img.shape[0] * img.shape[1] > 10:
+            img_bytes = cv2.imencode('.jpg', img)[1].tostring()
+        else:
+            img_bytes = b''
+
         n = self.h5['embeddings'].shape[0]
 
         # resize +1
