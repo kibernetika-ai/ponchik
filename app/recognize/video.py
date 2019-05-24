@@ -138,6 +138,7 @@ class Video:
             self.h5.attrs['fps'] = self.video_source_fps
             self.h5.attrs['width'] = self.video_source_width
             self.h5.attrs['height'] = self.video_source_height
+            self.h5.attrs['each_frame'] = self.video_each_of_frame
 
         try:
             processed_frame_idx = 0
