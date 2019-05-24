@@ -42,7 +42,11 @@ def crop_by_boxes(img, boxes):
 
 
 def crop_by_box(img, box):
-    return img[box[1]:box[3], box[0]:box[2]]
+    ymin = max([box[1], 0])
+    ymax = min([box[3], img.shape[0]])
+    xmin = max([box[0], 0])
+    xmax = min([box[2], img.shape[1]])
+    return img[ymin:ymax, xmin:xmax]
 
 
 def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
