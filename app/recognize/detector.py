@@ -64,6 +64,7 @@ def detector_args(args):
         min_face_size=args.min_face_size,
         debug=args.debug,
         process_not_detected=args.process_not_detected,
+        account_head_pose=not args.head_pose_not_account,
     )
 
 
@@ -79,6 +80,8 @@ class Processed:
             classes_meta=None,
             meta=None,
             looks_like=None,
+            embedding=None,
+            head_pose=None,
     ):
         self.bbox = bbox
         self.state = state
@@ -89,6 +92,8 @@ class Processed:
         self.classes_meta = classes_meta
         self.meta = meta
         self.looks_like = looks_like if looks_like else []
+        self.embedding = embedding
+        self.head_pose = head_pose
 
 
 class Detector(object):
@@ -96,7 +101,6 @@ class Detector(object):
             self,
             device=defaults.DEVICE,
             face_detection_path=defaults.FACE_DETECTION_PATH,
-            head_pose_path=defaults.HEAD_POSE_PATH,
             model_path=defaults.MODEL_PATH,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             bg_remove_path=None,
@@ -108,6 +112,7 @@ class Detector(object):
             loaded_plugin=None,
             facenet_exec_net=None,
             process_not_detected=False,
+            account_head_pose=True,
     ):
         self._initialized = False
         self.device = device
@@ -116,11 +121,14 @@ class Detector(object):
         self.classifiers_dir = classifiers_dir
         self.bg_remove_path = bg_remove_path
         self.bg_remove = None
+
         self.head_pose_driver = head_pose_driver
         self.head_pose_thresholds = head_pose_thresholds
         self.head_pose_yaw = "angle_y_fc"
         self.head_pose_pitch = "angle_p_fc"
         self.head_pose_roll = "angle_r_fc"
+        self.account_head_pose = account_head_pose
+
         self.use_classifiers = False
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
@@ -174,14 +182,12 @@ class Detector(object):
         self.load_classifiers()
 
     def load_classifiers(self):
-
         self.classes_previews = {}
 
         if not bool(self.model_path):
             return
 
         self.use_classifiers = False
-
         loaded_classifiers = glob.glob(os.path.join(self.classifiers_dir, "*.pkl"))
 
         if len(loaded_classifiers) > 0:
@@ -254,7 +260,6 @@ class Detector(object):
         looks_likes = []
 
         for clfi, clf in enumerate(self.classifiers.classifiers):
-
             try:
                 output = output.reshape(1, self.classifiers.embedding_sizes[clfi])
                 predictions = clf.predict_proba(output)
@@ -266,7 +271,6 @@ class Detector(object):
             best_class_indices = np.argmax(predictions, axis=1)
 
             if isinstance(clf, neighbors.KNeighborsClassifier):
-
                 def process_index(idx):
                     cnt = self.classifiers.class_stats[best_class_indices[idx]]['embeddings']
                     (closest_distances, neighbors_indices) = clf.kneighbors(output, n_neighbors=cnt)
@@ -303,13 +307,10 @@ class Detector(object):
                     ), looks_like
 
             elif isinstance(clf, svm.SVC):
-
                 def process_index(idx):
                     eval_values = predictions[np.arange(len(best_class_indices)), best_class_indices]
                     return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100), []
-
             else:
-
                 print_fun("ERROR: Unsupported model type: %s" % type(clf))
                 continue
 
@@ -392,30 +393,31 @@ class Detector(object):
 
     def skip_wrong_pose_indices(self, bgr_frame, boxes):
         if self.head_pose_driver is None:
-            return set()
+            return set(), []
 
         if boxes is None or len(boxes) == 0:
-            return set()
+            return set(), []
         imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, do_prewhiten=False))
         outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
 
-        yaw = np.abs(outputs[self.head_pose_yaw].reshape([-1]))
-        pitch = np.abs(outputs[self.head_pose_pitch].reshape([-1]))
-        roll = np.abs(outputs[self.head_pose_roll].reshape([-1]))
+        yaw = outputs[self.head_pose_yaw].reshape([-1])
+        pitch = outputs[self.head_pose_pitch].reshape([-1])
+        roll = outputs[self.head_pose_roll].reshape([-1])
 
         skips = set()
         # print(yaw, pitch, roll)
         for i, (y, p, r) in enumerate(zip(yaw, pitch, roll)):
-            if (y > self.head_pose_thresholds[0]
-                    or p > self.head_pose_thresholds[1]
-                    or r > self.head_pose_thresholds[2]):
+            if (np.abs(y) > self.head_pose_thresholds[0]
+                    or np.abs(p) > self.head_pose_thresholds[1]
+                    or np.abs(r) > self.head_pose_thresholds[2]):
                 skips.add(i)
 
-        return skips
+        # Return shape [N, 3] as a result
+        return skips, np.array([yaw, pitch, roll]).transpose()
 
     def process_frame(self, frame, overlays=True):
         bounding_boxes_detected = self.detect_faces(frame, self.threshold)
-        skips = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
+        skips, poses = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
 
         frame_processed = []
         not_detected_embs = []
@@ -428,7 +430,7 @@ class Detector(object):
                 # Infer
                 # t = time.time()
                 # Convert BGR to RGB
-                if img_idx not in skips:
+                if img_idx not in skips or not self.account_head_pose:
                     img = img[:, :, ::-1]
                     img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
                     output = self.inference_facenet(img)
@@ -436,6 +438,9 @@ class Detector(object):
                     # output = output[facenet_output]
 
                     processed = self.process_output(output, bounding_boxes_detected[img_idx])
+                    processed.head_pose = poses[img_idx]
+                    processed.embedding = output.reshape([-1])
+
                     frame_processed.append(processed)
 
                     if self.process_not_detected:
@@ -456,6 +461,7 @@ class Detector(object):
                         classes_meta={},
                         meta=None,
                         looks_like=[],
+                        head_pose=poses[img_idx]
                     )
                     frame_processed.append(processed)
 

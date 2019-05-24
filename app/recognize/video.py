@@ -3,6 +3,7 @@ import time
 from threading import Thread
 
 import cv2
+import h5py
 import numpy as np
 from datetime import timedelta
 
@@ -30,6 +31,7 @@ def video_args(detector, listener, args):
         video_export_srt=args.video_export_srt,
         video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
+        build_h5py_to=args.build_h5py_to,
     )
 
 
@@ -40,7 +42,7 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False):
+                 video_no_output=False, build_h5py_to=None):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
@@ -67,6 +69,32 @@ class Video:
         self.video_export_srt = video_export_srt
         self.video_export_srt_file = video_export_srt_file
         self.video_no_output = video_no_output
+        self.build_h5py_to = build_h5py_to
+        if self.build_h5py_to:
+            self.h5 = h5py.File(self.build_h5py_to, 'w')
+            self.h5.create_dataset(
+                'embeddings',
+                shape=(0, 512),
+                dtype=np.float32,
+                maxshape=(None, 512),
+                chunks=True,
+            )
+            self.h5.create_dataset(
+                'head_poses',
+                shape=(0, 3),
+                dtype=np.float32,
+                maxshape=(None, 3),
+                chunks=True,
+            )
+            dt = h5py.special_dtype(vlen=np.dtype('uint8'))
+            self.h5.create_dataset(
+                'faces',
+                shape=(0,),
+                # dtype="|S10",
+                dtype=dt,
+                maxshape=(None,),
+                chunks=True,
+            )
 
     def start_notify(self):
         if self.notify_started:
@@ -89,15 +117,15 @@ class Video:
         self.start_notify()
 
         try:
-            iframe = 0
-            rframe = 0
+            processed_frame_idx = 0
+            frame_idx = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
-                rframe += 1
+                frame_idx += 1
                 if self.frame is None and self.video_source_is_file:
                     break
-                if self.frame is not None and (iframe % self.video_each_of_frame == 0):
+                if self.frame is not None and (frame_idx % self.video_each_of_frame == 0):
                     frame = self.frame.copy()
                     if self.video_async:
                         self.detector.add_overlays(frame, self.processed)
@@ -105,23 +133,27 @@ class Video:
                         self.process_frame(frame=frame)
                     if not self.video_no_output:
                         cv2.imshow('Video', frame)
-                iframe += 1
+
+                    processed_frame_idx += 1
+                    if processed_frame_idx % 100 == 0:
+                        t = timedelta(
+                            milliseconds=frame_idx / self.video_source_fps * 1000) if self.video_source_fps else '-'
+                        print_fun("Processed %d frames, %s" % (processed_frame_idx, t))
                 if not self.video_no_output:
                     key = cv2.waitKey(1)
                     # Wait 'q' or Esc or 'q' in russian layout
                     if key in [ord('q'), 202, 27]:
                         break
-                if iframe % 500 == 0:
-                    t = timedelta(milliseconds=rframe / self.video_source_fps * 1000) if self.video_source_fps else '-'
-                    print_fun("Processed %d frames, %s" % (iframe, t))
+
         except (KeyboardInterrupt, SystemExit) as e:
             print_fun('Caught %s: %s' % (e.__class__.__name__, e))
         finally:
             if self.pipeline is not None:
                 self.pipeline.stop()
+            if self.build_h5py_to:
+                self.h5.close()
 
         if self.video_export_srt:
-
             import srt
 
             detected_persons = self.detector.detected_names
@@ -252,6 +284,8 @@ class Video:
                     store_not_detected = True
 
             for p in self.processed:
+                self.write_h5_if_needed(frame, p)
+
                 if p.state == detector.DETECTED:
                     name = p.classes[0]
                     if name not in self.faces_detected:
@@ -282,6 +316,24 @@ class Video:
                 if len(self.faces_detected[fd].looks_like) > 0:
                     n['action_options'] = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append(n)
+
+    def write_h5_if_needed(self, frame, processed):
+        if not self.build_h5py_to:
+            return
+
+        img = images.crop_by_box(frame, processed.bbox)
+        img_bytes = cv2.imencode('.jpg', img)[1].tostring()
+        n = self.h5['embeddings'].shape[0]
+
+        # resize +1
+        self.h5['embeddings'].resize((n+1, 512))
+        self.h5['head_poses'].resize((n+1, 3))
+        self.h5['faces'].resize((n+1,))
+
+        # Assign value
+        self.h5['embeddings'][n] = processed.embedding
+        self.h5['head_poses'][n] = processed.head_pose
+        self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')
 
     def listen(self):
         while True:
@@ -338,6 +390,10 @@ def add_video_args(parser):
         help='Process every N frame (1 for not skipping).',
         type=int,
         default=1,
+    )
+    parser.add_argument(
+        '--build_h5py_to',
+        help='Build h5py file with embeddings/data to file.',
     )
     parser.add_argument(
         '--video_export_srt',

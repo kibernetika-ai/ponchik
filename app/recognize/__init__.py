@@ -13,6 +13,12 @@ def add_common_args(parser):
         help='Path to head-pose-estimation openvino model',
     )
     parser.add_argument(
+        '--head_pose_not_account',
+        default=False,
+        action='store_true',
+        help='Do not take into account head-pose result. Just process and give output',
+    )
+    parser.add_argument(
         '--classifiers_dir',
         help='Path to classifier models stored as pickle (.pkl) files.',
         type=str,

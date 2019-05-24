@@ -3,12 +3,10 @@ import numpy as np
 
 
 class Clusterizator:
-
-    def __init__(self):
-        self.eps = 0.7
+    def __init__(self, eps=0.7):
+        self.eps = eps
 
     def clusterize_frame_faces(self, frame_embs):
-
         embs_plain = []
         for e in frame_embs:
             embs_plain.extend(e)
