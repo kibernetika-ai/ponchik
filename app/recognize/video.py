@@ -32,6 +32,7 @@ def video_args(detector, listener, args):
         video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
         build_h5py_to=args.build_h5py_to,
+        video_limit_sec=args.video_limit_sec,
     )
 
 
@@ -42,11 +43,12 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False, build_h5py_to=None):
+                 video_no_output=False, build_h5py_to=None, video_limit_sec=None):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
         self.video_source_fps = None
+        self.video_limit_sec = video_limit_sec
         self.frame = None
         self.processed = None
         self.vs = None
@@ -86,6 +88,13 @@ class Video:
                 maxshape=(None, 3),
                 chunks=True,
             )
+            self.h5.create_dataset(
+                'frame_nums',
+                shape=(0,),
+                dtype=np.int32,
+                maxshape=(None,),
+                chunks=True,
+            )
             dt = h5py.special_dtype(vlen=np.dtype('uint8'))
             self.h5.create_dataset(
                 'faces',
@@ -116,16 +125,19 @@ class Video:
 
         self.start_notify()
 
+        if self.build_h5py_to:
+            self.h5.attrs['fps'] = self.video_source_fps
+
         try:
             processed_frame_idx = 0
-            frame_idx = 0
+            self.frame_idx = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
-                frame_idx += 1
+                self.frame_idx += 1
                 if self.frame is None and self.video_source_is_file:
                     break
-                if self.frame is not None and (frame_idx % self.video_each_of_frame == 0):
+                if self.frame is not None and (self.frame_idx % self.video_each_of_frame == 0):
                     frame = self.frame.copy()
                     if self.video_async:
                         self.detector.add_overlays(frame, self.processed)
@@ -135,10 +147,16 @@ class Video:
                         cv2.imshow('Video', frame)
 
                     processed_frame_idx += 1
+                    t = timedelta(
+                        milliseconds=self.frame_idx / self.video_source_fps * 1000) if self.video_source_fps else '-'
+
                     if processed_frame_idx % 100 == 0:
-                        t = timedelta(
-                            milliseconds=frame_idx / self.video_source_fps * 1000) if self.video_source_fps else '-'
                         print_fun("Processed %d frames, %s" % (processed_frame_idx, t))
+
+                    if self.video_limit_sec and t.total_seconds() >= self.video_limit_sec:
+                        print_fun('Stop processing. It had been limited to %s seconds.' % self.video_limit_sec)
+                        break
+
                 if not self.video_no_output:
                     key = cv2.waitKey(1)
                     # Wait 'q' or Esc or 'q' in russian layout
@@ -151,6 +169,7 @@ class Video:
             if self.pipeline is not None:
                 self.pipeline.stop()
             if self.build_h5py_to:
+                print_fun('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
                 self.h5.close()
 
         if self.video_export_srt:
@@ -182,8 +201,8 @@ class Video:
 
             # plain subtitles w/o one frame "holes"
             for i in range(len(subs_strs) - 2):
-                if subs_strs[i] is not None and subs_strs[i+1] != subs_strs[i] and subs_strs[i+2] == subs_strs[i]:
-                    subs_strs[i+1] = subs_strs[i]
+                if subs_strs[i] is not None and subs_strs[i + 1] != subs_strs[i] and subs_strs[i + 2] == subs_strs[i]:
+                    subs_strs[i + 1] = subs_strs[i]
 
             subs = []
             cur_sub, cur_sub_start, cur_sub_i = None, None, None
@@ -197,7 +216,7 @@ class Video:
                         # content = "%d-%d:\n%s\n%s" % (cur_sub_i, i, cur_sub, prev_sub)
                         content = cur_sub
                         subs.append(srt.Subtitle(
-                            index=len(subs)+1,
+                            index=len(subs) + 1,
                             start=cur_sub_start,
                             end=ts,
                             content=content,
@@ -212,7 +231,7 @@ class Video:
 
             video_export_srt_file = self.video_export_srt_file \
                 if self.video_export_srt_file \
-                else os.path.splitext(self.video_source)[0]+'.srt'
+                else os.path.splitext(self.video_source)[0] + '.srt'
             with open(video_export_srt_file, 'w') as sw:
                 sw.write(srt.compose(subs))
 
@@ -224,9 +243,9 @@ class Video:
             self.pipeline = rs.pipeline()
 
             config = rs.config()
-            #rs-enumerate-devices
-            #config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8,6)
-            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8,6)
+            # rs-enumerate-devices
+            # config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8,6)
+            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 6)
             self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
@@ -326,13 +345,15 @@ class Video:
         n = self.h5['embeddings'].shape[0]
 
         # resize +1
-        self.h5['embeddings'].resize((n+1, 512))
-        self.h5['head_poses'].resize((n+1, 3))
-        self.h5['faces'].resize((n+1,))
+        self.h5['embeddings'].resize((n + 1, 512))
+        self.h5['head_poses'].resize((n + 1, 3))
+        self.h5['faces'].resize((n + 1,))
+        self.h5['frame_nums'].resize((n + 1,))
 
         # Assign value
         self.h5['embeddings'][n] = processed.embedding
         self.h5['head_poses'][n] = processed.head_pose
+        self.h5['frame_nums'][n] = self.frame_idx
         self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')
 
     def listen(self):
@@ -367,6 +388,12 @@ def add_video_args(parser):
         '--video_source',
         help='Video source. If not set, current webcam is used (value 0).',
         default=None,
+    )
+    parser.add_argument(
+        '--video_limit_sec',
+        help='Limit video process by this time',
+        default=0,
+        type=int,
     )
     parser.add_argument(
         '--video_async',
