@@ -154,7 +154,7 @@ class Video:
                         print_fun("Processed %d frames, %s" % (processed_frame_idx, t))
 
                     if self.video_limit_sec and t.total_seconds() >= self.video_limit_sec:
-                        print_fun('Stop processing. It had been limited to %s seconds.' % self.video_limit_sec)
+                        print_fun('Stop processing. It was limited to %s seconds.' % self.video_limit_sec)
                         break
 
                 if not self.video_no_output:
