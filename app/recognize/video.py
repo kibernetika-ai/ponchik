@@ -48,6 +48,8 @@ class Video:
         self.video_source = video_source
         self.video_source_is_file = False
         self.video_source_fps = None
+        self.video_source_width = None
+        self.video_source_height = None
         self.video_limit_sec = video_limit_sec
         self.frame = None
         self.processed = None
@@ -89,6 +91,13 @@ class Video:
                 chunks=True,
             )
             self.h5.create_dataset(
+                'bounding_boxes',
+                shape=(0, 4),
+                dtype=np.int32,
+                maxshape=(None, 4),
+                chunks=True,
+            )
+            self.h5.create_dataset(
                 'frame_nums',
                 shape=(0,),
                 dtype=np.int32,
@@ -127,6 +136,8 @@ class Video:
 
         if self.build_h5py_to:
             self.h5.attrs['fps'] = self.video_source_fps
+            self.h5.attrs['width'] = self.video_source_width
+            self.h5.attrs['height'] = self.video_source_height
 
         try:
             processed_frame_idx = 0
@@ -252,6 +263,8 @@ class Video:
             self.video_source_is_file = os.path.isfile(self.video_source)
             if self.video_source_is_file:
                 self.video_source_fps = self.vs.get(cv2.CAP_PROP_FPS)
+                self.video_source_width = self.vs.get(cv2.CAP_PROP_FRAME_WIDTH)
+                self.video_source_height = self.vs.get(cv2.CAP_PROP_FRAME_HEIGHT)
             if self.video_export_srt:
                 if not self.video_source_is_file:
                     raise ValueError('srt creation allowed only for video file')
@@ -350,12 +363,14 @@ class Video:
 
         # resize +1
         self.h5['embeddings'].resize((n + 1, 512))
+        self.h5['bounding_boxes'].resize((n + 1, 4))
         self.h5['head_poses'].resize((n + 1, 3))
         self.h5['faces'].resize((n + 1,))
         self.h5['frame_nums'].resize((n + 1,))
 
         # Assign value
         self.h5['embeddings'][n] = processed.embedding
+        self.h5['bounding_boxes'][n] = processed.bbox
         self.h5['head_poses'][n] = processed.head_pose
         self.h5['frame_nums'][n] = self.frame_idx
         self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')
