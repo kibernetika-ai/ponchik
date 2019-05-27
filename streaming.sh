@@ -12,7 +12,7 @@ INPUT="server"
 rs_file=""
 token=""
 workspace_name="intel"
-model_name="ponchik"
+model_name="faces"
 base_url="https://dev.kibernetika.io/api/v0.2"
 
 slack_token=""
