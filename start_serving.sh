@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml
+
 CURRENT_DIR=`pwd`
 docker run -it \
     -v $CURRENT_DIR:/work:ro \
@@ -10,6 +12,7 @@ docker run -it \
     kuberlab/serving:latest-openvino \
         bash -c \
         "pip install slackclient croniter && kserving --driver openvino \
+        --model-path $face_detection_path --driver openvino
         --model-path models/facenet_pretrained_openvino_cpu/facenet.xml \
         --hooks serving_hook.py -o device=CPU \
         -o classifiers_dir=data/classifiers \

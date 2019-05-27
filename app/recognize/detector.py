@@ -4,14 +4,16 @@ import os
 import pickle
 
 import cv2
+from ml_serving.drivers import driver
 import numpy as np
 import six
-from openvino import inference_engine as ie
 from sklearn import neighbors
 from sklearn import svm
 
-from app.recognize import nets, defaults, classifiers
-from app.tools import images, bg_remove, print_fun
+from app.recognize import classifiers
+from app.recognize import defaults
+from app.tools import images
+from app import tools
 
 
 DETECTED = 1
@@ -43,23 +45,44 @@ def add_detector_args(parser):
 
 
 def detector_args(args):
-    serving = None
+    head_pose_driver = None
     if args.head_pose_path is not None:
         if os.path.isfile(args.head_pose_path):
             from ml_serving.drivers import driver
-            print_fun("Load HEAD POSE ESTIMATION model")
+            tools.print_fun("Load HEAD POSE ESTIMATION model")
             drv = driver.load_driver('openvino')
-            serving = drv()
-            serving.load_model(args.head_pose_path)
+            head_pose_driver = drv()
+            head_pose_driver.load_model(args.head_pose_path)
         else:
-            print_fun("head-pose-estimation openvino model is not found, skipped")
+            tools.print_fun("head-pose-estimation openvino model is not found, skipped")
+
+    face_driver = None
+    if args.face_detection_path is not None:
+        if os.path.isfile(args.face_detection_path):
+            from ml_serving.drivers import driver
+            tools.print_fun("Load FACE DETECTION model")
+            drv = driver.load_driver('openvino')
+            face_driver = drv()
+            face_driver.load_model(args.face_detection_path)
+        else:
+            tools.print_fun("face-detection openvino model is not found, skipped")
+
+    facenet_driver = None
+    if args.model_path is not None:
+        if os.path.isfile(args.model_path):
+            from ml_serving.drivers import driver
+            tools.print_fun("Load FACENET model")
+            drv = driver.load_driver('openvino')
+            facenet_driver = drv()
+            facenet_driver.load_model(args.model_path)
+        else:
+            tools.print_fun("facenet openvino model is not found, skipped")
+
     return Detector(
-        device=args.device,
-        face_detection_path=args.face_detection_path,
-        head_pose_driver=serving,
-        model_path=args.model_path,
+        face_driver=face_driver,
+        facenet_driver=facenet_driver,
+        head_pose_driver=head_pose_driver,
         classifiers_dir=args.classifiers_dir,
-        bg_remove_path=args.bg_remove_path,
         threshold=args.threshold,
         min_face_size=args.min_face_size,
         debug=args.debug,
@@ -99,30 +122,23 @@ class Processed:
 class Detector(object):
     def __init__(
             self,
-            device=defaults.DEVICE,
-            face_detection_path=defaults.FACE_DETECTION_PATH,
-            model_path=defaults.MODEL_PATH,
+            face_driver=None,
+            facenet_driver=None,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
-            bg_remove_path=None,
             head_pose_driver=None,
             head_pose_thresholds=defaults.HEAD_POSE_THRESHOLDS,
             threshold=defaults.THRESHOLD,
             min_face_size=defaults.MIN_FACE_SIZE,
             debug=defaults.DEBUG,
-            loaded_plugin=None,
-            facenet_exec_net=None,
             process_not_detected=False,
             account_head_pose=True,
     ):
         self._initialized = False
-        self.device = device
-        self.face_detection_path = face_detection_path
-        self.model_path = model_path
+        self.face_driver: driver.ServingDriver = face_driver
+        self.facenet_driver: driver.ServingDriver = facenet_driver
         self.classifiers_dir = classifiers_dir
-        self.bg_remove_path = bg_remove_path
-        self.bg_remove = None
 
-        self.head_pose_driver = head_pose_driver
+        self.head_pose_driver: driver.ServingDriver = head_pose_driver
         self.head_pose_thresholds = head_pose_thresholds
         self.head_pose_yaw = "angle_y_fc"
         self.head_pose_pitch = "angle_p_fc"
@@ -135,11 +151,9 @@ class Detector(object):
         self.min_face_size = min_face_size
         self.min_face_area = self.min_face_size ** 2
         self.debug = debug
-        self.loaded_plugin = loaded_plugin
         self.classes = []
         self.meta = {}
         self.classes_previews = {}
-        self.face_net = facenet_exec_net
         self.process_not_detected = process_not_detected
         self.not_detected_embs = []
         self.detected_names = []
@@ -149,42 +163,12 @@ class Detector(object):
             return
         self._initialized = True
 
-        extensions = os.environ.get('INTEL_EXTENSIONS_PATH')
-        if self.loaded_plugin is not None:
-            plugin = self.loaded_plugin
-        else:
-            plugin = ie.IEPlugin(device=self.device)
-            if extensions and "CPU" in self.device:
-                for ext in extensions.split(':'):
-                    print_fun("LOAD extension from {}".format(ext))
-                    plugin.add_cpu_extension(ext)
-
-        self.loaded_plugin = plugin
-
-        print_fun('Load FACE DETECTION')
-        weights_file = self.face_detection_path[:self.face_detection_path.rfind('.')] + '.bin'
-        net = ie.IENetwork(self.face_detection_path, weights_file)
-        self.face_detect = nets.FaceDetect(plugin, net)
-
-        if self.model_path:
-            print_fun('Load FACENET model')
-            model_file = self.model_path
-            weights_file = self.model_path[:self.model_path.rfind('.')] + '.bin'
-            net = ie.IENetwork(model_file, weights_file)
-            self.facenet_input = list(net.inputs.keys())[0]
-            outputs = list(iter(net.outputs))
-            self.facenet_output = outputs[0]
-            if self.face_net is None:
-                self.face_net = plugin.load(net)
-
-        self.bg_remove = bg_remove.get_driver(self.bg_remove_path)
-
         self.load_classifiers()
 
     def load_classifiers(self):
         self.classes_previews = {}
 
-        if not bool(self.model_path):
+        if self.facenet_driver is None:
             return
 
         self.use_classifiers = False
@@ -195,7 +179,7 @@ class Detector(object):
             for clfi, clf in enumerate(loaded_classifiers):
                 # Load classifier
                 with open(clf, 'rb') as f:
-                    print_fun('Load CLASSIFIER %s' % clf)
+                    tools.print_fun('Load CLASSIFIER %s' % clf)
                     opts = {'file': f}
                     if six.PY3:
                         opts['encoding'] = 'latin1'
@@ -213,7 +197,7 @@ class Detector(object):
                         embedding_size = 512
                         classifier_name = "%d" % clfi
                         classifier_name_log = type(clf)
-                    print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
+                    tools.print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
                     if new.class_names is None:
                         new.class_names = class_names
                         self.classes = class_names
@@ -233,22 +217,39 @@ class Detector(object):
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
         if os.path.isfile(meta_file):
-            print_fun("Load metadata...")
+            tools.print_fun("Load metadata...")
             with open(meta_file, 'r') as mr:
                 self.meta = json.load(mr)
 
     def detect_faces(self, frame, threshold=0.5):
-        if self.bg_remove is not None:
-            bounding_boxes_frame = self.bg_remove.apply_mask(frame)
-        else:
-            bounding_boxes_frame = frame
-        detected = self._openvino_detect(self.face_detect, bounding_boxes_frame, threshold)
+        # Get boxes shaped [N, 5]:
+        # xmin, ymin, xmax, ymax, confidence
+        input_name, input_shape = list(self.face_driver.inputs.items())[0]
+        output_name = list(self.face_driver.outputs)[0]
+        inference_frame = cv2.resize(frame, tuple(input_shape[:-3:-1]), interpolation=cv2.INTER_AREA)
+        inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(input_shape)
+        outputs = self.face_driver.predict({input_name: inference_frame})
+        output = outputs[output_name]
+        output = output.reshape(-1, 7)
+        bboxes_raw = output[output[:, 2] > threshold]
+        # Extract 5 values
+        boxes = bboxes_raw[:, 3:7]
+        confidence = np.expand_dims(bboxes_raw[:, 2], axis=0)
+        boxes = np.concatenate((boxes, confidence), axis=1)
+        # Assign confidence to 4th
+        # boxes[:, 4] = bboxes_raw[:, 2]
+        boxes[:, 0] = boxes[:, 0] * frame.shape[1]
+        boxes[:, 2] = boxes[:, 2] * frame.shape[1]
+        boxes[:, 1] = boxes[:, 1] * frame.shape[0]
+        boxes[:, 3] = boxes[:, 3] * frame.shape[0]
 
-        return detected[(detected[:, 3] - detected[:, 1]) * (detected[:, 2] - detected[:, 0]) >= self.min_face_area]
+        # Filter by face size
+        return boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
 
     def inference_facenet(self, img):
-        output = self.face_net.infer(inputs={self.facenet_input: img})
-        return output[self.facenet_output]
+        outputs = self.facenet_driver.predict({list(self.facenet_driver.inputs)[0]: img})
+        output = outputs[list(self.facenet_driver.outputs)[0]]
+        return output
 
     def process_output(self, output, bbox):
         detected_indices = []
@@ -265,7 +266,7 @@ class Detector(object):
                 predictions = clf.predict_proba(output)
             except ValueError as e:
                 # Can not reshape
-                print_fun("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
+                tools.print_fun("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
                 continue
 
             best_class_indices = np.argmax(predictions, axis=1)
@@ -281,7 +282,7 @@ class Detector(object):
                     max_candidate = sorted(counts.items(), reverse=True, key=lambda x: x[1])[0]
 
                     if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
-                        # print_fun(
+                        # tools.print_fun(
                         #     "Changed candidate from %s to %s" % (
                         #         self.classifiers.class_names[best_class_indices[idx]],
                         #         self.classifiers.class_names[max_candidate[0]]
@@ -311,7 +312,7 @@ class Detector(object):
                     eval_values = predictions[np.arange(len(best_class_indices)), best_class_indices]
                     return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100), []
             else:
-                print_fun("ERROR: Unsupported model type: %s" % type(clf))
+                tools.print_fun("ERROR: Unsupported model type: %s" % type(clf))
                 continue
 
             for i in range(len(best_class_indices)):
@@ -488,7 +489,7 @@ class Detector(object):
         :return:
         """
 
-        fontFace, fontScale, thickness = Detector._getTextProps(frame)
+        font_face, font_scale, thickness = Detector._get_text_props(frame)
 
         bbox = processed.bbox.astype(int)
         color = self._color(processed.state)
@@ -506,7 +507,7 @@ class Detector(object):
             str_w, str_h = 0, 0
             widths = []
             for i, line in enumerate(strs):
-                lw, lh = self._getTextSize(frame, line)
+                lw, lh = self._get_text_size(frame, line)
                 str_w = max(str_w, lw)
                 str_h = max(str_h, lh)
                 widths.append(lw)
@@ -518,17 +519,19 @@ class Detector(object):
             for i, line in enumerate(strs):
                 if align_to_right:
                     # all align to right box border
-                    left = (bbox[2] - widths[i] - font_inner_padding_w) \
-                        if to_right \
-                        else bbox[0] + font_inner_padding_w
+                    if to_right:
+                        left = (bbox[2] - widths[i] - font_inner_padding_w)
+                    else:
+                        left = bbox[0] + font_inner_padding_w
                 else:
                     # move left each string if it's ending not places on the frame
-                    left = frame.shape[1] - widths[i] - font_inner_padding_w \
-                        if bbox[0] + widths[i] > frame.shape[1] - font_inner_padding_w \
-                        else bbox[0] + font_inner_padding_w
+                    if bbox[0] + widths[i] > frame.shape[1] - font_inner_padding_w:
+                        left = frame.shape[1] - widths[i] - font_inner_padding_w
+                    else:
+                        left = bbox[0] + font_inner_padding_w
 
-                self._putText(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
-                self._putText(frame, line, left, int(top + i * str_h), color=color)
+                self._put_text(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
+                self._put_text(frame, line, left, int(top + i * str_h), color=color)
 
                 if len(processed.classes) > 0:
                     classes_preview_size = min(
@@ -548,50 +551,54 @@ class Detector(object):
                             thickness=thickness + 1,
                         )
                         if cls not in self.classes_previews:
-                            # print_fun('Init preview for class "%s"' % cls)
+                            # tools.print_fun('Init preview for class "%s"' % cls)
                             self.classes_previews[cls] = None
                             cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
                             if os.path.isfile(cls_img_path):
                                 try:
                                     self.classes_previews[cls] = cv2.imread(cls_img_path)
                                 except Exception as e:
-                                    print_fun('Error reading preview for "%s": %s' % (cls, e))
+                                    tools.print_fun('Error reading preview for "%s": %s' % (cls, e))
                             else:
-                                print_fun('Error reading preview for "%s": file not found' % cls)
+                                tools.print_fun('Error reading preview for "%s": file not found' % cls)
                         cls_img = self.classes_previews[cls]
                         if cls_img is not None:
                             resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
                             try:
                                 frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
                             except Exception as e:
-                                print_fun("ERROR: %s" % e)
+                                tools.print_fun("ERROR: %s" % e)
                         i_left += int(classes_preview_size * 1.2)
 
     @staticmethod
-    def _getTextProps(frame, thickness=None, thickness_mul=None, fontScale=None, fontFace=None):
-        if fontScale is None or thickness is None:
+    def _get_text_props(frame, thickness=None, thickness_mul=None, font_scale=None, font_face=None):
+        if font_scale is None or thickness is None:
             frame_avg = (frame.shape[1] + frame.shape[0]) / 2
-            if fontScale is None:
-                fontScale = frame_avg / 1200
+            if font_scale is None:
+                font_scale = frame_avg / 1200
             if thickness is None:
-                thickness = int(fontScale * 2)
+                thickness = int(font_scale * 2)
             if thickness_mul is not None:
                 thickness_m = int(thickness * thickness_mul)
                 thickness = thickness + 1 if thickness == thickness_m else thickness_m
-        if fontFace is None:
-            fontFace = cv2.FONT_HERSHEY_SIMPLEX
-        return fontFace, fontScale, thickness
+        if font_face is None:
+            font_face = cv2.FONT_HERSHEY_SIMPLEX
+        return font_face, font_scale, thickness
 
     @staticmethod
-    def _getTextSize(frame, text, thickness=None, thickness_mul=None, fontScale=None, fontFace=None):
-        fontFace, fontScale, thickness = Detector._getTextProps(frame, thickness, thickness_mul, fontScale, fontFace)
-        return cv2.getTextSize(text, fontFace, fontScale, thickness)[0]
+    def _get_text_size(frame, text, thickness=None, thickness_mul=None, font_scale=None, font_face=None):
+        font_face, font_scale, thickness = Detector._get_text_props(
+            frame, thickness, thickness_mul, font_scale, font_face
+        )
+        return cv2.getTextSize(text, font_face, font_scale, thickness)[0]
 
     @staticmethod
-    def _putText(frame, text, left, top, color, thickness=None, thickness_mul=None,
-                 fontScale=None, fontFace=None, lineType=cv2.LINE_AA):
-        fontFace, fontScale, thickness = Detector._getTextProps(frame, thickness, thickness_mul, fontScale, fontFace)
-        cv2.putText(frame, text, (left, top), fontFace, fontScale, color, thickness=thickness, lineType=lineType)
+    def _put_text(frame, text, left, top, color, thickness=None, thickness_mul=None,
+                  font_scale=None, font_face=None, line_type=cv2.LINE_AA):
+        font_face, font_scale, thickness = Detector._get_text_props(
+            frame, thickness, thickness_mul, font_scale, font_face
+        )
+        cv2.putText(frame, text, (left, top), font_face, font_scale, color, thickness=thickness, lineType=line_type)
 
     @staticmethod
     def _color(state):
@@ -601,17 +608,3 @@ class Detector(object):
             return 0, 0, 250
         else:
             return 250, 0, 250
-
-    @staticmethod
-    def _openvino_detect(face_detect, frame, threshold):
-        inference_frame = cv2.resize(frame, face_detect.input_size)  # , interpolation=cv2.INTER_AREA)
-        inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(*face_detect.input_shape)
-        outputs = face_detect(inference_frame)
-        outputs = outputs.reshape(-1, 7)
-        bboxes_raw = outputs[outputs[:, 2] > threshold]
-        bounding_boxes = bboxes_raw[:, 3:7]
-        bounding_boxes[:, 0] = bounding_boxes[:, 0] * frame.shape[1]
-        bounding_boxes[:, 2] = bounding_boxes[:, 2] * frame.shape[1]
-        bounding_boxes[:, 1] = bounding_boxes[:, 1] * frame.shape[0]
-        bounding_boxes[:, 3] = bounding_boxes[:, 3] * frame.shape[0]
-        return bounding_boxes

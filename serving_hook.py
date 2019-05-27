@@ -459,16 +459,19 @@ def _boolean_string(s):
 
 def _load_nets(ctx):
     head_pose_driver = None
+    face_driver = None
+    facenet_driver = None
     if hasattr(ctx, 'drivers'):
-        facenet_driver = ctx.drivers[0]
-        if len(ctx.drivers) >= 4:
-            head_pose_driver = ctx.drivers[3]
-        elif len(ctx.drivers) == 2:
-            head_pose_driver = ctx.drivers[1]
+        if len(ctx.drivers) >= 2:
+            face_driver = ctx.drivers[0]
+            facenet_driver = ctx.drivers[1]
+        if len(ctx.drivers) >= 5:
+            head_pose_driver = ctx.drivers[4]
+        elif len(ctx.drivers) == 3:
+            head_pose_driver = ctx.drivers[2]
     else:
-        facenet_driver = ctx.driver
+        face_driver = ctx.driver
 
-    LOG.info('Load FACE DETECTION')
     clf_dir = PARAMS['classifiers_dir']
     if not os.path.isdir(clf_dir):
         raise RuntimeError("Classifiers path %s is absent or is not directory" % clf_dir)
@@ -485,15 +488,12 @@ def _load_nets(ctx):
     # LOG.info('Classifier files: {}'.format(classifiers))
     global openvino_facenet
     ot = detector.Detector(
-        device='CPU',
         classifiers_dir=clf_dir,
-        model_path=PARAMS['model_path'].split(':')[0],
+        face_driver=face_driver,
         debug=PARAMS['debug'] == 'true',
-        bg_remove_path=PARAMS['bg_remove_path'],
+        facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
         head_pose_thresholds=PARAMS['head_pose_thresholds'],
-        loaded_plugin=facenet_driver.plugin,
-        facenet_exec_net=facenet_driver.model,
         min_face_size=PARAMS['min_face_size'],
     )
     ot.init()

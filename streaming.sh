@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-rtmp_url=""
+
 clf_path=data/classifiers
 inference_fps=10
+face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml
 model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
 head_pose_path=models/head_pose/head-pose-estimation-adas-0001.xml
 backend=srs # livego / rtmp-mux / srs
-OUTPUT_TYPE="rtmp"
+OUTPUT=""
 INPUT="server"
 rs_file=""
 token=""
@@ -20,12 +21,11 @@ Usage:
 
 Options:
   
-  --output-type <rtmp/display> Output type: rtmp/display/'', default $OUTPUT_TYPE.
+  --output <display/rtmp-url> Output type / RTMP URL stream address. Optional.
   --classifiers <dir> Classifiers directory, default $clf_path.
   --inference-fps <int> Inference FPS, default $inference_fps.
   --model-path <path> Facenet model path, default $model_path
   --head-pose-path <path> Path to head-pose-model
-  --output-rtmp <rtmp-url> Output RTMP URL stream address. Optional.
   --input <type> Input type. Can be one of 'camera', 'realsense', 'server' 
                  or any opencv-compatible URL (rtmp/rtsp/filepath etc.). Default $INPUT.
   --input-realsense Path to realsense .bag file to stream.
@@ -46,8 +46,8 @@ while [[ $# -gt 0 ]]
 do
 key="$1"
   case $key in
-    --output-type)
-    OUTPUT_TYPE="$2"
+    --output)
+    OUTPUT="$2"
     shift # past argument
     shift # past value
     ;;
@@ -66,10 +66,6 @@ key="$1"
     --head-pose-path)
     head_pose_path="$2"
     shift; shift
-    ;;
-    --output-rtmp)
-    rtmp_url="$2"
-    shift; shift;
     ;;
     --input)
     INPUT="$2"
@@ -109,19 +105,8 @@ done
 #echo "inference_fps=$inference_fps"
 #echo "model_path=$model_path"
 
-if [ "$OUTPUT_TYPE" == "rtmp" ];
-then
-  if [ -z "$rtmp_url" ];
-  then
-    echo "--output-rtmp required in case of providing --output-type rtmp"
-    echo
-    echo "$usage"
-    exit 1
-  fi
-fi
-
-output_arg="--output-type $OUTPUT_TYPE"
-if [ -z "$OUTPUT_TYPE" ];
+output_arg='--output '"$OUTPUT"''
+if [ -z "$OUTPUT" ];
 then
   output_arg=""
 fi
@@ -144,9 +129,10 @@ then
   fi
 fi
 
-kstreaming --driver openvino --model-path $model_path $head_pose_args --hooks serving_hook.py -o classifiers_dir=$clf_path \
+kstreaming --driver openvino --model-path $face_detection_path --driver openvino --model-path $model_path $head_pose_args \
+ --hooks serving_hook.py -o classifiers_dir=$clf_path \
  -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
- --output-rtmp "$rtmp_url" --initial-stream live --input-name input --output-name output -o skip_frames=true \
+  --initial-stream live --input-name input --output-name output -o skip_frames=true \
  --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args \
  -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o min_face_size=50
 
