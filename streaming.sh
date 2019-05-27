@@ -118,7 +118,7 @@ pull_model_args=""
 if [ ! -z "$token" ] && [ ! -z "$base_url" ];
 then
   echo "Enable pull model"
-  pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token" -o model_name=$model_name -o workspace_name=$workspace_name
+  pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token -o model_name=$model_name -o workspace_name=$workspace_name"
 fi
 
 head_pose_args=""
