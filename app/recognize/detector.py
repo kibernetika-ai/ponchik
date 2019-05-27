@@ -60,7 +60,7 @@ def detector_args(args):
     if args.face_detection_path is not None:
         if os.path.isfile(args.face_detection_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load FACE DETECTION model")
+            tools.print_fun("Load FACE DETECTION model %s" % args.face_detection_path)
             drv = driver.load_driver('openvino')
             face_driver = drv()
             face_driver.load_model(args.face_detection_path)
