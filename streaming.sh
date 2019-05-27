@@ -137,5 +137,5 @@ kstreaming --driver openvino --model-path $face_detection_path --driver openvino
  -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
   --initial-stream live --input-name input --output-name output -o skip_frames=true \
  --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args \
- -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o min_face_size=50
+ -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o min_face_size=50 --http-enable
 
