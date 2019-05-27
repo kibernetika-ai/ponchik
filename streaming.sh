@@ -2,7 +2,8 @@
 
 clf_path=data/classifiers
 inference_fps=10
-face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml
+#face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml
+face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
 model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
 head_pose_path=models/head_pose/head-pose-estimation-adas-0001.xml
 backend=srs # livego / rtmp-mux / srs
@@ -10,6 +11,8 @@ OUTPUT=""
 INPUT="server"
 rs_file=""
 token=""
+workspace_name="intel"
+model_name="ponchik"
 base_url="https://dev.kibernetika.io/api/v0.2"
 
 slack_token=""
@@ -115,7 +118,7 @@ pull_model_args=""
 if [ ! -z "$token" ] && [ ! -z "$base_url" ];
 then
   echo "Enable pull model"
-  pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token"
+  pull_model_args="-o enable_pull_model=true -o base_url=$base_url -o token=$token" -o model_name=$model_name -o workspace_name=$workspace_name
 fi
 
 head_pose_args=""
