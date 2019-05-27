@@ -92,9 +92,9 @@ class Video:
             )
             self.h5.create_dataset(
                 'bounding_boxes',
-                shape=(0, 4),
+                shape=(0, 5),
                 dtype=np.int32,
-                maxshape=(None, 4),
+                maxshape=(None, 5),
                 chunks=True,
             )
             self.h5.create_dataset(
@@ -365,7 +365,7 @@ class Video:
 
         # resize +1
         self.h5['embeddings'].resize((n + 1, 512))
-        self.h5['bounding_boxes'].resize((n + 1, 4))
+        self.h5['bounding_boxes'].resize((n + 1, 5))
         self.h5['head_poses'].resize((n + 1, 3))
         self.h5['faces'].resize((n + 1,))
         self.h5['frame_nums'].resize((n + 1,))

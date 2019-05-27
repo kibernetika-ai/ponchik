@@ -234,7 +234,8 @@ class Detector(object):
         bboxes_raw = output[output[:, 2] > threshold]
         # Extract 5 values
         boxes = bboxes_raw[:, 3:7]
-        confidence = np.expand_dims(bboxes_raw[:, 2], axis=0)
+        # __import__('ipdb').set_trace()
+        confidence = np.expand_dims(bboxes_raw[:, 2], axis=0).transpose()
         boxes = np.concatenate((boxes, confidence), axis=1)
         # Assign confidence to 4th
         # boxes[:, 4] = bboxes_raw[:, 2]
