@@ -442,7 +442,7 @@ class Detector(object):
                     # output = output[facenet_output]
 
                     face = self.process_output(output, bboxes[img_idx])
-                    if poses and len(poses) > img_idx:
+                    if poses is not None and len(poses) > img_idx:
                         face.head_pose = poses[img_idx]
                     face.embedding = output.reshape([-1])
 
