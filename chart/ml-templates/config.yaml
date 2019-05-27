@@ -136,7 +136,8 @@ spec:
       gpu: "kuberlab/serving:latest-openvino-gpu"
     command: >-
       pip install slackclient croniter &&
-      kserving --driver openvino --model-path $FACENET_DIR/facenet.xml
+      kserving --driver openvino --model-path /opt/intel/openvino/deployment_tools/intel_models/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
+      --driver openvino --model-path $FACENET_DIR/facenet.xml
       --hooks serving_hook.py
       {{- if and .bgrm.value .detection_bgrm_serving.value }}
       -o bg_remove_path=$BGRM_DIR
