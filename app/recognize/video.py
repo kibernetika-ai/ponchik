@@ -9,7 +9,9 @@ from datetime import timedelta
 
 from app.recognize import defaults
 from app.recognize.clusterizator import Clusterizator
-from app.tools import images, print_fun
+from app.tools import images
+from app.tools import print_fun
+from app.tools import sound
 from app.recognize.video_notify import InVideoDetected
 from app.recognize import detector
 from app.notify import notify
@@ -31,6 +33,7 @@ def video_args(detector, listener, args):
         video_export_srt=args.video_export_srt,
         video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
+        video_write_to=args.video_write_to,
         build_h5py_to=args.build_h5py_to,
         video_limit_sec=args.video_limit_sec,
     )
@@ -43,14 +46,15 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False, build_h5py_to=None, video_limit_sec=None):
+                 video_no_output=False, build_h5py_to=None, video_limit_sec=None, video_write_to=None):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
-        self.video_source_fps = None
-        self.video_source_width = None
-        self.video_source_height = None
+        self.fps = None
+        self.width = None
+        self.height = None
         self.video_limit_sec = video_limit_sec
+        self.video_write_to = video_write_to
         self.frame = None
         self.processed = None
         self.vs = None
@@ -129,6 +133,33 @@ class Video:
         notify_thread.start()
         self.notify_started = True
 
+    def init_video(self):
+        if self.video_source is None:
+            self.vs = cv2.VideoCapture(0)
+        elif self.video_source == "realsense":
+            import pyrealsense2 as rs
+            self.pipeline = rs.pipeline()
+
+            config = rs.config()
+            # rs-enumerate-devices
+            # config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8,6)
+            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 6)
+            self.pipeline.start(config)
+        else:
+            self.vs = cv2.VideoCapture(self.video_source)
+            self.video_source_is_file = os.path.isfile(self.video_source)
+            if self.video_source_is_file:
+                self.fourcc = int(self.vs.get(cv2.CAP_PROP_FOURCC))
+                self.video_format = self.vs.get(cv2.CAP_PROP_FORMAT)
+                self.fps = self.vs.get(cv2.CAP_PROP_FPS)
+                self.width = int(self.vs.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.height = int(self.vs.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            if self.video_export_srt:
+                if not self.video_source_is_file:
+                    raise ValueError('srt creation allowed only for video file')
+                if not self.fps:
+                    raise ValueError('unable to detect fps, srt creation is unavailable')
+
     def start(self):
         self.detector.init()
         if self.vs is None:
@@ -143,12 +174,18 @@ class Video:
         self.start_notify()
 
         if self.build_h5py_to:
-            self.h5.attrs['fps'] = self.video_source_fps
-            self.h5.attrs['width'] = self.video_source_width
-            self.h5.attrs['height'] = self.video_source_height
+            self.h5.attrs['fps'] = self.fps
+            self.h5.attrs['width'] = self.width
+            self.h5.attrs['height'] = self.height
             self.h5.attrs['each_frame'] = self.video_each_of_frame
             self.h5.attrs['threshold'] = self.detector.threshold
             self.h5.attrs['min_face_size'] = self.detector.min_face_size
+
+        if self.video_write_to:
+            video_writer = cv2.VideoWriter(
+                self.video_write_to, self.fourcc, self.fps / self.video_each_of_frame,
+                frameSize=(self.width, self.height)
+            )
 
         try:
             processed_frame_idx = 0
@@ -168,10 +205,12 @@ class Video:
                         self.process_frame(frame=frame)
                     if not self.video_no_output:
                         cv2.imshow('Video', frame)
+                    if self.video_write_to:
+                        video_writer.write(frame)
 
                     processed_frame_idx += 1
                     t = timedelta(
-                        milliseconds=self.frame_idx / self.video_source_fps * 1000) if self.video_source_fps else '-'
+                        milliseconds=self.frame_idx / self.fps * 1000) if self.fps else '-'
 
                     if processed_frame_idx % 100 == 0:
                         print_fun("Processed %d frames, %s" % (processed_frame_idx, t))
@@ -195,6 +234,15 @@ class Video:
                 print_fun('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
                 self.h5.close()
 
+            if self.video_write_to:
+                print_fun('Written video to %s.' % self.video_write_to)
+                video_writer.release()
+
+                # Add sound as well
+                sound.merge_audio_with(self.video_source, self.video_write_to, self.video_limit_sec)
+
+            cv2.destroyAllWindows()
+
         if self.video_export_srt:
             import srt
 
@@ -202,10 +250,10 @@ class Video:
             not_detected_persons = []
 
             if self.process_not_detected:
-                print_fun('Start unrecognized faces clusterization')
+                print_fun('Start unrecognized faces clustering')
                 cl = Clusterizator()
                 not_detected_persons = cl.clusterize_frame_faces(self.detector.not_detected_embs)
-                print_fun('Clusterization done')
+                print_fun('Clustering done')
 
             # plain subtitles
             subs_strs = []
@@ -231,7 +279,7 @@ class Video:
             cur_sub, cur_sub_start, cur_sub_i = None, None, None
             ts = None
             for i in range(len(subs_strs)):
-                ts = timedelta(milliseconds=(i / self.video_source_fps) * 1000 * self.video_each_of_frame)
+                ts = timedelta(milliseconds=(i / self.fps) * 1000 * self.video_each_of_frame)
                 sub = subs_strs[i]
                 prev_sub = cur_sub
                 if sub != cur_sub or (sub is not None and sub != prev_sub):
@@ -257,31 +305,6 @@ class Video:
                 else os.path.splitext(self.video_source)[0] + '.srt'
             with open(video_export_srt_file, 'w') as sw:
                 sw.write(srt.compose(subs))
-
-    def init_video(self):
-        if self.video_source is None:
-            self.vs = cv2.VideoCapture(0)
-        elif self.video_source == "realsense":
-            import pyrealsense2 as rs
-            self.pipeline = rs.pipeline()
-
-            config = rs.config()
-            # rs-enumerate-devices
-            # config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8,6)
-            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 6)
-            self.pipeline.start(config)
-        else:
-            self.vs = cv2.VideoCapture(self.video_source)
-            self.video_source_is_file = os.path.isfile(self.video_source)
-            if self.video_source_is_file:
-                self.video_source_fps = self.vs.get(cv2.CAP_PROP_FPS)
-                self.video_source_width = self.vs.get(cv2.CAP_PROP_FRAME_WIDTH)
-                self.video_source_height = self.vs.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            if self.video_export_srt:
-                if not self.video_source_is_file:
-                    raise ValueError('srt creation allowed only for video file')
-                if not self.video_source_fps:
-                    raise ValueError('unable to detect fps, srt creation is unavailable')
 
     def get_frame(self):
         if self.pipeline is None:
@@ -425,6 +448,10 @@ def add_video_args(parser):
         help='Limit video process by this time',
         default=0,
         type=int,
+    )
+    parser.add_argument(
+        '--video_write_to',
+        help='Write video to file',
     )
     parser.add_argument(
         '--video_async',
