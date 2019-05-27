@@ -12,8 +12,7 @@ docker run -it \
     kuberlab/serving:latest-openvino \
         bash -c \
         "pip install slackclient croniter && kserving --driver openvino \
-        --model-path $face_detection_path --driver openvino
-        --model-path models/facenet_pretrained_openvino_cpu/facenet.xml \
+        --model-path $face_detection_path \
         --hooks serving_hook.py -o device=CPU \
         -o classifiers_dir=data/classifiers \
         -o clarified_dir=/clarified \
