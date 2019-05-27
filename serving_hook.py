@@ -255,104 +255,8 @@ def process_recognize(inputs, ctx, **kwargs):
         log_recognition(frame, ret, **kwargs)
 
     if PARAMS['need_table']:
-
-        table = []
-        clarify_enabled, _ = _clarify_enabled()
-
-        for processed in processed_frame:
-            x_min = int(max(0, processed.bbox[0]))
-            y_min = int(max(0, processed.bbox[1]))
-            x_max = int(min(frame.shape[1], processed.bbox[2]))
-            y_max = int(min(frame.shape[0], processed.bbox[3]))
-            cim = frame[y_min:y_max, x_min:x_max]
-            cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
-            image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
-
-            encoded = base64.encodebytes(image_bytes).decode()
-            row_data = {
-                'name': processed.label,
-                'prob': processed.prob,
-                'face': encoded
-            }
-            if processed.meta is not None:
-                row_data['meta'] = processed.meta
-                if 'position' in processed.meta:
-                    row_data['position'] = processed.meta['position']
-                if 'company' in processed.meta:
-                    row_data['company'] = processed.meta['company']
-                if 'url' in processed.meta:
-                    row_data['url'] = processed.meta['url']
-
-            if clarify_enabled:
-
-                image_clarify = {
-                    'alternate': True,
-                }
-
-                if processed.state == detector.NOT_DETECTED:
-                    image_clarify['values'] = []
-                    for cls in processed.classes:
-                        cl_cls = {'name': cls}
-                        cls_ = cls.replace(" ", "_")
-                        if cls_ in processed.classes_meta:
-                            m = processed.classes_meta[cls_]
-                            if 'position' in m:
-                                cl_cls['position'] = m['position']
-                            if 'company' in m:
-                                cl_cls['company'] = m['company']
-                            if 'url' in m:
-                                cl_cls['url'] = m['url']
-                        image_clarify['values'].append(cl_cls)
-
-                row_data['image_clarify'] = image_clarify
-
-            table.append(row_data)
-
-        ret['table_output'] = json.dumps(table)
-        meta = [
-            {
-                'name': 'name',
-                'label': 'Name'
-            },
-            {
-                'name': 'position',
-                'label': 'Position'
-            },
-            {
-                'name': 'company',
-                'label': 'Company'
-            },
-            {
-                'name': 'url',
-                'label': 'URL'
-            },
-            {
-                'name': 'prob',
-                'label': 'Probability',
-                'type': 'number',
-                'format': '.2f'
-            },
-            {
-                'name': 'meta',
-                'label': 'Metadata',
-                'type': 'data'
-            },
-            {
-                'name': 'face',
-                'label': 'Face',
-                'type': 'image'
-            },
-        ]
-        if clarify_enabled:
-            meta.append({
-                'name': 'image_clarify',
-                'label': 'Clarify',
-                'type': 'edit',
-                'action': 'clarify',
-                'values_label': 'name',
-                'fields': ['name', 'position', 'company', 'url', 'face']
-            })
-        ret['table_meta'] = json.dumps(meta)
+        table_result = build_table(frame, processed_frame, ret)
+        ret.update(table_result)
 
     if PARAMS['output_type'] == 'bytes':
         image_output = cv2.imencode(".jpg", bgr_frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
@@ -599,3 +503,105 @@ def log_recognition(rgb_frame, ret, **kwargs):
             image_file = os.path.join(dir_name, 'image.jpg')
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             cv2.imwrite(image_file, img)
+
+
+def build_table(frame, processed_frames, ret):
+    result = {}
+    table = []
+    clarify_enabled, _ = _clarify_enabled()
+
+    for processed in processed_frames:
+        x_min = int(max(0, processed.bbox[0]))
+        y_min = int(max(0, processed.bbox[1]))
+        x_max = int(min(frame.shape[1], processed.bbox[2]))
+        y_max = int(min(frame.shape[0], processed.bbox[3]))
+        cim = frame[y_min:y_max, x_min:x_max]
+        cim = cv2.cvtColor(cim, cv2.COLOR_RGB2BGR)
+        image_bytes = cv2.imencode(".jpg", cim, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
+
+        encoded = base64.encodebytes(image_bytes).decode()
+        row_data = {
+            'name': processed.label,
+            'prob': processed.prob,
+            'face': encoded
+        }
+        if processed.meta is not None:
+            row_data['meta'] = processed.meta
+            if 'position' in processed.meta:
+                row_data['position'] = processed.meta['position']
+            if 'company' in processed.meta:
+                row_data['company'] = processed.meta['company']
+            if 'url' in processed.meta:
+                row_data['url'] = processed.meta['url']
+
+        if clarify_enabled:
+
+            image_clarify = {
+                'alternate': True,
+            }
+
+            if processed.state == detector.NOT_DETECTED:
+                image_clarify['values'] = []
+                for cls in processed.classes:
+                    cl_cls = {'name': cls}
+                    cls_ = cls.replace(" ", "_")
+                    if cls_ in processed.classes_meta:
+                        m = processed.classes_meta[cls_]
+                        if 'position' in m:
+                            cl_cls['position'] = m['position']
+                        if 'company' in m:
+                            cl_cls['company'] = m['company']
+                        if 'url' in m:
+                            cl_cls['url'] = m['url']
+                    image_clarify['values'].append(cl_cls)
+
+            row_data['image_clarify'] = image_clarify
+
+        table.append(row_data)
+
+    result['table_output'] = json.dumps(table)
+    meta = [
+        {
+            'name': 'name',
+            'label': 'Name'
+        },
+        {
+            'name': 'position',
+            'label': 'Position'
+        },
+        {
+            'name': 'company',
+            'label': 'Company'
+        },
+        {
+            'name': 'url',
+            'label': 'URL'
+        },
+        {
+            'name': 'prob',
+            'label': 'Probability',
+            'type': 'number',
+            'format': '.2f'
+        },
+        {
+            'name': 'meta',
+            'label': 'Metadata',
+            'type': 'data'
+        },
+        {
+            'name': 'face',
+            'label': 'Face',
+            'type': 'image'
+        },
+    ]
+    if clarify_enabled:
+        meta.append({
+            'name': 'image_clarify',
+            'label': 'Clarify',
+            'type': 'edit',
+            'action': 'clarify',
+            'values_label': 'name',
+            'fields': ['name', 'position', 'company', 'url', 'face']
+        })
+    result['table_meta'] = json.dumps(meta)
+    return result

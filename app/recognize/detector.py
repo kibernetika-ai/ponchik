@@ -91,7 +91,7 @@ def detector_args(args):
     )
 
 
-class Processed:
+class FaceInfo:
     def __init__(
             self,
             bbox=None,
@@ -380,7 +380,7 @@ class Detector(object):
             if cl_ in self.meta:
                 classes_meta[cl_] = self.meta[cl_]
 
-        return Processed(
+        return FaceInfo(
             bbox=bbox.astype(int),
             state=DETECTED if detected else NOT_DETECTED,
             label=summary_overlay_label,
@@ -420,7 +420,7 @@ class Detector(object):
         bounding_boxes_detected = self.detect_faces(frame, self.threshold)
         skips, poses = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
 
-        frame_processed = []
+        faces = []
         not_detected_embs = []
         detected_names = []
 
@@ -438,21 +438,21 @@ class Detector(object):
                     # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                     # output = output[facenet_output]
 
-                    processed = self.process_output(output, bounding_boxes_detected[img_idx])
-                    processed.head_pose = poses[img_idx]
-                    processed.embedding = output.reshape([-1])
+                    face = self.process_output(output, bounding_boxes_detected[img_idx])
+                    face.head_pose = poses[img_idx]
+                    face.embedding = output.reshape([-1])
 
-                    frame_processed.append(processed)
+                    faces.append(face)
 
                     if self.process_not_detected:
-                        if processed.state == NOT_DETECTED:
+                        if face.state == NOT_DETECTED:
                             not_detected_embs.append(output)
 
-                    if processed.state == DETECTED:
-                        detected_names.append(processed.classes[0])
+                    if face.state == DETECTED:
+                        detected_names.append(face.classes[0])
 
                 else:
-                    processed = Processed(
+                    face = FaceInfo(
                         bbox=bounding_boxes_detected[img_idx].astype(int),
                         state=WRONG_FACE_POS,
                         label='',
@@ -464,46 +464,47 @@ class Detector(object):
                         looks_like=[],
                         head_pose=poses[img_idx]
                     )
-                    frame_processed.append(processed)
+                    faces.append(face)
 
         if overlays:
-            self.add_overlays(frame, frame_processed)
+            self.add_overlays(frame, faces)
 
         if self.process_not_detected:
             self.not_detected_embs.append(not_detected_embs)
 
         self.detected_names.append(detected_names)
 
-        return frame_processed
+        return faces
 
-    def add_overlays(self, frame, frame_processed):
-        if frame_processed:
-            for processed in frame_processed:
-                self.add_overlay(frame, processed)
+    def add_overlays(self, frame, faces: [FaceInfo]):
+        if not faces:
+            return
+        for face in faces:
+            self.add_overlay(frame, face)
 
-    def add_overlay(self, frame, processed, align_to_right=True):
+    def add_overlay(self, frame, face, align_to_right=True):
         """Add box and label overlays on frame
         :param frame: frame in BGR channels order
-        :param processed: processed info - box, label, etc...
+        :param face: Face info - box, label, embedding, pose etc...
         :param align_to_right: align multistring text block to right
         :return:
         """
 
         font_face, font_scale, thickness = Detector._get_text_props(frame)
 
-        bbox = processed.bbox.astype(int)
-        color = self._color(processed.state)
+        bbox = face.bbox.astype(int)
+        color = self._color(face.state)
         cv2.rectangle(
             frame,
             (bbox[0], bbox[1]), (bbox[2], bbox[3]),  # (left, top), (right, bottom)
             color,
-            thickness * (2 if processed.state == DETECTED else 1),
+            thickness * (2 if face.state == DETECTED else 1),
         )
 
         font_inner_padding_w, font_inner_padding_h = 5, 5
 
-        if processed.overlay_label is not None and processed.overlay_label != "":
-            strs = processed.overlay_label.split('\n')
+        if face.overlay_label is not None and face.overlay_label != "":
+            strs = face.overlay_label.split('\n')
             str_w, str_h = 0, 0
             widths = []
             for i, line in enumerate(strs):
@@ -533,16 +534,16 @@ class Detector(object):
                 self._put_text(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
                 self._put_text(frame, line, left, int(top + i * str_h), color=color)
 
-                if len(processed.classes) > 0:
+                if len(face.classes) > 0:
                     classes_preview_size = min(
                         str_h * 3,  # size depends on row height
-                        int((processed.bbox[2] - processed.bbox[0] - 10) / len(processed.classes) / 1.2),
+                        int((face.bbox[2] - face.bbox[0] - 10) / len(face.classes) / 1.2),
                         # size depends on bounding box size
                     )
-                    i_left = max(0, processed.bbox[0])
-                    i_top = min(processed.bbox[3] + int(classes_preview_size * .1),
+                    i_left = max(0, face.bbox[0])
+                    i_top = min(face.bbox[3] + int(classes_preview_size * .1),
                                 frame.shape[0] - int(classes_preview_size * 1.1))
-                    for cls in processed.classes:
+                    for cls in face.classes:
                         cv2.rectangle(
                             frame,
                             (i_left, i_top),

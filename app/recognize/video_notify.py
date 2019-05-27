@@ -25,9 +25,9 @@ class InVideoDetected:
     def prepare(self):
         self.done = False
 
-    def exists_in_frame(self, processed=None, frame=None):
+    def exists_in_frame(self, face_info=None, frame=None):
         if not self.done:
-            exists = processed is not None
+            exists = face_info is not None
             self.in_frames.append(1 if exists else 0)
             now = time()
             self.in_frames_ts.append(now)
@@ -48,14 +48,14 @@ class InVideoDetected:
                     self.notified_ts = now
                 if self.prob == 0:
                     self.not_detected_anymore = True
-            if processed:
-                if processed.looks_like:
-                    self.looks_like.extend(processed.looks_like)
+            if face_info:
+                if face_info.looks_like:
+                    self.looks_like.extend(face_info.looks_like)
                     self.looks_like = list(set(self.looks_like))
                     self.looks_like.sort()
-                if processed.prob is not None and processed.prob > self.prob and frame is not None:
-                    self.prob = processed.prob
-                    self.image = images.crop_by_box(frame, processed.bbox)
+                if face_info.prob is not None and face_info.prob > self.prob and frame is not None:
+                    self.prob = face_info.prob
+                    self.image = images.crop_by_box(frame, face_info.bbox)
             self.done = True
 
     def make_notify(self):

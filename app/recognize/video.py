@@ -139,6 +139,8 @@ class Video:
             self.h5.attrs['width'] = self.video_source_width
             self.h5.attrs['height'] = self.video_source_height
             self.h5.attrs['each_frame'] = self.video_each_of_frame
+            self.h5.attrs['threshold'] = self.detector.threshold
+            self.h5.attrs['min_face_size'] = self.detector.min_face_size
 
         try:
             processed_frame_idx = 0
@@ -152,6 +154,7 @@ class Video:
                 if self.frame is not None and (self.frame_idx % self.video_each_of_frame == 0):
                     frame = self.frame.copy()
                     if self.video_async:
+                        # Not work
                         self.detector.add_overlays(frame, self.processed)
                     else:
                         self.process_frame(frame=frame)
@@ -297,18 +300,19 @@ class Video:
             self.process_frame(self.frame, overlays=False)
 
     def process_frame(self, frame, overlays=True):
-        if frame is not None:
-            original_copy = np.copy(frame)
-            self.processed = self.detector.process_frame(frame, overlays=overlays)
-            self.research_processed(frame=original_copy)
+        original_copy = np.copy(frame)
+        face_infos = self.detector.process_frame(frame, overlays=overlays)
+        self.research_processed(face_infos, frame=original_copy)
 
-    def research_processed(self, frame=None):
+        return face_infos
+
+    def research_processed(self, face_infos: [detector.FaceInfo], frame=None):
         if frame is None:
             frame = self.frame
 
         for fd in self.faces_detected:
             self.faces_detected[fd].prepare()
-        if self.processed is not None:
+        if face_infos is not None:
             store_not_detected = False
             now = time.time()
             if self.not_detected_store:
@@ -316,16 +320,16 @@ class Video:
                     self.not_detected_check_ts = now
                     store_not_detected = True
 
-            for p in self.processed:
-                self.write_h5_if_needed(frame, p)
+            for fi in face_infos:
+                self.write_h5_if_needed(frame, fi)
 
-                if p.state == detector.DETECTED:
-                    name = p.classes[0]
+                if fi.state == detector.DETECTED:
+                    name = fi.classes[0]
                     if name not in self.faces_detected:
                         self.faces_detected[name] = InVideoDetected()
-                    self.faces_detected[name].exists_in_frame(processed=p, frame=frame)
-                elif p.state == detector.NOT_DETECTED and store_not_detected:
-                    img = images.crop_by_box(frame, p.bbox)
+                    self.faces_detected[name].exists_in_frame(face_info=fi, frame=frame)
+                elif fi.state == detector.NOT_DETECTED and store_not_detected:
+                    img = images.crop_by_box(frame, fi.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)
 
         for fd in list(self.faces_detected):
@@ -350,11 +354,11 @@ class Video:
                     n['action_options'] = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append(n)
 
-    def write_h5_if_needed(self, frame, processed):
+    def write_h5_if_needed(self, frame, face_info):
         if not self.build_h5py_to:
             return
 
-        img = images.crop_by_box(frame, processed.bbox)
+        img = images.crop_by_box(frame, face_info.bbox)
         img_bytes = cv2.imencode('.jpg', img)[1].tostring()
 
         n = self.h5['embeddings'].shape[0]
@@ -367,9 +371,9 @@ class Video:
         self.h5['frame_nums'].resize((n + 1,))
 
         # Assign value
-        self.h5['embeddings'][n] = processed.embedding
-        self.h5['bounding_boxes'][n] = processed.bbox
-        self.h5['head_poses'][n] = processed.head_pose
+        self.h5['embeddings'][n] = face_info.embedding
+        self.h5['bounding_boxes'][n] = face_info.bbox
+        self.h5['head_poses'][n] = face_info.head_pose
         self.h5['frame_nums'][n] = self.frame_idx
         self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')
 
