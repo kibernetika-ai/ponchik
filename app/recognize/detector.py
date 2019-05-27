@@ -99,6 +99,7 @@ class FaceInfo:
             label='',
             overlay_label='',
             prob=0,
+            face_prob=0.0,
             classes=None,
             classes_meta=None,
             meta=None,
@@ -111,6 +112,7 @@ class FaceInfo:
         self.label = label
         self.overlay_label = overlay_label
         self.prob = prob
+        self.face_prob = face_prob
         self.classes = classes
         self.classes_meta = classes_meta
         self.meta = meta
@@ -234,7 +236,6 @@ class Detector(object):
         bboxes_raw = output[output[:, 2] > threshold]
         # Extract 5 values
         boxes = bboxes_raw[:, 3:7]
-        # __import__('ipdb').set_trace()
         confidence = np.expand_dims(bboxes_raw[:, 2], axis=0).transpose()
         boxes = np.concatenate((boxes, confidence), axis=1)
         # Assign confidence to 4th
@@ -382,11 +383,12 @@ class Detector(object):
                 classes_meta[cl_] = self.meta[cl_]
 
         return FaceInfo(
-            bbox=bbox.astype(int),
+            bbox=bbox[:4].astype(int),
             state=DETECTED if detected else NOT_DETECTED,
             label=summary_overlay_label,
             overlay_label=overlay_label_str,
             prob=mean_prob,
+            face_prob=bbox[4],
             classes=classes,
             classes_meta=classes_meta,
             meta=meta,
@@ -418,15 +420,15 @@ class Detector(object):
         return skips, np.array([yaw, pitch, roll]).transpose()
 
     def process_frame(self, frame, overlays=True):
-        bounding_boxes_detected = self.detect_faces(frame, self.threshold)
-        skips, poses = self.skip_wrong_pose_indices(frame, bounding_boxes_detected)
+        bboxes = self.detect_faces(frame, self.threshold)
+        skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
 
         faces = []
         not_detected_embs = []
         detected_names = []
 
         if self.use_classifiers:
-            imgs = images.get_images(frame, bounding_boxes_detected)
+            imgs = images.get_images(frame, bboxes)
 
             for img_idx, img in enumerate(imgs):
                 # Infer
@@ -439,7 +441,7 @@ class Detector(object):
                     # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                     # output = output[facenet_output]
 
-                    face = self.process_output(output, bounding_boxes_detected[img_idx])
+                    face = self.process_output(output, bboxes[img_idx])
                     face.head_pose = poses[img_idx]
                     face.embedding = output.reshape([-1])
 
@@ -454,11 +456,12 @@ class Detector(object):
 
                 else:
                     face = FaceInfo(
-                        bbox=bounding_boxes_detected[img_idx].astype(int),
+                        bbox=bboxes[img_idx][:4],
                         state=WRONG_FACE_POS,
                         label='',
                         overlay_label='',
                         prob=0,
+                        face_prob=bboxes[img_idx][4],
                         classes=[],
                         classes_meta={},
                         meta=None,

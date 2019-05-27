@@ -92,11 +92,19 @@ class Video:
             )
             self.h5.create_dataset(
                 'bounding_boxes',
-                shape=(0, 5),
+                shape=(0, 4),
                 dtype=np.int32,
-                maxshape=(None, 5),
+                maxshape=(None, 4),
                 chunks=True,
             )
+            self.h5.create_dataset(
+                'face_probs',
+                shape=(0,),
+                dtype=np.float32,
+                maxshape=(None,),
+                chunks=True,
+            )
+
             self.h5.create_dataset(
                 'frame_nums',
                 shape=(0,),
@@ -365,14 +373,16 @@ class Video:
 
         # resize +1
         self.h5['embeddings'].resize((n + 1, 512))
-        self.h5['bounding_boxes'].resize((n + 1, 5))
+        self.h5['bounding_boxes'].resize((n + 1, 4))
         self.h5['head_poses'].resize((n + 1, 3))
         self.h5['faces'].resize((n + 1,))
+        self.h5['face_probs'].resize((n + 1,))
         self.h5['frame_nums'].resize((n + 1,))
 
         # Assign value
         self.h5['embeddings'][n] = face_info.embedding
         self.h5['bounding_boxes'][n] = face_info.bbox
+        self.h5['face_probs'][n] = face_info.face_prob
         self.h5['head_poses'][n] = face_info.head_pose
         self.h5['frame_nums'][n] = self.frame_idx
         self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')

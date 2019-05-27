@@ -241,21 +241,20 @@ def process_recognize(inputs, ctx, **kwargs):
     # convert to BGR
     bgr_frame = np.copy(frame[:, :, ::-1])
 
-    processing.process_frame(bgr_frame, overlays=True)
-    processed_frame = processing.processed
-    faces_bbox = [processed.bbox for processed in processed_frame]
+    face_infos = processing.process_frame(bgr_frame, overlays=True)
+    faces_bbox = [fi.bbox for fi in face_infos]
     if badge_detector is not None:
         badge_detector.process(frame[:, :, :].copy(), faces_bbox)
     ret = {
         'boxes': np.array(faces_bbox),
-        'labels': np.array([processed.label for processed in processed_frame], dtype=np.str),
+        'labels': np.array([processed.label for processed in face_infos], dtype=np.str),
     }
 
     if PARAMS['enable_log']:
         log_recognition(frame, ret, **kwargs)
 
     if PARAMS['need_table']:
-        table_result = build_table(frame, processed_frame, ret)
+        table_result = build_table(frame, face_infos)
         ret.update(table_result)
 
     if PARAMS['output_type'] == 'bytes':
@@ -505,12 +504,12 @@ def log_recognition(rgb_frame, ret, **kwargs):
             cv2.imwrite(image_file, img)
 
 
-def build_table(frame, processed_frames, ret):
+def build_table(frame, face_infos):
     result = {}
     table = []
     clarify_enabled, _ = _clarify_enabled()
 
-    for processed in processed_frames:
+    for processed in face_infos:
         x_min = int(max(0, processed.bbox[0]))
         y_min = int(max(0, processed.bbox[1]))
         x_max = int(min(frame.shape[1], processed.bbox[2]))
