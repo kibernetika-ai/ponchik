@@ -467,7 +467,7 @@ class Detector(object):
                         classes_meta={},
                         meta=None,
                         looks_like=[],
-                        head_pose=poses[img_idx] if poses and len(poses) > img_idx else None
+                        head_pose=poses[img_idx] if poses is not None and len(poses) > img_idx else None
                     )
                     faces.append(face)
 
