@@ -37,6 +37,10 @@ def add_common_args(parser):
         default=defaults.MIN_FACE_SIZE,
     )
     parser.add_argument(
+        '--multi_detect',
+        help='Multi detection steps, comma separated. Example: 3,4',
+    )
+    parser.add_argument(
         '--device',
         help='Device for openVINO.',
         default=defaults.DEVICE,

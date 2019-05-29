@@ -79,6 +79,10 @@ def detector_args(args):
         else:
             tools.print_fun("facenet openvino model is not found, skipped")
 
+    multi_detect = None
+    if args.multi_detect:
+        multi_detect = [int(i) for i in args.multi_detect.split(',')]
+
     return Detector(
         face_driver=face_driver,
         facenet_driver=facenet_driver,
@@ -89,6 +93,7 @@ def detector_args(args):
         debug=args.debug,
         process_not_detected=args.process_not_detected,
         account_head_pose=not args.head_pose_not_account,
+        multi_detect=multi_detect,
     )
 
 
