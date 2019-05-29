@@ -239,7 +239,7 @@ class Detector(object):
 
         def add_box(b):
             for b0 in boxes:
-                if utils.box_intersection(b0, b) > 0:
+                if utils.box_intersection(b0, b) > 0.3:
                     return
             boxes.resize((boxes.shape[0] + 1, boxes.shape[1]), refcheck=False)
             boxes[-1] = b

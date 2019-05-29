@@ -11,12 +11,15 @@ OUTPUT=""
 INPUT="server"
 rs_file=""
 token=""
+multi_detect=""
 workspace_name="intel"
 model_name="faces"
 base_url="https://dev.kibernetika.io/api/v0.2"
 
 slack_token=""
 slack_channel=""
+
+raw_args="-o min_face_size=40"
 
 usage="""
 Usage:
@@ -26,6 +29,7 @@ Options:
   
   --output <display/rtmp-url> Output type / RTMP URL stream address. Optional.
   --classifiers <dir> Classifiers directory, default $clf_path.
+  --multi-detect <int>,<int>,... Multi detect steps, comma separated. Recommended value 2 or 3.
   --inference-fps <int> Inference FPS, default $inference_fps.
   --model-path <path> Facenet model path, default $model_path
   --head-pose-path <path> Path to head-pose-model
@@ -38,6 +42,8 @@ Options:
   
   --slack-token   Slack token for sending notifications to Slack.
   --slack-channel Slack channel name for notifications.
+
+  --raw <args> Raw args for streaming. Example: '-o threshold=0.7 -o min_face_size=30'.
 
 
 In case of --output-type rtmp use ffmpeg to stream to this serving, e.g:
@@ -56,6 +62,14 @@ key="$1"
     ;;
     --classifiers)
     clf_path="$2"
+    shift; shift
+    ;;
+    --multi-detect)
+    multi_detect="$2"
+    shift; shift
+    ;;
+    --raw)
+    raw_args="$2"
     shift; shift
     ;;
     --inference-fps)
@@ -114,6 +128,12 @@ then
   output_arg=""
 fi
 
+multi_detect_args=""
+if [ ! -z "$multi_detect" ];
+then
+  multi_detect_args="-o multi_detect=$multi_detect"
+fi
+
 pull_model_args=""
 if [ ! -z "$token" ] && [ ! -z "$base_url" ];
 then
@@ -137,5 +157,5 @@ kstreaming --driver openvino --model-path $face_detection_path --driver openvino
  -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
   --initial-stream live --input-name input --output-name output -o skip_frames=true \
  --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args \
- -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o min_face_size=50 --http-enable
+ -o slack_token="$slack_token" -o slack_channel="$slack_channel" $multi_detect_args $raw_args --http-enable
 
