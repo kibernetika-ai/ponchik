@@ -13,6 +13,7 @@ from sklearn import svm
 from app.recognize import classifiers
 from app.recognize import defaults
 from app.tools import images
+from app.tools import utils
 from app import tools
 
 
@@ -134,6 +135,7 @@ class Detector(object):
             debug=defaults.DEBUG,
             process_not_detected=False,
             account_head_pose=True,
+            multi_detect=None,
     ):
         self._initialized = False
         self.face_driver: driver.ServingDriver = face_driver
@@ -150,6 +152,8 @@ class Detector(object):
         self.use_classifiers = False
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
+        self.multi_detect = multi_detect
+        # self.multi_detect = None
         self.min_face_size = min_face_size
         self.min_face_area = self.min_face_size ** 2
         self.debug = debug
@@ -223,7 +227,39 @@ class Detector(object):
             with open(meta_file, 'r') as mr:
                 self.meta = json.load(mr)
 
-    def detect_faces(self, frame, threshold=0.5):
+    def detect_faces(self, frame, threshold=0.5, split_counts=None):
+        boxes = self._detect_faces(frame, threshold)
+        if not split_counts:
+            return boxes
+
+        def add_box(b):
+            for b0 in boxes:
+                if utils.box_intersection(b0, b) > 0:
+                    return
+            boxes.resize((boxes.shape[0] + 1, boxes.shape[1]), refcheck=False)
+            boxes[-1] = b
+
+        for split_count in split_counts:
+            size_multiplier = 2. / (split_count + 1)
+            xstep = int(frame.shape[1] / (split_count + 1))
+            ystep = int(frame.shape[0] / (split_count + 1))
+
+            xlimit = int(np.ceil(frame.shape[1] * (1 - size_multiplier)))
+            ylimit = int(np.ceil(frame.shape[0] * (1 - size_multiplier)))
+            for x in range(0, xlimit, xstep):
+                for y in range(0, ylimit, ystep):
+                    y_border = min(frame.shape[0], int(np.ceil(y + frame.shape[0] * size_multiplier)))
+                    x_border = min(frame.shape[1], int(np.ceil(x + frame.shape[1] * size_multiplier)))
+                    crop = frame[y:y_border, x:x_border, :]
+
+                    box_candidates = self._detect_faces(crop, threshold, (x, y))
+
+                    for b in box_candidates:
+                        add_box(b)
+
+        return boxes
+
+    def _detect_faces(self, frame, threshold=0.5, offset=(0, 0)):
         # Get boxes shaped [N, 5]:
         # xmin, ymin, xmax, ymax, confidence
         input_name, input_shape = list(self.face_driver.inputs.items())[0]
@@ -240,11 +276,10 @@ class Detector(object):
         boxes = np.concatenate((boxes, confidence), axis=1)
         # Assign confidence to 4th
         # boxes[:, 4] = bboxes_raw[:, 2]
-        boxes[:, 0] = boxes[:, 0] * frame.shape[1]
-        boxes[:, 2] = boxes[:, 2] * frame.shape[1]
-        boxes[:, 1] = boxes[:, 1] * frame.shape[0]
-        boxes[:, 3] = boxes[:, 3] * frame.shape[0]
-
+        boxes[:, 0] = boxes[:, 0] * frame.shape[1] + offset[0]
+        boxes[:, 2] = boxes[:, 2] * frame.shape[1] + offset[0]
+        boxes[:, 1] = boxes[:, 1] * frame.shape[0] + offset[1]
+        boxes[:, 3] = boxes[:, 3] * frame.shape[0] + offset[1]
         # Filter by face size
         return boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
 
@@ -420,7 +455,7 @@ class Detector(object):
         return skips, np.array([yaw, pitch, roll]).transpose()
 
     def process_frame(self, frame, overlays=True):
-        bboxes = self.detect_faces(frame, self.threshold)
+        bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
         skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
 
         faces = []
@@ -470,6 +505,22 @@ class Detector(object):
                         head_pose=poses[img_idx] if poses is not None and len(poses) > img_idx else None
                     )
                     faces.append(face)
+        else:
+            for box in bboxes:
+                face = FaceInfo(
+                    bbox=box[:4],
+                    state=NOT_DETECTED,
+                    label='',
+                    overlay_label='',
+                    prob=0,
+                    face_prob=box[4],
+                    classes=[],
+                    classes_meta={},
+                    meta=None,
+                    looks_like=[],
+                    head_pose=None
+                )
+                faces.append(face)
 
         if overlays:
             self.add_overlays(frame, faces)

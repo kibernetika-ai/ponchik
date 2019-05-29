@@ -51,6 +51,7 @@ PARAMS = {
     'badge_detector': '',
 
     'min_face_size': defaults.MIN_FACE_SIZE,
+    'multi_detect': [],
 }
 load_lock = threading.Lock()
 width = 640
@@ -77,6 +78,11 @@ def init_hook(**kwargs):
     if not isinstance(PARAMS['threshold'], list):
         PARAMS['threshold'] = [
             float(x) for x in PARAMS['threshold'].split(',')
+        ]
+
+    if not isinstance(PARAMS['multi_detect'], list):
+        PARAMS['multi_detect'] = [
+            int(x) for x in PARAMS['multi_detect'].split(',')
         ]
 
     if not isinstance(PARAMS['head_pose_thresholds'], list):
@@ -398,6 +404,8 @@ def _load_nets(ctx):
         head_pose_driver=head_pose_driver,
         head_pose_thresholds=PARAMS['head_pose_thresholds'],
         min_face_size=PARAMS['min_face_size'],
+        multi_detect=PARAMS['multi_detect'],
+        threshold=PARAMS['threshold'][0],
     )
     ot.init()
     openvino_facenet = ot
