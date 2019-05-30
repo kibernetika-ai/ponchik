@@ -48,6 +48,7 @@ PARAMS = {
 
     'slack_token': '',
     'slack_channel': '',
+    'slack_server': '',
     'badge_detector': '',
 
     'min_face_size': defaults.MIN_FACE_SIZE,
@@ -410,8 +411,12 @@ def _load_nets(ctx):
     ot.init()
     openvino_facenet = ot
 
-    if PARAMS['slack_channel'] and PARAMS['slack_token']:
-        notify.init_notifier_params(PARAMS['slack_token'], PARAMS['slack_channel'])
+    if PARAMS['slack_channel'] and PARAMS['slack_token'] and PARAMS['slack_server']:
+        notify.init_notifier_params(
+            PARAMS['slack_token'],
+            PARAMS['slack_channel'],
+            PARAMS['slack_server']
+        )
 
     global processing
     processing = video.Video(

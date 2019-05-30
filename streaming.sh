@@ -18,6 +18,7 @@ base_url="https://dev.kibernetika.io/api/v0.2"
 
 slack_token=""
 slack_channel=""
+slack_server=""
 
 raw_args="-o min_face_size=40"
 
@@ -42,6 +43,7 @@ Options:
   
   --slack-token   Slack token for sending notifications to Slack.
   --slack-channel Slack channel name for notifications.
+  --slack-server Slack server address for notifications.
 
   --raw <args> Raw args for streaming. Example: '-o threshold=0.7 -o min_face_size=30'.
 
@@ -108,6 +110,10 @@ key="$1"
     slack_channel="$2"
     shift; shift;
     ;;
+    --slack-server)
+    slack_server="$2"
+    shift; shift;
+    ;;
     *)
     echo "Unknown option $key."
     echo "$usage"
@@ -157,5 +163,6 @@ kstreaming --driver openvino --model-path $face_detection_path --driver openvino
  -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
   --initial-stream live --input-name input --output-name output -o skip_frames=true \
  --rtmp-backend $backend -o enable_log=true -o inference_fps=$inference_fps $pull_model_args \
- -o slack_token="$slack_token" -o slack_channel="$slack_channel" $multi_detect_args $raw_args --http-enable
+ -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o slack_server="$slack_server" \
+ $multi_detect_args $raw_args --http-enable
 
