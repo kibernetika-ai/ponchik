@@ -412,7 +412,7 @@ def _load_nets(ctx):
     openvino_facenet = ot
 
     if PARAMS['slack_channel'] and PARAMS['slack_token'] and PARAMS['slack_server']:
-        notify.init_notifier_params(
+        notify.init_notifier_slack(
             PARAMS['slack_token'],
             PARAMS['slack_channel'],
             PARAMS['slack_server']

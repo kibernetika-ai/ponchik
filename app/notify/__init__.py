@@ -4,20 +4,26 @@ from app.tools import print_fun
 
 notifier = None
 not_init_say = False
+notifier_disabled = False
 
 
-def init_notifier_params(slack_token, slack_channel, slack_server):
+def init_notifier_slack(slack_token, slack_channel, slack_server):
     global notifier
     if slack_token and slack_channel and slack_server:
         notifier = NotifySlack(slack_token, slack_channel, slack_server)
         if not notifier.is_ok():
             notifier = None
-    if notifier is None:
+
+
+def init_notifier_args(args):
+    if args.notify_slack_token and args.notify_slack_channel and args.notify_slack_server:
+        init_notifier_slack(args.notify_slack_token, args.notify_slack_channel, args.notify_slack_server)
+    elif args.notify_log:
+        global notifier
         notifier = NotifyPrint
-
-
-def init_notifier(args):
-    init_notifier_params(args.notify_slack_token, args.notify_slack_channel, args.notify_slack_server)
+    else:
+        global notifier_disabled
+        notifier_disabled = True
 
 
 def add_notify_args(parser):
@@ -39,12 +45,19 @@ def add_notify_args(parser):
         type=str,
         default=None,
     )
+    parser.add_argument(
+        '--notify_log',
+        help='Enable notify to log.',
+        action='store_true',
+    )
 
 
 def notify(**kwargs):
+    if notifier_disabled:
+        return
     if notifier is None:
         global not_init_say
-        if not_init_say:
+        if not not_init_say:
             print_fun("=== Notifications aren't initialized ===")
             not_init_say = True
         return
