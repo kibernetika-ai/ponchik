@@ -1,4 +1,5 @@
 import os
+import logging
 import time
 from threading import Thread
 
@@ -10,11 +11,13 @@ from datetime import timedelta
 from app.recognize import defaults
 from app.recognize.clusterizator import Clusterizator
 from app.tools import images
-from app.tools import print_fun
 from app.tools import sound
 from app.recognize.video_notify import InVideoDetected
 from app.recognize import detector
 from app.notify import notify
+
+
+LOG = logging.getLogger(__name__)
 
 
 def video_args(detector, listener, args):
@@ -213,10 +216,10 @@ class Video:
                         milliseconds=self.frame_idx / self.fps * 1000) if self.fps else '-'
 
                     if processed_frame_idx % 100 == 0:
-                        print_fun("Processed %d frames, %s" % (processed_frame_idx, t))
+                        LOG.info("Processed %d frames, %s" % (processed_frame_idx, t))
 
                     if self.video_limit_sec and t.total_seconds() >= self.video_limit_sec:
-                        print_fun('Stop processing. It was limited to %s seconds.' % self.video_limit_sec)
+                        LOG.info('Stop processing. It was limited to %s seconds.' % self.video_limit_sec)
                         break
 
                 if not self.video_no_output:
@@ -226,16 +229,16 @@ class Video:
                         break
 
         except (KeyboardInterrupt, SystemExit) as e:
-            print_fun('Caught %s: %s' % (e.__class__.__name__, e))
+            LOG.info('Caught %s: %s' % (e.__class__.__name__, e))
         finally:
             if self.pipeline is not None:
                 self.pipeline.stop()
             if self.build_h5py_to:
-                print_fun('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
+                LOG.info('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
                 self.h5.close()
 
             if self.video_write_to:
-                print_fun('Written video to %s.' % self.video_write_to)
+                LOG.info('Written video to %s.' % self.video_write_to)
                 video_writer.release()
 
                 # Add sound as well
@@ -250,10 +253,10 @@ class Video:
             not_detected_persons = []
 
             if self.process_not_detected:
-                print_fun('Start unrecognized faces clustering')
+                LOG.info('Start unrecognized faces clustering')
                 cl = Clusterizator()
                 not_detected_persons = cl.clusterize_frame_faces(self.detector.not_detected_embs)
-                print_fun('Clustering done')
+                LOG.info('Clustering done')
 
             # plain subtitles
             subs_strs = []
@@ -317,7 +320,7 @@ class Video:
             new_frame = new_frame[1]
         if new_frame is None:
             if not self.video_source_is_file:
-                print_fun("Oops frame is None. Possibly camera or display does not work")
+                LOG.info("Oops frame is None. Possibly camera or display does not work")
             self.frame = None
             return None
         if self.video_max_width is not None and new_frame.shape[1] > self.video_max_width or \
@@ -415,15 +418,15 @@ class Video:
             err = None
             command, data = self.listener.listen()
             if command == 'reload_classifiers':
-                print_fun("reload classifiers")
+                LOG.info("reload classifiers")
                 self.detector.load_classifiers()
             elif command == 'debug':
                 deb = bool(data)
-                print_fun("set debug " + ("on" if deb else "off"))
+                LOG.info("set debug " + ("on" if deb else "off"))
                 self.detector.debug = deb
             elif command == 'test':
-                print_fun("get test data:")
-                print_fun(data)
+                LOG.info("get test data:")
+                LOG.info(data)
             else:
                 err = ValueError('unknown command %s' % command)
             self.listener.result(err)

@@ -1,3 +1,6 @@
+import logging
+
+
 def box_intersection(box_a, box_b):
     xa = max(box_a[0], box_b[0])
     ya = max(box_a[1], box_b[1])
@@ -14,3 +17,11 @@ def box_intersection(box_a, box_b):
         return 0
     iou = inter_area / d
     return iou
+
+
+def configure_logging():
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-5s %(name)-10s [-] %(message)s',
+        level='INFO'
+    )
+    logging.root.setLevel(logging.INFO)
