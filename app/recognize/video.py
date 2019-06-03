@@ -39,6 +39,7 @@ def video_args(detector, listener, args):
         video_write_to=args.video_write_to,
         build_h5py_to=args.build_h5py_to,
         video_limit_sec=args.video_limit_sec,
+        video_start_sec=args.video_start_sec,
     )
 
 
@@ -49,7 +50,8 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False, build_h5py_to=None, video_limit_sec=None, video_write_to=None):
+                 video_no_output=False, build_h5py_to=None, video_limit_sec=None,
+                 video_write_to=None, video_start_sec=None):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = False
@@ -57,6 +59,7 @@ class Video:
         self.width = None
         self.height = None
         self.video_limit_sec = video_limit_sec
+        self.video_start_sec = video_start_sec
         self.video_write_to = video_write_to
         self.frame = None
         self.processed = None
@@ -162,6 +165,15 @@ class Video:
                     raise ValueError('srt creation allowed only for video file')
                 if not self.fps:
                     raise ValueError('unable to detect fps, srt creation is unavailable')
+
+        if self.video_start_sec:
+            skip_num = int(self.fps * self.video_start_sec)
+            LOG.info('Skipping %s frames...' % skip_num)
+
+            for i in range(skip_num):
+                self.get_frame(decode=False)
+
+            LOG.info('Skipped %s sec (%s frames).' % (self.video_start_sec, skip_num))
 
     def start(self):
         self.detector.init()
@@ -309,9 +321,13 @@ class Video:
             with open(video_export_srt_file, 'w') as sw:
                 sw.write(srt.compose(subs))
 
-    def get_frame(self):
+    def get_frame(self, decode=True):
         if self.pipeline is None:
-            new_frame = self.vs.read()
+            if decode:
+                new_frame = self.vs.read()
+            else:
+                self.vs.grab()
+                new_frame = 'not decoded'
         else:
             frames = self.pipeline.wait_for_frames()
             new_frame = frames.get_color_frame()
@@ -449,6 +465,12 @@ def add_video_args(parser):
     parser.add_argument(
         '--video_limit_sec',
         help='Limit video process by this time',
+        default=0,
+        type=int,
+    )
+    parser.add_argument(
+        '--video_start_sec',
+        help='Start processing video in the beginning of N second of video',
         default=0,
         type=int,
     )
