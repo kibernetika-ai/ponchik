@@ -37,6 +37,7 @@ def video_args(detector, listener, args):
         video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
         video_write_to=args.video_write_to,
+        build_h5py=args.build_h5py,
         build_h5py_to=args.build_h5py_to,
         video_limit_sec=args.video_limit_sec,
         video_start_sec=args.video_start_sec,
@@ -50,11 +51,11 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False, build_h5py_to=None, video_limit_sec=None,
+                 video_no_output=False, build_h5py=False, build_h5py_to=None, video_limit_sec=None,
                  video_write_to=None, video_start_sec=None):
         self.detector = detector
         self.video_source = video_source
-        self.video_source_is_file = False
+        self.video_source_is_file = self.check_video_source_is_file()
         self.fps = None
         self.width = None
         self.height = None
@@ -83,9 +84,13 @@ class Video:
         self.video_export_srt = video_export_srt
         self.video_export_srt_file = video_export_srt_file
         self.video_no_output = video_no_output
-        self.build_h5py_to = build_h5py_to
-        if self.build_h5py_to:
-            self.h5 = h5py.File(self.build_h5py_to, 'w')
+        self.h5 = None
+        if build_h5py or build_h5py_to:
+            if not build_h5py_to:
+                if not self.video_source_is_file:
+                    raise RuntimeError('h5 filename is not set')
+                build_h5py_to = os.path.splitext(self.video_source)[0] + '.h5'
+            self.h5 = h5py.File(build_h5py_to, 'w')
             self.h5.create_dataset(
                 'embeddings',
                 shape=(0, 512),
@@ -114,7 +119,6 @@ class Video:
                 maxshape=(None,),
                 chunks=True,
             )
-
             self.h5.create_dataset(
                 'frame_nums',
                 shape=(0,),
@@ -139,6 +143,9 @@ class Video:
         notify_thread.start()
         self.notify_started = True
 
+    def check_video_source_is_file(self):
+        return self.video_source and self.video_source != "realsense" and os.path.isfile(self.video_source)
+
     def init_video(self):
         if self.video_source is None:
             self.vs = cv2.VideoCapture(0)
@@ -153,7 +160,6 @@ class Video:
             self.pipeline.start(config)
         else:
             self.vs = cv2.VideoCapture(self.video_source)
-            self.video_source_is_file = os.path.isfile(self.video_source)
             if self.video_source_is_file:
                 self.fourcc = int(self.vs.get(cv2.CAP_PROP_FOURCC))
                 self.video_format = self.vs.get(cv2.CAP_PROP_FORMAT)
@@ -188,7 +194,7 @@ class Video:
 
         self.start_notify()
 
-        if self.build_h5py_to:
+        if self.h5:
             self.h5.attrs['fps'] = self.fps
             self.h5.attrs['width'] = self.width
             self.h5.attrs['height'] = self.height
@@ -197,6 +203,8 @@ class Video:
             self.h5.attrs['min_face_size'] = self.detector.min_face_size
 
         if self.video_write_to:
+            if os.path.isfile(self.video_write_to):
+                os.remove(self.video_write_to)
             video_writer = cv2.VideoWriter(
                 self.video_write_to, self.fourcc, self.fps / self.video_each_of_frame,
                 frameSize=(self.width, self.height)
@@ -245,7 +253,7 @@ class Video:
         finally:
             if self.pipeline is not None:
                 self.pipeline.stop()
-            if self.build_h5py_to:
+            if self.h5:
                 LOG.info('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
                 self.h5.close()
 
@@ -405,7 +413,7 @@ class Video:
                 self.notifies_queue.append(n)
 
     def write_h5_if_needed(self, frame, face_info):
-        if not self.build_h5py_to:
+        if not self.h5:
             return
 
         img = images.crop_by_box(frame, face_info.bbox)
@@ -477,6 +485,8 @@ def add_video_args(parser):
     parser.add_argument(
         '--video_write_to',
         help='Write video to file',
+        type=str,
+        default=None,
     )
     parser.add_argument(
         '--video_async',
@@ -502,8 +512,16 @@ def add_video_args(parser):
         default=1,
     )
     parser.add_argument(
+        '--build_h5py',
+        help='Build h5py file with embeddings/data to file named as videofile '
+             '(name han be changed with --build_h5py_to).',
+        action='store_true',
+    )
+    parser.add_argument(
         '--build_h5py_to',
         help='Build h5py file with embeddings/data to file.',
+        type=str,
+        default=None,
     )
     parser.add_argument(
         '--video_export_srt',
