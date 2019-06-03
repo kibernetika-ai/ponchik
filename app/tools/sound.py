@@ -24,16 +24,16 @@ def merge_audio_with(original_video_file, target_video_file, time_limit_sec=0):
     # Something wrong with original audio codec; use mp3
     # -vn -acodec copy file.<codec-name>
     if not time_limit_sec:
-        cmd = 'ffmpeg -y -i %s -vn -acodec copy %s' % (original_video_file, audio_file)
+        cmd = 'ffmpeg -y -i "%s" -vn -acodec copy %s' % (original_video_file, audio_file)
     else:
-        cmd = 'ffmpeg -y -i %s -ss 0 -to %s -vn -acodec copy %s' % (original_video_file, time_limit_sec, audio_file)
+        cmd = 'ffmpeg -y -i "%s" -ss 0 -to %s -vn -acodec copy %s' % (original_video_file, time_limit_sec, audio_file)
     code = subprocess.call(shlex.split(cmd))
     if code != 0:
         raise RuntimeError("Failed run %s: exit code %s" % (cmd, code))
 
     # Get video offset
     cmd = (
-        'ffprobe -show_streams -pretty %s 2>/dev/null | '
+        'ffprobe -show_streams -pretty "%s" 2>/dev/null | '
         'grep codec_type=video -A 28 | grep start_time | cut -d "=" -f 2'
         % original_video_file
     )
@@ -42,7 +42,7 @@ def merge_audio_with(original_video_file, target_video_file, time_limit_sec=0):
 
     # Get audio offset
     cmd = (
-        'ffprobe -show_streams -pretty %s 2>/dev/null | '
+        'ffprobe -show_streams -pretty "%s" 2>/dev/null | '
         'grep codec_type=audio -A 28 | grep start_time | cut -d "=" -f 2'
         % original_video_file
     )
@@ -54,7 +54,7 @@ def merge_audio_with(original_video_file, target_video_file, time_limit_sec=0):
 
     # Get video codec
     cmd = (
-        'ffprobe -show_streams -pretty %s 2>/dev/null | '
+        'ffprobe -show_streams -pretty "%s" 2>/dev/null | '
         'grep codec_type=video -B 5 | grep codec_name | cut -d "=" -f 2'
         % original_video_file
     )
@@ -67,8 +67,8 @@ def merge_audio_with(original_video_file, target_video_file, time_limit_sec=0):
     time.sleep(0.2)
 
     cmd = (
-        'ffmpeg -y -itsoffset %s -i %s '
-        '-itsoffset %s -i %s -c copy %s' %
+        'ffmpeg -y -itsoffset %s -i "%s" '
+        '-itsoffset %s -i "%s" -c copy "%s"' %
         (video_offset, video_file, audio_offset, audio_file, target_video_file)
     )
 
