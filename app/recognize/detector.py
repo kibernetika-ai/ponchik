@@ -292,17 +292,17 @@ class Detector(object):
         output = outputs[list(self.facenet_driver.outputs)[0]]
         return output
 
-    def process_output(self, output, bbox, face_prob=None):
+    def process_output(self, output, bbox, face_prob=None, label='', overlay_label='', use_classifiers=True):
 
         if face_prob is None:
             face_prob = bbox[4]
 
-        if not self.use_classifiers:
+        if not self.use_classifiers or not use_classifiers:
             return FaceInfo(
                 bbox=bbox[:4].astype(int),
                 state=NOT_DETECTED,
-                label='',
-                overlay_label='',
+                label=label,
+                overlay_label=overlay_label,
                 prob=0,
                 face_prob=face_prob,
                 classes=[],
@@ -512,19 +512,20 @@ class Detector(object):
         imgs = []
         embeddings = None
         face_probs = None
+        labels = None
+        overlay_labels = None
         if data:
             embeddings = []
             face_probs = []
+            labels = []
+            overlay_labels = []
             for d in data:
-                # print('!!!!!1', d.bbox, d.face_prob)
-                # bb = d.bbox.astype(float)
-                # print('!!!!!2', d.bbox)
-                # bb.append(d.face_prob)
-                # print('!!!!!3', d.bbox)
                 bboxes.append(d.bbox)
                 poses.append(d.head_pose)
                 embeddings.append(d.embedding)
                 face_probs.append(d.face_prob)
+                labels.append(d.label)
+                overlay_labels.append(d.overlay_label)
                 imgs.append(None)
         else:
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
@@ -559,7 +560,13 @@ class Detector(object):
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                face = self.process_output(output, bboxes[img_idx], face_prob)
+                face = self.process_output(
+                    output, bboxes[img_idx],
+                    face_prob=face_prob,
+                    label=labels[img_idx] if labels is not None else '',
+                    overlay_label=overlay_labels[img_idx] if overlay_labels is not None else '',
+                    use_classifiers=data is None,
+                )
                 if poses is not None and len(poses) > img_idx:
                     face.head_pose = poses[img_idx]
                 face.embedding = output.reshape([-1])
