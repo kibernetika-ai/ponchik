@@ -69,7 +69,7 @@ def detector_args(args):
             tools.print_fun("face-detection openvino model is not found, skipped")
 
     facenet_driver = None
-    if args.model_path is not None:
+    if not args.without_facenet and args.model_path is not None:
         if os.path.isfile(args.model_path):
             from ml_serving.drivers import driver
             tools.print_fun("Load FACENET model")
@@ -87,7 +87,7 @@ def detector_args(args):
         face_driver=face_driver,
         facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
-        classifiers_dir=args.classifiers_dir,
+        classifiers_dir= None if args.without_classifiers else args.classifiers_dir,
         threshold=args.threshold,
         min_face_size=args.min_face_size,
         debug=args.debug,
@@ -178,11 +178,10 @@ class Detector(object):
 
     def load_classifiers(self):
         self.classes_previews = {}
-
-        if self.facenet_driver is None:
+        self.use_classifiers = False
+        if self.facenet_driver is None or self.classifiers_dir is None:
             return
 
-        self.use_classifiers = False
         loaded_classifiers = glob.glob(os.path.join(self.classifiers_dir, "*.pkl"))
 
         if len(loaded_classifiers) > 0:
@@ -294,6 +293,22 @@ class Detector(object):
         return output
 
     def process_output(self, output, bbox):
+
+        if not self.use_classifiers:
+            return FaceInfo(
+                bbox=bbox[:4].astype(int),
+                state=NOT_DETECTED,
+                label='',
+                overlay_label='',
+                prob=0,
+                face_prob=bbox[4],
+                classes=[],
+                classes_meta={},
+                meta=None,
+                looks_like=[],
+                head_pose=None
+            )
+
         detected_indices = []
         label_strings = []
         probs = []
@@ -467,65 +482,72 @@ class Detector(object):
         not_detected_embs = []
         detected_names = []
 
-        if self.use_classifiers:
-            imgs = images.get_images(frame, bboxes)
+        # if self.use_classifiers:
 
-            for img_idx, img in enumerate(imgs):
-                # Infer
-                # t = time.time()
-                # Convert BGR to RGB
-                if img_idx not in skips or not self.account_head_pose:
-                    img = img[:, :, ::-1]
-                    img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
-                    output = self.inference_facenet(img)
-                    # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
-                    # output = output[facenet_output]
+        imgs = images.get_images(frame, bboxes)
 
-                    face = self.process_output(output, bboxes[img_idx])
-                    if poses is not None and len(poses) > img_idx:
-                        face.head_pose = poses[img_idx]
-                    face.embedding = output.reshape([-1])
+        for img_idx, img in enumerate(imgs):
+            # Infer
+            # t = time.time()
+            # Convert BGR to RGB
+            if img_idx not in skips or not self.account_head_pose:
+                img = img[:, :, ::-1]
+                img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
+                output = self.inference_facenet(img)
+                # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
+                # output = output[facenet_output]
 
-                    faces.append(face)
+                face = self.process_output(output, bboxes[img_idx])
+                if poses is not None and len(poses) > img_idx:
+                    face.head_pose = poses[img_idx]
+                face.embedding = output.reshape([-1])
 
-                    if self.process_not_detected:
-                        if face.state == NOT_DETECTED:
-                            not_detected_embs.append(output)
+                faces.append(face)
 
-                    if face.state == DETECTED:
-                        detected_names.append(face.classes[0])
+                if img_idx in skips:
+                    face.state = WRONG_FACE_POS
 
-                else:
-                    face = FaceInfo(
-                        bbox=bboxes[img_idx][:4],
-                        state=WRONG_FACE_POS,
-                        label='',
-                        overlay_label='',
-                        prob=0,
-                        face_prob=bboxes[img_idx][4],
-                        classes=[],
-                        classes_meta={},
-                        meta=None,
-                        looks_like=[],
-                        head_pose=poses[img_idx] if poses is not None and len(poses) > img_idx else None
-                    )
-                    faces.append(face)
-        else:
-            for box in bboxes:
+                if self.process_not_detected:
+                    if face.state == NOT_DETECTED:
+                        not_detected_embs.append(output)
+
+            else:
+
                 face = FaceInfo(
-                    bbox=box[:4],
-                    state=NOT_DETECTED,
+                    bbox=bboxes[img_idx][:4].astype(int),
+                    state=WRONG_FACE_POS,
                     label='',
                     overlay_label='',
                     prob=0,
-                    face_prob=box[4],
+                    face_prob=bboxes[img_idx][4],
                     classes=[],
                     classes_meta={},
                     meta=None,
                     looks_like=[],
-                    head_pose=None
+                    head_pose=poses[img_idx] if poses is not None and len(poses) > img_idx else None,
                 )
-                faces.append(face)
+
+            if face.state == DETECTED:
+                detected_names.append(face.classes[0])
+
+            faces.append(face)
+
+        # else:
+        #     for bbox in bboxes:
+        #         face = FaceInfo(
+        #             bbox=bbox[:4].astype(int),
+        #             state=NOT_DETECTED,
+        #             label='',
+        #             overlay_label='',
+        #             prob=0,
+        #             face_prob=bbox[4],
+        #             classes=[],
+        #             classes_meta={},
+        #             meta=None,
+        #             looks_like=[],
+        #             head_pose=None
+        #         )
+        #         faces.append(face)
 
         if overlays:
             self.add_overlays(frame, faces)

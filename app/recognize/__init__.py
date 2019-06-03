@@ -31,6 +31,16 @@ def add_common_args(parser):
         default=defaults.MODEL_PATH,
     )
     parser.add_argument(
+        '--without_facenet',
+        help='Do not load OpenVINO IR model (process without calculating embeddings)',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--without_classifiers',
+        help='Do not load classifiers (process without face recognition)',
+        action='store_true',
+    )
+    parser.add_argument(
         '--min_face_size',
         type=int,
         help='Minimum face size in pixels.',
