@@ -8,9 +8,10 @@ import h5py
 import numpy as np
 from datetime import timedelta
 
+from app.postprocess import PostProcessor
 from app.recognize import defaults
 from app.recognize.clusterizator import Clusterizator
-from app.tools import images
+from app.tools import images, print_fun
 from app.tools import sound
 from app.recognize.video_notify import InVideoDetected
 from app.recognize import detector
@@ -37,10 +38,15 @@ def video_args(detector, listener, args):
         video_export_srt_file=args.video_export_srt_file,
         video_no_output=args.video_no_output,
         video_write_to=args.video_write_to,
+        video_h5py=args.video_h5py,
         build_h5py=args.build_h5py,
         build_h5py_to=args.build_h5py_to,
         video_limit_sec=args.video_limit_sec,
         video_start_sec=args.video_start_sec,
+        postprocess=args.postprocess,
+        postprocess_clusterize_unrecognized=args.postprocess_clusterize_unrecognized,
+        postprocess_export_srt=args.postprocess_export_srt,
+        postprocess_export_srt_to=args.postprocess_export_srt_to,
     )
 
 
@@ -51,8 +57,11 @@ class Video:
                  video_export_srt=False, video_export_srt_file=None,
                  not_detected_store=False, not_detected_check_period=defaults.NOT_DETECTED_CHECK_PERIOD,
                  not_detected_dir=defaults.NOT_DETECTED_DIR, process_not_detected=False,
-                 video_no_output=False, build_h5py=False, build_h5py_to=None, video_limit_sec=None,
-                 video_write_to=None, video_start_sec=None):
+                 video_no_output=False, build_h5py=False, build_h5py_to=None, video_h5py=None, video_limit_sec=None,
+                 video_write_to=None, video_start_sec=None,
+                 postprocess=False, postprocess_clusterize_unrecognized=False,
+                 postprocess_export_srt=False, postprocess_export_srt_to=None,
+         ):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = self.check_video_source_is_file()
@@ -86,6 +95,8 @@ class Video:
         self.video_no_output = video_no_output
         self.h5 = None
         if build_h5py or build_h5py_to:
+            if video_h5py:
+                raise ValueError('unable to read and write h5 data at once')
             if not build_h5py_to:
                 if not self.video_source_is_file:
                     raise RuntimeError('h5 filename is not set')
@@ -135,6 +146,41 @@ class Video:
                 maxshape=(None,),
                 chunks=True,
             )
+
+        self.h5data = None
+        if video_h5py:
+            self.h5data = h5py.File(video_h5py, 'r')
+            LOG.info('read data from {}'.format(video_h5py))
+            self.fps = self.h5data.attrs['fps']
+            self.width = self.h5data.attrs['width']
+            self.height = self.h5data.attrs['height']
+            self.video_each_of_frame = self.h5data.attrs['each_frame']
+            self.detector.threshold = self.h5data.attrs['threshold']
+            self.detector.min_face_size = self.h5data.attrs['min_face_size']
+            LOG.info('set fps {}, width {}, height {}, each frame {}, threshold {}, min face size {}'.format(
+                self.fps,
+                self.width,
+                self.height,
+                self.video_each_of_frame,
+                self.detector.threshold,
+                self.detector.min_face_size,
+            ))
+
+        self.postprocess = None
+        if postprocess:
+            if self.h5data is None:
+                raise ValueError('postprocess is available only with h5 stored data')
+            self.postprocess = PostProcessor(self.h5data, self.detector)
+
+            if postprocess_clusterize_unrecognized:
+                self.postprocess.calculate_correct_head_poses()
+                self.postprocess.generate_sequences()
+                self.postprocess.recognize_sequences()
+                self.postprocess.clusterize()
+                if postprocess_export_srt:
+                    if postprocess_export_srt_to is None:
+                        postprocess_export_srt_to = os.path.splitext(self.video_source)[0]+'.srt'
+                    self.postprocess.export_srt(postprocess_export_srt_to)
 
     def start_notify(self):
         if self.notify_started:
@@ -213,6 +259,7 @@ class Video:
         try:
             processed_frame_idx = 0
             self.frame_idx = 0
+            self.h5data_idx = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
@@ -359,7 +406,23 @@ class Video:
 
     def process_frame(self, frame, overlays=True):
         original_copy = np.copy(frame)
-        face_infos = self.detector.process_frame(frame, overlays=overlays)
+        h5data = []
+        if self.h5data:
+            # print('!!!!!!1', self.h5data_idx)
+            # print('????', self.h5data['frame_nums'])
+            while self.h5data['frame_nums'][self.h5data_idx] == self.frame_idx:
+                # print('!!!!!!2', self.h5data_idx)
+                h5data.append(detector.FaceInfo(
+                    bbox=self.h5data['bounding_boxes'][self.h5data_idx],
+                    embedding=self.h5data['embeddings'][self.h5data_idx],
+                    face_prob=self.h5data['face_probs'][self.h5data_idx],
+                    head_pose=self.h5data['head_poses'][self.h5data_idx],
+                ))
+                self.h5data_idx += 1
+        face_infos = self.detector.process_frame(frame, overlays=overlays, data=h5data)
+        if face_infos is not None:
+            for fi in face_infos:
+                self.write_h5_if_needed(frame, fi)
         self.research_processed(face_infos, frame=original_copy)
 
         return face_infos
@@ -379,8 +442,6 @@ class Video:
                     store_not_detected = True
 
             for fi in face_infos:
-                self.write_h5_if_needed(frame, fi)
-
                 if fi.state == detector.DETECTED:
                     name = fi.classes[0]
                     if name not in self.faces_detected:
@@ -524,6 +585,12 @@ def add_video_args(parser):
         default=None,
     )
     parser.add_argument(
+        '--video_h5py',
+        help='Get data from previously exported h5.',
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
         '--video_export_srt',
         help='Export SRT-file with detected/recognized persons',
         action='store_true',
@@ -555,4 +622,25 @@ def add_video_args(parser):
         help='Check not detected faces for every N seconds.',
         type=int,
         default=defaults.NOT_DETECTED_CHECK_PERIOD,
+    )
+    parser.add_argument(
+        '--postprocess',
+        help='Make postprocess on saved h5 data.',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--postprocess_clusterize_unrecognized',
+        help='Clusterise unrecognized.',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--postprocess_export_srt',
+        help='Export SRT file.',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--postprocess_export_srt_to',
+        help='SRT file name.',
+        type=str,
+        default=None,
     )

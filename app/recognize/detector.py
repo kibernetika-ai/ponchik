@@ -292,7 +292,10 @@ class Detector(object):
         output = outputs[list(self.facenet_driver.outputs)[0]]
         return output
 
-    def process_output(self, output, bbox):
+    def process_output(self, output, bbox, face_prob=None):
+
+        if face_prob is None:
+            face_prob = bbox[4]
 
         if not self.use_classifiers:
             return FaceInfo(
@@ -301,7 +304,7 @@ class Detector(object):
                 label='',
                 overlay_label='',
                 prob=0,
-                face_prob=bbox[4],
+                face_prob=face_prob,
                 classes=[],
                 classes_meta={},
                 meta=None,
@@ -443,19 +446,19 @@ class Detector(object):
             label=summary_overlay_label,
             overlay_label=overlay_label_str,
             prob=mean_prob,
-            face_prob=bbox[4],
+            face_prob=face_prob,
             classes=classes,
             classes_meta=classes_meta,
             meta=meta,
             looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
         )
 
-    def skip_wrong_pose_indices(self, bgr_frame, boxes):
+    def wrong_pose_indices(self, bgr_frame, boxes):
         if self.head_pose_driver is None:
-            return set(), []
-
+            return []
         if boxes is None or len(boxes) == 0:
-            return set(), []
+            return []
+
         imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, do_prewhiten=False))
         outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
 
@@ -463,20 +466,73 @@ class Detector(object):
         pitch = outputs[self.head_pose_pitch].reshape([-1])
         roll = outputs[self.head_pose_roll].reshape([-1])
 
+        # Return shape [N, 3] as a result
+        return np.array([yaw, pitch, roll]).transpose()
+
+    def wrong_pose_skips(self, poses):
         skips = set()
         # print(yaw, pitch, roll)
-        for i, (y, p, r) in enumerate(zip(yaw, pitch, roll)):
+        for i, [y, p, r] in enumerate(poses):
             if (np.abs(y) > self.head_pose_thresholds[0]
                     or np.abs(p) > self.head_pose_thresholds[1]
                     or np.abs(r) > self.head_pose_thresholds[2]):
                 skips.add(i)
 
-        # Return shape [N, 3] as a result
-        return skips, np.array([yaw, pitch, roll]).transpose()
+        return skips
 
-    def process_frame(self, frame, overlays=True):
-        bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
-        skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
+    # def skip_wrong_pose_indices(self, bgr_frame, boxes):
+    #     if self.head_pose_driver is None:
+    #         return set(), []
+    #
+    #     if boxes is None or len(boxes) == 0:
+    #         return set(), []
+    #
+    #     imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, do_prewhiten=False))
+    #     outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
+    #
+    #     yaw = outputs[self.head_pose_yaw].reshape([-1])
+    #     pitch = outputs[self.head_pose_pitch].reshape([-1])
+    #     roll = outputs[self.head_pose_roll].reshape([-1])
+    #
+    #     skips = set()
+    #     # print(yaw, pitch, roll)
+    #     for i, (y, p, r) in enumerate(zip(yaw, pitch, roll)):
+    #         if (np.abs(y) > self.head_pose_thresholds[0]
+    #                 or np.abs(p) > self.head_pose_thresholds[1]
+    #                 or np.abs(r) > self.head_pose_thresholds[2]):
+    #             skips.add(i)
+    #
+    #     # Return shape [N, 3] as a result
+    #     return skips, np.array([yaw, pitch, roll]).transpose()
+
+    def process_frame(self, frame, overlays=True, data:[FaceInfo]=None):
+
+        bboxes = []
+        poses = []
+        imgs = []
+        embeddings = None
+        face_probs = None
+        if data:
+            embeddings = []
+            face_probs = []
+            for d in data:
+                # print('!!!!!1', d.bbox, d.face_prob)
+                # bb = d.bbox.astype(float)
+                # print('!!!!!2', d.bbox)
+                # bb.append(d.face_prob)
+                # print('!!!!!3', d.bbox)
+                bboxes.append(d.bbox)
+                poses.append(d.head_pose)
+                embeddings.append(d.embedding)
+                face_probs.append(d.face_prob)
+                imgs.append(None)
+        else:
+            bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
+            poses = self.wrong_pose_indices(frame, bboxes)
+            imgs = images.get_images(frame, bboxes)
+
+        skips = self.wrong_pose_skips(poses)
+        # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
 
         faces = []
         not_detected_embs = []
@@ -484,20 +540,26 @@ class Detector(object):
 
         # if self.use_classifiers:
 
-        imgs = images.get_images(frame, bboxes)
-
         for img_idx, img in enumerate(imgs):
+
+            # set face probability from saved data
+            face_prob = face_probs[img_idx] if face_probs else None
+
             # Infer
             # t = time.time()
             # Convert BGR to RGB
             if img_idx not in skips or not self.account_head_pose:
-                img = img[:, :, ::-1]
-                img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
-                output = self.inference_facenet(img)
+
+                if embeddings:
+                    output = embeddings[img_idx]
+                else:
+                    img = img[:, :, ::-1]
+                    img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
+                    output = self.inference_facenet(img)
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                face = self.process_output(output, bboxes[img_idx])
+                face = self.process_output(output, bboxes[img_idx], face_prob)
                 if poses is not None and len(poses) > img_idx:
                     face.head_pose = poses[img_idx]
                 face.embedding = output.reshape([-1])
@@ -519,7 +581,7 @@ class Detector(object):
                     label='',
                     overlay_label='',
                     prob=0,
-                    face_prob=bboxes[img_idx][4],
+                    face_prob=face_prob if face_prob else bboxes[img_idx][4],
                     classes=[],
                     classes_meta={},
                     meta=None,
