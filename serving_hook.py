@@ -160,11 +160,11 @@ def process(inputs, ctx, **kwargs):
                 _load_nets(ctx=ctx)
                 net_loaded = True
 
-    if PARAMS['badge_detector']=='yes':
+    if PARAMS['badge_detector'] == 'yes':
         import app.badge.badge_detector as badge
         global badge_detector
         if badge_detector is None:
-            badge_detector = badge.BadgePorcessor(openvino_facenet.classes,ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)
+            badge_detector = badge.BadgePorcessor(openvino_facenet.classes, ctx.drivers[1], ctx.drivers[2], 0.5, 0.5)
     action = _string_input_value(inputs, 'action')
     if action == "test":
         return process_test()
