@@ -73,7 +73,7 @@ class Aligner:
             err = downloader.Downloader(download, destination=self.input_dir).extract()
             if err is not None:
                 raise RuntimeError(err)
-        self.serving = None
+        self.serving: driver.ServingDriver = None
         self.threshold = 0.5
         self.min_face_area = self.min_face_size ** 2
 
@@ -317,11 +317,12 @@ class Aligner:
                 flexible_batch_size=True,
             )
             self.input_name = list(self.serving.inputs.keys())[0]
+            self.input_size = tuple(list(self.serving.inputs.values())[0][:-3:-1])
             self.output_name = list(self.serving.outputs.keys())[0]
 
     def _get_boxes(self, image_path, img):
-        serving_img = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
-        serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, 300, 300])
+        serving_img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_AREA)
+        serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, *self.input_size[::-1]])
         raw = self.serving.predict({self.input_name: serving_img})[self.output_name].reshape([-1, 7])
         # 7 values:
         # class_id, label, confidence, x_min, y_min, x_max, y_max
