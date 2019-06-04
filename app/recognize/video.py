@@ -406,8 +406,9 @@ class Video:
 
     def process_frame(self, frame, overlays=True):
         original_copy = np.copy(frame)
-        stored = []
+        stored = None
         if self.h5data:
+            stored = []
             while self.h5data['frame_nums'][self.h5data_idx] == self.frame_idx:
                 stored_face = detector.FaceInfo(
                     bbox=self.h5data['bounding_boxes'][self.h5data_idx],
@@ -416,14 +417,24 @@ class Video:
                     head_pose=self.h5data['head_poses'][self.h5data_idx],
                 )
                 if self.postprocess:
-                    stored_face.label = self.postprocess.face_info(self.h5data_idx)
-                    stored_face.overlay_label = stored_face.label
+                    lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
+                    stored_face.label = lbl
+                    stored_face.overlay_label = lbl
+                    stored_face.classes = [lbl.replace(' ', '_')]
+                    # if dtctd == self.postprocess.RECOGNIZED:
+                    #     stored_face.state = detector.DETECTED
+                    # elif dtctd == self.postprocess.DETECTED:
+
+
+                    # stored_face.detected =
                 stored.append(stored_face)
                 self.h5data_idx += 1
+                if self.h5data_idx >= len(self.h5data['frame_nums']):
+                    break
         face_infos = self.detector.process_frame(frame, overlays=overlays, data=stored)
         if face_infos is not None:
             for fi in face_infos:
-                self.write_h5_if_needed(frame, fi)
+                self.write_h5_if_needed(original_copy, fi)
         self.research_processed(face_infos, frame=original_copy)
 
         return face_infos

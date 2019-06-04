@@ -505,7 +505,7 @@ class Detector(object):
     #     # Return shape [N, 3] as a result
     #     return skips, np.array([yaw, pitch, roll]).transpose()
 
-    def process_frame(self, frame, overlays=True, data:[FaceInfo]=None):
+    def process_frame(self, frame, overlays=True, data: [FaceInfo] = None):
 
         bboxes = []
         poses = []
@@ -560,13 +560,21 @@ class Detector(object):
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                face = self.process_output(
-                    output, bboxes[img_idx],
-                    face_prob=face_prob,
-                    label=labels[img_idx] if labels is not None else '',
-                    overlay_label=overlay_labels[img_idx] if overlay_labels is not None else '',
-                    use_classifiers=data is None,
-                )
+                if data is not None:
+
+                    face = data[img_idx]
+
+                else:
+
+                    face = self.process_output(
+                        output,
+                        bboxes[img_idx],
+                        # face_prob=face_prob,
+                        # label=labels[img_idx] if labels is not None else '',
+                        # overlay_label=overlay_labels[img_idx] if overlay_labels is not None else '',
+                        # use_classifiers=data is None,
+                    )
+
                 if poses is not None and len(poses) > img_idx:
                     face.head_pose = poses[img_idx]
                 face.embedding = output.reshape([-1])

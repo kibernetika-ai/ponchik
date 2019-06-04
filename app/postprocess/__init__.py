@@ -7,6 +7,7 @@ from sklearn import cluster
 
 LOG = logging.getLogger(__name__)
 
+
 class PostProcessor:
 
     def __init__(self, data, detector):
@@ -147,15 +148,22 @@ class PostProcessor:
             LOG.info('Median class length: {:1.2f}, average class length: {:1.2f}'.
                      format(np.median(self.clt_seq_counts), np.mean(self.clt_seq_counts)))
 
+    NOT_DETECTED = 0
+    DETECTED = 1
+    RECOGNIZED = 2
+
     def face_info(self, idx):
         for s in self.frame_sequences:
             if idx in s:
                 for ss in s:
                     if ss in self.sequences_frames_not_recognized:
-                        return 'Person {}'.format(self.clt_seq.labels_[self.sequences_frames_not_recognized.index(ss)])
+                        cls = self.clt_seq.labels_[self.sequences_frames_not_recognized.index(ss)]
+                        if cls != -1:
+                            return 'Person {}'.format(cls), self.DETECTED
+                        break
                     if ss in self.sequences_frames_recognized:
-                        return self.sequences_frames_recognized[ss].overlay_label
-        return ''
+                        return self.sequences_frames_recognized[ss].overlay_label, self.RECOGNIZED
+        return '', self.NOT_DETECTED
 
     def export_srt(self, srt_file):
 
