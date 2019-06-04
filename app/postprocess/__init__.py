@@ -237,9 +237,6 @@ class PostProcessor:
                 current_frame_recognized_labels.append(frames_recognized_labels[idx])
             prev_frame = fn
 
-            if idx > 10000:
-                break
-
         end = datetime.timedelta(seconds=float(prev_frame) / fps)
         sub = srt.Subtitle(
             index=len(subs) + 1,
