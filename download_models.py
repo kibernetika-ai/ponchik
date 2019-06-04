@@ -16,7 +16,9 @@ parser.add_argument(
     '--facenet_pretrained_openvino_cpu_url',
     type=str,
     default="https://dev.kibernetika.io/api/v0.2/workspace/kuberlab-demo/mlmodel/facenet-pretrained/versions/"
-            "1.0.0-openvino-cpu/download/model-facenet-pretrained-1.0.0-openvino-cpu.tar",
+            "1.0.0-vgg-openvino-cpu/download/model-facenet-pretrained-1.0.0-vgg-openvino-cpu.tar",
+    # default="https://dev.kibernetika.io/api/v0.2/workspace/kuberlab-demo/mlmodel/facenet-pretrained/versions/"
+    #         "1.0.0-openvino-cpu/download/model-facenet-pretrained-1.0.0-openvino-cpu.tar",
     help='URL to background remove model',
 )
 args = parser.parse_args()
