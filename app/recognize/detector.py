@@ -579,8 +579,6 @@ class Detector(object):
                     face.head_pose = poses[img_idx]
                 face.embedding = output.reshape([-1])
 
-                faces.append(face)
-
                 if img_idx in skips:
                     face.state = WRONG_FACE_POS
 
