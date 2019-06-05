@@ -101,6 +101,16 @@ def random_noise(image):
     return noisy
 
 
+def blur(image):
+    return cv2.GaussianBlur(image, (5, 5), 0)
+
+
+def upscale(image):
+    size = (image.shape[1], image.shape[0])
+    image = cv2.resize(image, (30, 30))
+    return cv2.resize(image, size)
+
+
 def prewhiten(x):
     mean = np.mean(x)
     std = np.std(x)

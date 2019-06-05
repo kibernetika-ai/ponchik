@@ -8,7 +8,7 @@ from PIL import Image
 from app.tools import images
 
 META_FILENAME = 'meta.json'
-
+PREWHITEN = True
 
 def get_dataset(path, min_img_count=None, limit=None):
     dataset = []

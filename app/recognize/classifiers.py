@@ -53,6 +53,24 @@ def add_classifier_args(parser):
         help='Noise count for each image.',
     )
     parser.add_argument(
+        '--aug_blur',
+        type=bool,
+        default=defaults.AUG_BLUR,
+        help='Add gaussian blur to images.',
+    )
+    parser.add_argument(
+        '--aug_upscale',
+        type=bool,
+        default=defaults.AUG_UPSCALE,
+        help='Add upscale to images from 30x30 size.',
+    )
+    parser.add_argument(
+        '--do_prewhiten',
+        type=bool,
+        default=dataset.PREWHITEN,
+        help='Prewhiten images while prepearing to train classifiers.',
+    )
+    parser.add_argument(
         '--batch_size',
         type=int,
         help='Number of images to process in a batch.',
@@ -68,6 +86,9 @@ def classifiers_args(args):
         model_path=args.model_path,
         aug_flip=args.aug_flip,
         aug_noise=args.aug_noise,
+        aug_blur=args.aug_blur,
+        aug_upscale=args.aug_upscale,
+        do_prewhiten=args.do_prewhiten,
         image_size=args.image_size,
         batch_size=args.batch_size,
         device=args.device,
@@ -83,6 +104,9 @@ class Classifiers:
             model_path=defaults.MODEL_PATH,
             aug_flip=defaults.AUG_FLIP,
             aug_noise=defaults.AUG_NOISE,
+            aug_blur=defaults.AUG_BLUR,
+            aug_upscale=defaults.AUG_UPSCALE,
+            do_prewhiten=dataset.PREWHITEN,
             image_size=defaults.IMAGE_SIZE,
             batch_size=defaults.BATCH_SIZE,
             device=defaults.DEVICE,
@@ -95,6 +119,9 @@ class Classifiers:
         self.model_path = model_path
         self.aug_flip = aug_flip
         self.aug_noise = aug_noise
+        self.aug_blur = aug_blur
+        self.aug_upscale = aug_upscale
+        self.do_prewhiten = do_prewhiten
         self.image_size = image_size
         self.batch_size = batch_size
         self.device = device
@@ -129,6 +156,9 @@ class Classifiers:
             'model': self.model_path,
             'noise': self.aug_noise,
             'flip': self.aug_flip,
+            'blur': self.aug_blur,
+            'upscale': self.aug_upscale,
+            'do_prewhiten': self.do_prewhiten,
             'image_size': self.image_size,
         }
 
@@ -162,7 +192,8 @@ class Classifiers:
 
         nrof_batches_per_epoch = int(math.ceil(1.0 * nrof_images / self.batch_size))
         # for each file: (original + flipped) * noise
-        embeddings_size = nrof_images * (1 + self.aug_noise) * (2 if self.aug_flip else 1)
+        # embeddings_size = nrof_images * (1 + self.aug_noise) * (2 if self.aug_flip else 1)
+        embeddings_size = self.aug_images_count(nrof_images)
 
         emb_array = np.zeros((embeddings_size, 512))
         fit_labels = []
@@ -326,50 +357,80 @@ class Classifiers:
         init_batch_len = len(paths_batch)
 
         t = time.time()
-        imgs = dataset.load_data(paths_batch, self.image_size)
+        imgs = dataset.load_data(paths_batch, self.image_size, do_prewhiten=self.do_prewhiten)
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
-        imgs_size = len(imgs)
 
-        if self.aug_flip:
-            for k in range(imgs_size):
-                img = imgs[k]
-                # print_fun('Applying flip to image {}'.format(paths_batch[k]))
-                flipped = images.horizontal_flip(img)
-                imgs = np.concatenate((imgs, flipped.reshape(1, *flipped.shape)))
-                labels.append(labels[k])
-                paths_batch.append(paths_batch[k])
+        imgs = self.apply_aug_noise_blur_upscale(paths_batch, labels, imgs)
 
+        batch_log = ' ... %d images' % len(imgs)
+        # if self.aug_noise > 0 or self.aug_flip:
+        # batch_log_details = ['%d original' % init_batch_len]
+        batch_log_aug = ['%d original' % init_batch_len]
         if self.aug_noise > 0:
-            for k in range(imgs_size):
-                img = imgs[k]
+            batch_log_aug.append('{} noise'.format(self.aug_noise * init_batch_len))
+            # batch_log_details.append('%d noise' % (init_batch_len * self.aug_noise))
+        if self.aug_blur:
+            batch_log_aug.append('{} blur'.format(init_batch_len))
+        if self.aug_upscale:
+            batch_log_aug.append('{} upscale'.format(init_batch_len))
+        if len(batch_log_aug) > 1 or self.aug_flip:
+            batch_log_aug = ', '.join(batch_log_aug)
+            if self.aug_flip:
+                batch_log_aug = '({}) * 2(flip each)'.format(batch_log_aug)
+                # batch_log_details.append('%d flip' % init_batch_len)
+            # if self.aug_noise > 0 and self.aug_flip:
+            #     batch_log_details.append('%d noise+flip' % (init_batch_len * self.aug_noise))
+            batch_log = '%s (%s)' % (batch_log, batch_log_aug)
+        print_fun(batch_log)
+
+        return imgs
+
+    def apply_aug_noise_blur_upscale(self, paths_batch, labels, imgs, already_flipped=False):
+        imgs_size = len(imgs)
+        for k in range(imgs_size):
+            img = imgs[k]
+            if self.aug_noise > 0:
                 for i in range(self.aug_noise):
                     # print_fun('Applying noise to image {}, #{}'.format(paths_batch[k], i + 1))
                     noised = images.random_noise(img)
                     imgs = np.concatenate((imgs, noised.reshape(1, *noised.shape)))
                     labels.append(labels[k])
                     paths_batch.append(paths_batch[k])
-
-                    if self.aug_flip:
-                        # print_fun('Applying flip to noised image {}, #{}'.format(paths_batch[k], i + 1))
-                        flipped = images.horizontal_flip(noised)
-                        imgs = np.concatenate((imgs, flipped.reshape(1, *flipped.shape)))
-                        labels.append(labels[k])
-                        paths_batch.append(paths_batch[k])
-
-        batch_log = ' ... %d images' % len(imgs)
-        if self.aug_noise > 0 or self.aug_flip:
-            batch_log_details = ['%d original' % init_batch_len]
-            if self.aug_noise > 0:
-                batch_log_details.append('%d noise' % (init_batch_len * self.aug_noise))
-            if self.aug_flip:
-                batch_log_details.append('%d flip' % init_batch_len)
-            if self.aug_noise > 0 and self.aug_flip:
-                batch_log_details.append('%d noise+flip' % (init_batch_len * self.aug_noise))
-            batch_log = '%s (%s)' % (batch_log, ', '.join(batch_log_details))
-        print_fun(batch_log)
-
+            if self.aug_blur:
+                blured = images.blur(img)
+                imgs = np.concatenate((imgs, blured.reshape(1, *blured.shape)))
+                labels.append(labels[k])
+                paths_batch.append(paths_batch[k])
+            if self.aug_upscale:
+                upscaled = images.upscale(img)
+                imgs = np.concatenate((imgs, upscaled.reshape(1, *upscaled.shape)))
+                labels.append(labels[k])
+                paths_batch.append(paths_batch[k])
+            if self.aug_flip and not already_flipped:
+                flipped = images.horizontal_flip(img)
+                flipped_imgs = [flipped]
+                flipped_labels = [labels[k]]
+                flipped_paths_batch = [paths_batch[k]]
+                flipped_imgs_aug = self.apply_aug_noise_blur_upscale(
+                    flipped_paths_batch, flipped_labels, flipped_imgs, already_flipped=True)
+                for flipped_img_aug in flipped_imgs_aug:
+                    imgs = np.concatenate((imgs, flipped_img_aug.reshape(1, *flipped_img_aug.shape)))
+                labels.extend(flipped_labels)
+                paths_batch.extend(flipped_paths_batch)
         return imgs
+
+    def aug_images_count(self, count):
+        m = 1  # original image
+        if self.aug_noise > 0:
+            m += self.aug_noise
+        if self.aug_blur:
+            m += 1
+        if self.aug_upscale:
+            m += 1
+        if self.aug_flip:
+            m = m*2
+        return count * m
 
     def store_previews(self):
         previews_dir = os.path.join(self.classifiers_dir, "previews")
