@@ -75,7 +75,7 @@ def get_meta(dataset):
     return meta
 
 
-def load_data(image_paths, image_size, do_prewhiten=True):
+def load_data(image_paths, image_size, fixed_normalization=False):
     nrof_samples = len(image_paths)
     imgs = np.zeros((nrof_samples, image_size, image_size, 3))
     for i in range(nrof_samples):
@@ -86,7 +86,9 @@ def load_data(image_paths, image_size, do_prewhiten=True):
         if len(img.shape) >= 3 and img.shape[2] > 3:
             # RGBA, convert to RGB
             img = np.array(Image.fromarray(img).convert('RGB'))
-        if do_prewhiten:
+        if fixed_normalization:
+            img = images.fixed_normalize(img)
+        else:
             img = images.prewhiten(img)
         imgs[i, :, :, :] = img
     return imgs

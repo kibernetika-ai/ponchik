@@ -233,7 +233,7 @@ class Aligner:
                         bounding_boxes,
                         face_crop_size=self.image_size,
                         face_crop_margin=face_crop_margin,
-                        do_prewhiten=False,
+                        normalize=None,
                     )
 
                     align_data_class[image_path]['aligned'] = {}

@@ -39,6 +39,11 @@ def add_detector_args(parser):
         help='Threshold for detecting faces',
     )
     parser.add_argument(
+        '--fixed_normalization',
+        help='Use fixed image normalization during training.',
+        action='store_true',
+    )
+    parser.add_argument(
         '--debug',
         help='Full debug output for each detected face.',
         action='store_true',
@@ -94,6 +99,7 @@ def detector_args(args):
         process_not_detected=args.process_not_detected,
         account_head_pose=not args.head_pose_not_account,
         multi_detect=multi_detect,
+        fixed_normalization=args.fixed_normalization,
     )
 
 
@@ -141,6 +147,7 @@ class Detector(object):
             process_not_detected=False,
             account_head_pose=True,
             multi_detect=None,
+            fixed_normalization=False,
     ):
         self._initialized = False
         self.face_driver: driver.ServingDriver = face_driver
@@ -155,6 +162,7 @@ class Detector(object):
         self.account_head_pose = account_head_pose
 
         self.use_classifiers = False
+        self.normalization = images.NORMALIZE_FIXED if fixed_normalization else images.NORMALIZE_IMAGE
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
         self.multi_detect = multi_detect
@@ -459,7 +467,7 @@ class Detector(object):
         if boxes is None or len(boxes) == 0:
             return []
 
-        imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, do_prewhiten=False))
+        imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, normalize=None))
         outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
 
         yaw = outputs[self.head_pose_yaw].reshape([-1])
@@ -530,7 +538,7 @@ class Detector(object):
         else:
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
             poses = self.wrong_pose_indices(frame, bboxes)
-            imgs = images.get_images(frame, bboxes)
+            imgs = images.get_images(frame, bboxes, normalize=self.normalization)
 
         skips = self.wrong_pose_skips(poses)
         # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
