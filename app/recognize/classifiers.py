@@ -65,12 +65,6 @@ def add_classifier_args(parser):
         help='Add upscale to images from 30x30 size.',
     )
     parser.add_argument(
-        '--do_prewhiten',
-        type=bool,
-        default=dataset.PREWHITEN,
-        help='Prewhiten images while prepearing to train classifiers.',
-    )
-    parser.add_argument(
         '--batch_size',
         type=int,
         help='Number of images to process in a batch.',
@@ -82,14 +76,13 @@ def classifiers_args(args):
     return Classifiers(
         aligned_dir=args.aligned_dir,
         complementary_train=args.complementary_train or args.complementary,
-        fixed_normalization=args.fixed_normalization,
+        normalization=args.normalization,
         classifiers_dir=args.classifiers_dir,
         model_path=args.model_path,
         aug_flip=args.aug_flip,
         aug_noise=args.aug_noise,
         aug_blur=args.aug_blur,
         aug_upscale=args.aug_upscale,
-        do_prewhiten=args.do_prewhiten,
         image_size=args.image_size,
         batch_size=args.batch_size,
         device=args.device,
@@ -101,14 +94,13 @@ class Classifiers:
             self,
             aligned_dir=defaults.ALIGNED_DIR,
             complementary_train=False,
-            fixed_normalization=False,
+            normalization=defaults.NORMALIZATION,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             model_path=defaults.MODEL_PATH,
             aug_flip=defaults.AUG_FLIP,
             aug_noise=defaults.AUG_NOISE,
             aug_blur=defaults.AUG_BLUR,
             aug_upscale=defaults.AUG_UPSCALE,
-            do_prewhiten=dataset.PREWHITEN,
             image_size=defaults.IMAGE_SIZE,
             batch_size=defaults.BATCH_SIZE,
             device=defaults.DEVICE,
@@ -117,14 +109,13 @@ class Classifiers:
         self.driver_name = "openvino"
         self.aligned_dir = aligned_dir
         self.complementary_train = complementary_train
-        self.fixed_normalization = fixed_normalization
+        self.normalization = normalization
         self.classifiers_dir = classifiers_dir
         self.model_path = model_path
         self.aug_flip = aug_flip
         self.aug_noise = aug_noise
         self.aug_blur = aug_blur
         self.aug_upscale = aug_upscale
-        self.do_prewhiten = do_prewhiten
         self.image_size = image_size
         self.batch_size = batch_size
         self.device = device
@@ -161,8 +152,8 @@ class Classifiers:
             'flip': self.aug_flip,
             'blur': self.aug_blur,
             'upscale': self.aug_upscale,
-            'do_prewhiten': self.do_prewhiten,
             'image_size': self.image_size,
+            'normalization': self.normalization,
         }
 
         stored_embeddings = {}
@@ -360,7 +351,7 @@ class Classifiers:
         init_batch_len = len(paths_batch)
 
         t = time.time()
-        imgs = dataset.load_data(paths_batch, self.image_size, do_prewhiten=self.do_prewhiten, fixed_normalization=self.fixed_normalization)
+        imgs = dataset.load_data(paths_batch, self.image_size, fixed_normalization=self.normalization)
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 

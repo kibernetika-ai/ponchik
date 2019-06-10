@@ -12,7 +12,7 @@ from sklearn import svm
 
 from app.recognize import classifiers
 from app.recognize import defaults
-from app.tools import images
+from app.tools import images, add_normalization_args
 from app.tools import utils
 from app import tools
 
@@ -39,15 +39,11 @@ def add_detector_args(parser):
         help='Threshold for detecting faces',
     )
     parser.add_argument(
-        '--fixed_normalization',
-        help='Use fixed image normalization during training.',
-        action='store_true',
-    )
-    parser.add_argument(
         '--debug',
         help='Full debug output for each detected face.',
         action='store_true',
     )
+    add_normalization_args(parser)
 
 
 def detector_args(args):
@@ -99,7 +95,7 @@ def detector_args(args):
         process_not_detected=args.process_not_detected,
         account_head_pose=not args.head_pose_not_account,
         multi_detect=multi_detect,
-        fixed_normalization=args.fixed_normalization,
+        normalization=args.normalization,
     )
 
 
@@ -132,6 +128,9 @@ class FaceInfo:
         self.embedding = embedding
         self.head_pose = head_pose
 
+    def is_detected(self):
+        return self.state == DETECTED
+
 
 class Detector(object):
     def __init__(
@@ -147,7 +146,7 @@ class Detector(object):
             process_not_detected=False,
             account_head_pose=True,
             multi_detect=None,
-            fixed_normalization=False,
+            normalization=defaults.NORMALIZATION,
     ):
         self._initialized = False
         self.face_driver: driver.ServingDriver = face_driver
@@ -162,7 +161,7 @@ class Detector(object):
         self.account_head_pose = account_head_pose
 
         self.use_classifiers = False
-        self.normalization = images.NORMALIZE_FIXED if fixed_normalization else images.NORMALIZE_IMAGE
+        self.normalization = normalization
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
         self.multi_detect = multi_detect
@@ -467,7 +466,7 @@ class Detector(object):
         if boxes is None or len(boxes) == 0:
             return []
 
-        imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, normalize=None))
+        imgs = np.stack(images.get_images(bgr_frame, boxes, 60, 0, normalization=None))
         outputs = self.head_pose_driver.predict({'data': imgs.transpose([0, 3, 1, 2])})
 
         yaw = outputs[self.head_pose_yaw].reshape([-1])
@@ -522,14 +521,14 @@ class Detector(object):
         face_probs = None
         labels = None
         overlay_labels = None
-        if data:
+        if data is not None:
             embeddings = []
             face_probs = []
             labels = []
             overlay_labels = []
             for d in data:
                 bboxes.append(d.bbox)
-                poses.append(d.head_pose)
+                # poses.append(d.head_pose)
                 embeddings.append(d.embedding)
                 face_probs.append(d.face_prob)
                 labels.append(d.label)
@@ -538,7 +537,7 @@ class Detector(object):
         else:
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
             poses = self.wrong_pose_indices(frame, bboxes)
-            imgs = images.get_images(frame, bboxes, normalize=self.normalization)
+            imgs = images.get_images(frame, bboxes, normalization=self.normalization)
 
         skips = self.wrong_pose_skips(poses)
         # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
@@ -611,7 +610,8 @@ class Detector(object):
                 )
 
             if face.state == DETECTED:
-                detected_names.append(face.classes[0])
+                if face.classes and len(face.classes) > 0:
+                    detected_names.append(face.classes[0])
 
             faces.append(face)
 
@@ -700,7 +700,7 @@ class Detector(object):
                 self._put_text(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
                 self._put_text(frame, line, left, int(top + i * str_h), color=color)
 
-                if len(face.classes) > 0:
+                if face.classes and len(face.classes) > 0:
                     classes_preview_size = min(
                         str_h * 3,  # size depends on row height
                         int((face.bbox[2] - face.bbox[0] - 10) / len(face.classes) / 1.2),

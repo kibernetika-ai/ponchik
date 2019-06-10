@@ -173,10 +173,7 @@ class Video:
             self.postprocess = PostProcessor(self.h5data, self.detector)
 
             if postprocess_clusterize_unrecognized:
-                self.postprocess.calculate_correct_head_poses()
-                self.postprocess.generate_sequences()
-                self.postprocess.recognize_sequences()
-                self.postprocess.clusterize()
+                self.postprocess.run()
                 if postprocess_export_srt:
                     if postprocess_export_srt_to is None:
                         postprocess_export_srt_to = os.path.splitext(self.video_source)[0]+'.srt'
@@ -410,17 +407,32 @@ class Video:
         if self.h5data:
             stored = []
             while self.h5data['frame_nums'][self.h5data_idx] == self.frame_idx:
-                stored_face = detector.FaceInfo(
-                    bbox=self.h5data['bounding_boxes'][self.h5data_idx],
-                    embedding=self.h5data['embeddings'][self.h5data_idx],
-                    face_prob=self.h5data['face_probs'][self.h5data_idx],
-                    head_pose=self.h5data['head_poses'][self.h5data_idx],
-                )
+                stored_face = None
                 if self.postprocess:
-                    lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
-                    stored_face.label = lbl
-                    stored_face.overlay_label = lbl
-                    stored_face.classes = [lbl.replace(' ', '_')]
+                    stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_idx)
+                if stored_face is None:
+                    stored_face = detector.FaceInfo()
+                stored_face.bbox=self.h5data['bounding_boxes'][self.h5data_idx]
+                stored_face.embedding=self.h5data['embeddings'][self.h5data_idx]
+                stored_face.face_prob=self.h5data['face_probs'][self.h5data_idx]
+                stored_face.head_pose=self.h5data['head_poses'][self.h5data_idx]
+                stored_face.state = detector.DETECTED
+
+                # stored_face = detector.FaceInfo(
+                #     bbox=self.h5data['bounding_boxes'][self.h5data_idx],
+                #     embedding=self.h5data['embeddings'][self.h5data_idx],
+                #     face_prob=self.h5data['face_probs'][self.h5data_idx],
+                #     head_pose=self.h5data['head_poses'][self.h5data_idx],
+                # )
+                # if self.postprocess:
+                #     sequence_face = self.postprocess.get_sequence_recognized_face(self.h5data_idx)
+                #     if sequence_face is not None:
+                #         stored_face.label = sequence_face.label
+                #         stored_face.overlay_label = sequence_face.overlay_label
+                    # lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
+                    # stored_face.label = lbl
+                    # stored_face.overlay_label = lbl
+                    # stored_face.classes = [lbl.replace(' ', '_')]
                     # if dtctd == self.postprocess.RECOGNIZED:
                     #     stored_face.state = detector.DETECTED
                     # elif dtctd == self.postprocess.DETECTED:
@@ -455,10 +467,11 @@ class Video:
 
             for fi in face_infos:
                 if fi.state == detector.DETECTED:
-                    name = fi.classes[0]
-                    if name not in self.faces_detected:
-                        self.faces_detected[name] = InVideoDetected()
-                    self.faces_detected[name].exists_in_frame(face_info=fi, frame=frame)
+                    if fi.classes and len(fi.classes) > 0:
+                        name = fi.classes[0]
+                        if name not in self.faces_detected:
+                            self.faces_detected[name] = InVideoDetected()
+                        self.faces_detected[name].exists_in_frame(face_info=fi, frame=frame)
                 elif fi.state == detector.NOT_DETECTED and store_not_detected:
                     img = images.crop_by_box(frame, fi.bbox)
                     cv2.imwrite(os.path.join(self.not_detected_dir, '%s.jpg' % now), img)

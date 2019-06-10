@@ -4,6 +4,9 @@ import datetime
 
 import numpy as np
 from sklearn import cluster
+from scipy.spatial import distance
+
+from app.recognize import detector
 
 LOG = logging.getLogger(__name__)
 
@@ -24,11 +27,21 @@ class PostProcessor:
         self.correct_head_poses = None
         self.frame_sequences = None
 
-        self.middle_sequence_frames = None
+        self.frame_sequences_faces = None
         self.sequences_frames_recognized = None
-        self.sequences_frames_not_recognized = None
+        self.frame_sequences_faces_not_recognized = None
+        self.frame_sequence_recognition_result = None
+        self.frame_sequence_cluster_result = None
         self.clt_seq = None
         self.clt_seq_counts = None
+
+    def run(self):
+        self.calculate_correct_head_poses()
+        self.generate_sequences()
+        self.exclude_sequences_without_correct_poses()
+        self.get_good_faces_for_sequences()
+        self.recognize_sequences_faces()
+        self.clusterize_sequences()
 
     def calculate_correct_head_poses(self, head_poses_tresholds=None):
         if head_poses_tresholds is None:
@@ -57,6 +70,9 @@ class PostProcessor:
         iou = inter_area / d
         return iou
 
+    def distance_between(self, idx1, idx2):
+        return distance.cosine(self.embeddings[idx1], self.embeddings[idx2])
+
     def generate_sequences(self):
         LOG.info('generating frames sequences...')
         min_face_sequence_len = 3
@@ -67,14 +83,17 @@ class PostProcessor:
         prev_frame = None
         current_frame_boxes = []
         for idx, frame_num in enumerate(self.frame_nums):
-            if self.correct_head_poses is not None and idx not in self.correct_head_poses:
-                continue
+            if idx and idx % 5000 == 0:
+                LOG.info('processed index {} of {}'.format(idx, len(self.frame_nums)))
+            # do not skip wrong poses in all cases
+            # if self.correct_head_poses is not None and idx not in self.correct_head_poses:
+            #     continue
             if frame_num != prev_frame:
                 # process previous frame
                 if prev_frame is not None:
                     # check current sequences
                     for ifproc, fproc in enumerate(face_sequences_process):
-                        # close "breaked" sequences and store it if it has enouth length
+                        # close "broken" sequences and store it if it has enough length
                         if fproc[1] < frame_num - self.data_attrs['each_frame']:
                             if len(fproc[2]) >= min_face_sequence_len:
                                 face_sequences.append(fproc)
@@ -82,13 +101,19 @@ class PostProcessor:
                     for ifb, fb in enumerate(current_frame_boxes):
                         found = False
                         for ifproc, fproc in enumerate(face_sequences_process):
-                            if self.box_intersection(fproc[0], fb[0]) > 0:
-                                fproc[2].append(fb[1])
-                                fproc[3].append(fb[0])
-                                face_sequences_process[ifproc] = (fb[0], frame_num, fproc[2], fproc[3])
-                                found = True
-                                break
+                            bi = self.box_intersection(fproc[0], fb[0])
+                            if bi > .3:
+                                # distance between current and last in sequence (previous) embeddings
+                                dist = self.distance_between(fb[1], fproc[2][-1])
+                                if dist < .3:
+                                    fproc[2].append(fb[1])
+                                    fproc[3].append(fb[0])
+                                    face_sequences_process[ifproc] = (fb[0], frame_num, fproc[2], fproc[3])
+                                    found = True
+                                    break
                         if not found:
+                            # skip wrong pose only for sequence beginning
+                            # if idx in self.correct_head_poses:
                             face_sequences_process.append((fb[0], frame_num, [fb[1]], [fb[0]]))
                     current_frame_boxes = []
                 # starts next frame
@@ -103,36 +128,107 @@ class PostProcessor:
         self.frame_sequences = [f[2] for f in face_sequences]
         LOG.info('generating frames sequences DONE, sequences count: {}'.format(len(self.frame_sequences)))
 
-    def recognize_sequences(self):
+    def exclude_sequences_without_correct_poses(self):
+        LOG.info('skipping sequences without any frame with correct face pose...')
+        frame_sequences_with_correct_poses = []
+        for frame_sequence in self.frame_sequences:
+            for frame in frame_sequence:
+                if frame in self.correct_head_poses:
+                    frame_sequences_with_correct_poses.append(frame_sequence)
+                    break
+        print(
+            'Sequences with at least frame with correct head pose: {}'.format(len(frame_sequences_with_correct_poses)))
+        self.frame_sequences = frame_sequences_with_correct_poses
+        LOG.info('skipping sequences DONE, sequences count: {}'.format(len(self.frame_sequences)))
 
-        LOG.info('recognizing frame sequences by middle frames...')
+    def get_good_faces_for_sequences(self, n_seconds = 5):
+        LOG.info('get good pose faces for sequences: first and each next {} seconds (but only with good poses)...'.
+                 format(n_seconds))
+        self.frame_sequences_faces = []
+        for frame_sequence in self.frame_sequences:
+            frame_sequence_prev_frame = None
+            for frame in frame_sequence:
+                frame_sequence_cur_frame = self.frame_nums[frame]
+                if frame_sequence_prev_frame is None or frame_sequence_cur_frame - frame_sequence_prev_frame > \
+                        n_seconds * self.data_attrs['fps']:
+                    self.frame_sequences_faces.append(frame)
+                    frame_sequence_prev_frame = frame_sequence_cur_frame
+        self.frame_sequences_faces.sort()
+        LOG.info('good pose faces for recognition and clusterization DONE: total {} faces'.
+                 format(len(self.frame_sequences_faces)))
 
-        self.middle_sequence_frames = []
-        for fs in self.frame_sequences:
-            middle_frame = fs[len(fs) // 2]
-            self.middle_sequence_frames.append(middle_frame)
-        self.middle_sequence_frames.sort()
+    def recognize_sequences_faces(self):
+
+        LOG.info('recognizing frame sequences by good faces frames...')
 
         self.detector.init()
 
-        self.sequences_frames_recognized = {}
-        self.sequences_frames_not_recognized = []
-        for idx in self.middle_sequence_frames:
+        # Recognize good pose faces from sequences
+        frame_sequences_faces_recognized = {}
+        # frame_sequences_faces_not_recognized = []
+        for idx in self.frame_sequences_faces:
             processed = self.detector.process_output(self.embeddings[idx], np.array([0, 0, 0, 0, 0]))
-            if processed.label != "":
-                self.sequences_frames_recognized[idx] = processed
-            else:
-                self.sequences_frames_not_recognized.append(idx)
+            if processed.is_detected():
+                frame_sequences_faces_recognized[idx] = processed
 
-        LOG.info('recognizing sequences DONE, recognized: {}, not recognized: {}'.format(
-            len(self.sequences_frames_recognized),
-            len(self.sequences_frames_not_recognized),
+        LOG.info('Recognized {} faces of {}'.
+                 format(len(frame_sequences_faces_recognized), len(self.frame_sequences_faces)))
+
+        # If sequence has at least one recognized face and all recognized faces are more than 50% of all faces to recognition
+        # all this sequence is recognized as this person
+        frame_sequence_recognition_stats = []
+
+        for i, frame_sequence in enumerate(self.frame_sequences):
+            recognized_stats = {}
+            for frame in frame_sequence:
+                if frame in frame_sequences_faces_recognized:
+                    recognized = frame_sequences_faces_recognized[frame]
+                    recognized_class = recognized.classes[0]
+                    if recognized_class not in recognized_stats:
+                        recognized_stats[recognized_class] = (recognized, 0)
+                    recognized_stats[recognized_class] = (
+                        recognized_stats[recognized_class][0],
+                        recognized_stats[recognized_class][1] + 1,
+                    )
+            frame_sequence_recognition_stats.append(recognized_stats)
+
+        # frame_sequence_recognition_stats
+        self.frame_sequence_recognition_result = []
+        for i, stats in enumerate(frame_sequence_recognition_stats):
+            max_info = None
+            max_info_value = 0
+            total_info_value = 0
+            for cl in stats:
+                info = stats[cl]
+                total_info_value += info[1]
+                if info[1] > max_info_value:
+                    max_info_value = info[1]
+                    max_info = info[0]
+            face_class = max_info if max_info_value > total_info_value / 2 else None
+            if face_class is not None:
+                face_class.overlay_label = 'Seq1 {}\n{}'.format(i, face_class.overlay_label)
+            self.frame_sequence_recognition_result.append(face_class)
+        LOG.info('recognized sequences: {}, not recognized: {}'.format(
+            len([r for r in self.frame_sequence_recognition_result if r is not None]),
+            len([r for r in self.frame_sequence_recognition_result if r is None]),
         ))
 
-    def clusterize(self):
+        self.frame_sequences_faces_not_recognized = []
+        for idx in self.frame_sequences_faces:
+            seq_idx = None
+            for i, seq in enumerate(self.frame_sequences):
+                if idx in seq:
+                    seq_idx = i
+                    break
+            if seq_idx is None or self.frame_sequence_recognition_result[seq_idx] is None:
+                self.frame_sequences_faces_not_recognized.append(idx)
+        LOG.info('not recognized faces for clusterization: {} of {}'.
+                 format(len(self.frame_sequences_faces_not_recognized), len(self.frame_sequences_faces)))
+
+    def clusterize_sequences(self):
         LOG.info('clusterizing unrecognized...')
         self.clt_seq = cluster.DBSCAN(metric="euclidean", n_jobs=-1, min_samples=5)
-        self.clt_seq.fit(self.embeddings[self.sequences_frames_not_recognized])
+        self.clt_seq.fit(self.embeddings[self.frame_sequences_faces_not_recognized])
         LOG.info('clusterizing unrecognized DONE, different clusters (without unrecognized): {}'.
                  format(len(set(self.clt_seq.labels_))-1))
         self.clt_seq_counts = [len(self.clt_seq.labels_[self.clt_seq.labels_ == lbl])
@@ -148,29 +244,88 @@ class PostProcessor:
             LOG.info('Median class length: {:1.2f}, average class length: {:1.2f}'.
                      format(np.median(self.clt_seq_counts), np.mean(self.clt_seq_counts)))
 
-    NOT_DETECTED = 0
-    DETECTED = 1
-    RECOGNIZED = 2
+        frame_sequence_cluster_stats = []
 
-    def face_info(self, idx):
-        for s in self.frame_sequences:
-            if idx in s:
-                for ss in s:
-                    if ss in self.sequences_frames_not_recognized:
-                        cls = self.clt_seq.labels_[self.sequences_frames_not_recognized.index(ss)]
-                        if cls != -1:
-                            return 'Person {}'.format(cls), self.DETECTED
-                        break
-                    if ss in self.sequences_frames_recognized:
-                        return self.sequences_frames_recognized[ss].overlay_label, self.RECOGNIZED
-        return '', self.NOT_DETECTED
+        for i, frame_sequence in enumerate(self.frame_sequences):
+            cluster_stats = {}
+            for frame in frame_sequence:
+                if frame in self.frame_sequences_faces_not_recognized:
+                    clusterized = self.clt_seq.labels_[self.frame_sequences_faces_not_recognized.index(frame)]
+                    if clusterized >= 0:
+                        if clusterized not in cluster_stats:
+                            cluster_stats[clusterized] = (clusterized, 0)
+                        cluster_stats[clusterized] = (
+                            cluster_stats[clusterized][0],
+                            cluster_stats[clusterized][1] + 1,
+                        )
+
+            frame_sequence_cluster_stats.append(cluster_stats)
+
+        self.frame_sequence_cluster_result = []
+        for stats in frame_sequence_cluster_stats:
+            max_info = None
+            max_info_value = 0
+            total_info_value = 0
+            for cl in stats:
+                info = stats[cl]
+                total_info_value += info[1]
+                if info[1] > max_info_value:
+                    max_info_value = info[1]
+                    max_info = info[0]
+            clusterized_face = None
+            if max_info_value > total_info_value / 2:
+                clusterized_face = detector.FaceInfo()
+                clusterized_face.state = detector.DETECTED
+                clusterized_face.label = 'Person {}'.format(max_info)
+                clusterized_face.overlay_label = clusterized_face.label
+            self.frame_sequence_cluster_result.append(clusterized_face)
+        LOG.info('Clusterized sequences: {}, not clusterized: {}'.format(
+            len([r for r in self.frame_sequence_cluster_result if r is not None]),
+            len([r for r in self.frame_sequence_cluster_result if r is None]),
+        ))
+
+    def get_sequence_idx(self, idx):
+        for i, frame_sequence in enumerate(self.frame_sequences):
+            if idx in frame_sequence:
+                return i
+        return None
+
+    def get_sequence_recognized_face(self, idx):
+        sequence_idx = self.get_sequence_idx(idx)
+        if sequence_idx is not None:
+            res = self.frame_sequence_recognition_result[sequence_idx]
+            # if res is None:
+            #     return detector.FaceInfo(overlay_label='Seq3 {}'.format(sequence_idx))
+            if res is not None:
+                return res
+            return self.frame_sequence_cluster_result[sequence_idx]
+        return None
+
+    def get_face(self, idx):
+        sequence_idx = self.get_sequence_idx(idx)
+        if sequence_idx is not None:
+            recognized = self.frame_sequence_recognition_result[sequence_idx]
+            if recognized is not None:
+                return recognized
+
+        recognized = self.get_sequence_recognized_face(idx)
+        if recognized is not None:
+            return recognized
+
+        sequence_idx = self.get_sequence_idx(idx)
+        if sequence_idx is not None:
+            res = self.frame_sequence_recognition_result[sequence_idx]
+            if res is None:
+                return detector.FaceInfo(overlay_label='Seq3 {}'.format(sequence_idx))
+            return res
+        return detector.FaceInfo(overlay_label='Seq2 {}'.format(sequence_idx))
 
     def export_srt(self, srt_file):
 
         LOG.info('writing SRT to {}...'.format(srt_file))
         sequences_frames_not_recognized_labels = {}
-        for f in self.sequences_frames_not_recognized:
-            sequences_frames_not_recognized_labels[f] = self.clt_seq.labels_[self.sequences_frames_not_recognized.index(f)]
+        for f in self.frame_sequences_faces_not_recognized:
+            sequences_frames_not_recognized_labels[f] = self.clt_seq.labels_[self.frame_sequences_faces_not_recognized.index(f)]
         frames_not_recognized_labels = {}
         for s in self.frame_sequences:
             found = None

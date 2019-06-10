@@ -54,7 +54,7 @@ def add_common_args(parser):
         '--device',
         help='Device for openVINO.',
         default=defaults.DEVICE,
-        choices=["CPU", "MYRIAD"],
+        choices=[defaults.DEVICE, "MYRIAD"],
     )
     parser.add_argument(
         '--process_not_detected',

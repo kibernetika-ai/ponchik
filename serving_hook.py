@@ -409,7 +409,7 @@ def _load_nets(ctx):
         min_face_size=PARAMS['min_face_size'],
         multi_detect=PARAMS['multi_detect'],
         threshold=PARAMS['threshold'][0],
-        fixed_normalization=PARAMS['fixed_normalization'],
+        normalization=PARAMS['normalization'],
     )
     ot.init()
     openvino_facenet = ot
@@ -501,7 +501,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
         # not_detected_imgs = imgs[not_detected_indices].transpose(0, 2, 3, 1)
         not_detected_imgs = images.get_images(
-            rgb_frame, ret['boxes'][not_detected_indices].astype(int), normalize=None,
+            rgb_frame, ret['boxes'][not_detected_indices].astype(int), normalization=None,
         )
 
         # find free dir

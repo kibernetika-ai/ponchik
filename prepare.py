@@ -4,7 +4,7 @@ from app.dataset import add_aligner_args, aligner_args
 from app.recognize import add_common_args
 from app.recognize.classifiers import add_classifier_args, classifiers_args
 from app.tools.bg_remove import add_bg_remove_args
-from app.tools import print_fun
+from app.tools import print_fun, add_normalization_args
 
 
 def main():
@@ -13,6 +13,7 @@ def main():
     add_common_args(parser)
     add_classifier_args(parser)
     add_bg_remove_args(parser)
+    add_normalization_args(parser)
     parser.add_argument(
         '--skip_align',
         help='Skip alignment for source images from input dir, only calculate embeddings and train classifiers.',
@@ -44,11 +45,6 @@ def main():
     parser.add_argument(
         '--complementary',
         help='Complementary align and training.',
-        action='store_true',
-    )
-    parser.add_argument(
-        '--fixed_normalization',
-        help='Use fixed image normalization during training.',
         action='store_true',
     )
     args = parser.parse_args()

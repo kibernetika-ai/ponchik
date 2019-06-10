@@ -1,3 +1,5 @@
+from app.tools import images
+
 ALIGNED_DIR = "./data/aligned"
 CLASSIFIERS_DIR = "./data/classifiers"
 NOT_DETECTED_DIR = "./data/notdetected"
@@ -11,6 +13,7 @@ AUG_FLIP = True
 AUG_NOISE = 2
 AUG_BLUR = True
 AUG_UPSCALE = True
+NORMALIZATION = images.NORMALIZATION_FIXED
 BATCH_SIZE = 10
 DEVICE = "CPU"
 CAMERA_DEVICE = "CV"
