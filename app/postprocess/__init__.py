@@ -227,6 +227,10 @@ class PostProcessor:
 
     def clusterize_sequences(self):
         LOG.info('clusterizing unrecognized...')
+        self.frame_sequence_cluster_result = []
+        if len(self.frame_sequences_faces_not_recognized) == 0:
+            LOG.info('there\'re no unrecognized faces, nothing to clusterize.')
+            return
         self.clt_seq = cluster.DBSCAN(metric="euclidean", n_jobs=-1, min_samples=5)
         self.clt_seq.fit(self.embeddings[self.frame_sequences_faces_not_recognized])
         LOG.info('clusterizing unrecognized DONE, different clusters (without unrecognized): {}'.
@@ -261,7 +265,6 @@ class PostProcessor:
 
             frame_sequence_cluster_stats.append(cluster_stats)
 
-        self.frame_sequence_cluster_result = []
         for stats in frame_sequence_cluster_stats:
             max_info = None
             max_info_value = 0
