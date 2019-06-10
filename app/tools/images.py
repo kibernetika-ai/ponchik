@@ -2,7 +2,11 @@ import cv2
 import numpy as np
 
 
-def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, do_prewhiten=True):
+NORMALIZE_FIXED = 1
+NORMALIZE_IMAGE = 2
+
+
+def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, normalize=None):
     images = []
 
     nrof_faces = bounding_boxes.shape[0]
@@ -25,8 +29,10 @@ def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, d
             bb[3] = np.minimum(det[3] + face_crop_margin / 2, img_size[0])
             cropped = image[bb[1]:bb[3], bb[0]:bb[2], :]
             scaled = cv2.resize(cropped, (face_crop_size, face_crop_size), interpolation=cv2.INTER_AREA)
-            if do_prewhiten:
+            if normalize == NORMALIZE_IMAGE:
                 images.append(prewhiten(scaled))
+            elif normalize == NORMALIZE_FIXED:
+                images.append(fixed_normalize(scaled))
             else:
                 images.append(scaled)
 
@@ -117,3 +123,13 @@ def prewhiten(x):
     std_adj = np.maximum(std, 1.0 / np.sqrt(x.size))
     y = np.multiply(np.subtract(x, mean), 1 / std_adj)
     return y
+
+
+def fixed_normalize(x):
+    return (x - 127.5) / 128.0
+
+
+def normalize(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    return (x - mean) / std

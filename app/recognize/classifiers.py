@@ -82,6 +82,7 @@ def classifiers_args(args):
     return Classifiers(
         aligned_dir=args.aligned_dir,
         complementary_train=args.complementary_train or args.complementary,
+        fixed_normalization=args.fixed_normalization,
         classifiers_dir=args.classifiers_dir,
         model_path=args.model_path,
         aug_flip=args.aug_flip,
@@ -100,6 +101,7 @@ class Classifiers:
             self,
             aligned_dir=defaults.ALIGNED_DIR,
             complementary_train=False,
+            fixed_normalization=False,
             classifiers_dir=defaults.CLASSIFIERS_DIR,
             model_path=defaults.MODEL_PATH,
             aug_flip=defaults.AUG_FLIP,
@@ -115,6 +117,7 @@ class Classifiers:
         self.driver_name = "openvino"
         self.aligned_dir = aligned_dir
         self.complementary_train = complementary_train
+        self.fixed_normalization = fixed_normalization
         self.classifiers_dir = classifiers_dir
         self.model_path = model_path
         self.aug_flip = aug_flip
@@ -357,7 +360,7 @@ class Classifiers:
         init_batch_len = len(paths_batch)
 
         t = time.time()
-        imgs = dataset.load_data(paths_batch, self.image_size, do_prewhiten=self.do_prewhiten)
+        imgs = dataset.load_data(paths_batch, self.image_size, do_prewhiten=self.do_prewhiten, fixed_normalization=self.fixed_normalization)
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 

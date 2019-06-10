@@ -50,6 +50,7 @@ PARAMS = {
     'slack_channel': '',
     'slack_server': '',
     'badge_detector': '',
+    'fixed_normalization': False,
 
     'min_face_size': defaults.MIN_FACE_SIZE,
     'multi_detect': [],
@@ -92,6 +93,7 @@ def init_hook(**kwargs):
         ]
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
+    PARAMS['fixed_normalization'] = _boolean_string(PARAMS['fixed_normalization'])
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
     PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
@@ -407,6 +409,7 @@ def _load_nets(ctx):
         min_face_size=PARAMS['min_face_size'],
         multi_detect=PARAMS['multi_detect'],
         threshold=PARAMS['threshold'][0],
+        fixed_normalization=PARAMS['fixed_normalization'],
     )
     ot.init()
     openvino_facenet = ot
@@ -498,7 +501,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
         # not_detected_imgs = imgs[not_detected_indices].transpose(0, 2, 3, 1)
         not_detected_imgs = images.get_images(
-            rgb_frame, ret['boxes'][not_detected_indices].astype(int), do_prewhiten=False
+            rgb_frame, ret['boxes'][not_detected_indices].astype(int), normalize=None,
         )
 
         # find free dir
