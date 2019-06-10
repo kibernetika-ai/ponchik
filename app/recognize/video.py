@@ -148,6 +148,7 @@ class Video:
             )
 
         self.h5data = None
+        self.h5data_skip = False
         if video_h5py:
             self.h5data = h5py.File(video_h5py, 'r')
             LOG.info('read data from {}'.format(video_h5py))
@@ -266,7 +267,7 @@ class Video:
                 if self.frame is not None and (self.frame_idx % self.video_each_of_frame == 0):
                     frame = self.frame.copy()
                     if self.video_async:
-                        # Not work
+                        # Not works
                         self.detector.add_overlays(frame, self.processed)
                     else:
                         self.process_frame(frame=frame)
@@ -406,6 +407,12 @@ class Video:
         stored = None
         if self.h5data:
             stored = []
+            if self.h5data_idx >= len(self.h5data['frame_nums']):
+                if not self.h5data_skip:
+                    LOG.warning(
+                        'max h5 data index {} reached, skipped all next frames'.format(len(self.h5data['frame_nums'])))
+                    self.h5data_skip = True
+                return
             while self.h5data['frame_nums'][self.h5data_idx] == self.frame_idx:
                 stored_face = None
                 if self.postprocess:
