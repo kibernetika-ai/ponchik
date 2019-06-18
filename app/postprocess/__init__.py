@@ -136,8 +136,8 @@ class PostProcessor:
                 if frame in self.correct_head_poses:
                     frame_sequences_with_correct_poses.append(frame_sequence)
                     break
-        print(
-            'Sequences with at least frame with correct head pose: {}'.format(len(frame_sequences_with_correct_poses)))
+        LOG.info(
+            'sequences with at least frame with correct head pose: {}'.format(len(frame_sequences_with_correct_poses)))
         self.frame_sequences = frame_sequences_with_correct_poses
         LOG.info('skipping sequences DONE, sequences count: {}'.format(len(self.frame_sequences)))
 
