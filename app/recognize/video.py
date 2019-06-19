@@ -428,6 +428,8 @@ class Video:
                     stored_face = detector.FaceInfo()
                 stored_face.bbox=self.h5data['bounding_boxes'][self.h5data_idx]
                 stored_face.person_bbox=self.h5data['person_boxes'][self.h5data_idx]
+                if self._h5_box_is_none(stored_face.person_bbox):
+                    stored_face.person_bbox = None
                 stored_face.embedding=self.h5data['embeddings'][self.h5data_idx]
                 stored_face.face_prob=self.h5data['face_probs'][self.h5data_idx]
                 stored_face.head_pose=self.h5data['head_poses'][self.h5data_idx]
@@ -465,6 +467,12 @@ class Video:
         self.research_processed(face_infos, frame=original_copy)
 
         return face_infos
+
+    def _h5_box_is_none(self, box):
+        return all(box == self._h5_box_none())
+
+    def _h5_box_none(self):
+        return np.array([0,0,0,0])
 
     def research_processed(self, face_infos: [detector.FaceInfo], frame=None):
         if frame is None:
@@ -534,7 +542,7 @@ class Video:
         # Assign value
         self.h5['embeddings'][n] = face_info.embedding
         self.h5['bounding_boxes'][n] = face_info.bbox
-        self.h5['person_boxes'][n] = face_info.person_bbox
+        self.h5['person_boxes'][n] = self._h5_box_none() if face_info.person_bbox is None else face_info.person_bbox
         self.h5['face_probs'][n] = face_info.face_prob
         self.h5['head_poses'][n] = face_info.head_pose
         self.h5['frame_nums'][n] = self.frame_idx
