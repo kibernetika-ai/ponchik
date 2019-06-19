@@ -39,6 +39,17 @@ def add_detector_args(parser):
         help='Threshold for detecting faces',
     )
     parser.add_argument(
+        '--person_detection_path',
+        default=defaults.PERSON_DETECTION_PATH,
+        help='Path to person-detection openvino model',
+    )
+    parser.add_argument(
+        '--person_threshold',
+        type=float,
+        default=defaults.PERSON_THRESHOLD,
+        help='Threshold for detecting persons',
+    )
+    parser.add_argument(
         '--debug',
         help='Full debug output for each detected face.',
         action='store_true',
@@ -80,6 +91,17 @@ def detector_args(args):
         else:
             tools.print_fun("facenet openvino model is not found, skipped")
 
+    person_driver = None
+    if args.person_detection_path is not None:
+        if os.path.isfile(args.person_detection_path):
+            from ml_serving.drivers import driver
+            tools.print_fun("Load PERSON DETECTION model %s" % args.person_detection_path)
+            drv = driver.load_driver('openvino')
+            face_driver = drv()
+            face_driver.load_model(args.person_detection_path)
+        else:
+            tools.print_fun("person-detection openvino model is not found, skipped")
+
     multi_detect = None
     if args.multi_detect:
         multi_detect = [int(i) for i in args.multi_detect.split(',')]
@@ -88,8 +110,10 @@ def detector_args(args):
         face_driver=face_driver,
         facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
+        person_driver=person_driver,
         classifiers_dir= None if args.without_classifiers else args.classifiers_dir,
         threshold=args.threshold,
+        person_threshold=args.person_threshold,
         min_face_size=args.min_face_size,
         debug=args.debug,
         process_not_detected=args.process_not_detected,
@@ -103,6 +127,7 @@ class FaceInfo:
     def __init__(
             self,
             bbox=None,
+            person_bbox=None,
             state=NOT_DETECTED,
             label='',
             overlay_label='',
@@ -116,6 +141,7 @@ class FaceInfo:
             head_pose=None,
     ):
         self.bbox = bbox
+        self.person_bbox = person_bbox
         self.state = state
         self.label = label
         self.overlay_label = overlay_label
@@ -141,7 +167,9 @@ class Detector(object):
             head_pose_driver=None,
             head_pose_thresholds=defaults.HEAD_POSE_THRESHOLDS,
             threshold=defaults.THRESHOLD,
+            person_threshold=defaults.PERSON_THRESHOLD,
             min_face_size=defaults.MIN_FACE_SIZE,
+            person_driver=None,
             debug=defaults.DEBUG,
             process_not_detected=False,
             account_head_pose=True,
@@ -159,6 +187,9 @@ class Detector(object):
         self.head_pose_pitch = "angle_p_fc"
         self.head_pose_roll = "angle_r_fc"
         self.account_head_pose = account_head_pose
+
+        self.person_driver: driver.ServingDriver = person_driver
+        self.person_threshold = person_threshold
 
         self.use_classifiers = False
         self.normalization = normalization
@@ -271,13 +302,25 @@ class Detector(object):
         return boxes
 
     def _detect_faces(self, frame, threshold=0.5, offset=(0, 0)):
+        boxes = self._detect(self.face_driver, frame, threshold, offset)
+        if boxes is not None:
+            boxes = boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
+        return boxes
+
+    def detect_persons(self, frame, threshold=0.5):
+        return self._detect(self.person_driver, frame, threshold)
+
+    @staticmethod
+    def _detect(drv, frame, threshold=0.5, offset=(0, 0)):
+        if drv is None:
+            return None
         # Get boxes shaped [N, 5]:
         # xmin, ymin, xmax, ymax, confidence
-        input_name, input_shape = list(self.face_driver.inputs.items())[0]
-        output_name = list(self.face_driver.outputs)[0]
+        input_name, input_shape = list(drv.inputs.items())[0]
+        output_name = list(drv.outputs)[0]
         inference_frame = cv2.resize(frame, tuple(input_shape[:-3:-1]), interpolation=cv2.INTER_AREA)
         inference_frame = np.transpose(inference_frame, [2, 0, 1]).reshape(input_shape)
-        outputs = self.face_driver.predict({input_name: inference_frame})
+        outputs = drv.predict({input_name: inference_frame})
         output = outputs[output_name]
         output = output.reshape(-1, 7)
         bboxes_raw = output[output[:, 2] > threshold]
@@ -291,15 +334,14 @@ class Detector(object):
         boxes[:, 2] = boxes[:, 2] * frame.shape[1] + offset[0]
         boxes[:, 1] = boxes[:, 1] * frame.shape[0] + offset[1]
         boxes[:, 3] = boxes[:, 3] * frame.shape[0] + offset[1]
-        # Filter by face size
-        return boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
+        return boxes
 
     def inference_facenet(self, img):
         outputs = self.facenet_driver.predict({list(self.facenet_driver.inputs)[0]: img})
         output = outputs[list(self.facenet_driver.outputs)[0]]
         return output
 
-    def process_output(self, output, bbox, face_prob=None, label='', overlay_label='', use_classifiers=True):
+    def process_output(self, output, bbox, person_bbox=None, face_prob=None, label='', overlay_label='', use_classifiers=True):
 
         if face_prob is None:
             face_prob = bbox[4]
@@ -307,6 +349,7 @@ class Detector(object):
         if not self.use_classifiers or not use_classifiers:
             return FaceInfo(
                 bbox=bbox[:4].astype(int),
+                person_bbox=person_bbox,
                 state=NOT_DETECTED,
                 label=label,
                 overlay_label=overlay_label,
@@ -449,6 +492,7 @@ class Detector(object):
 
         return FaceInfo(
             bbox=bbox[:4].astype(int),
+            person_bbox=person_bbox,
             state=DETECTED if detected else NOT_DETECTED,
             label=summary_overlay_label,
             overlay_label=overlay_label_str,
@@ -519,13 +563,16 @@ class Detector(object):
         imgs = []
         embeddings = None
         face_probs = None
-        labels = None
-        overlay_labels = None
+        # labels = None
+        # overlay_labels = None
+        persons_bboxes = None
+        person_bbox = None
         if data is not None:
             embeddings = []
             face_probs = []
             labels = []
             overlay_labels = []
+            # todo add from h5
             for d in data:
                 bboxes.append(d.bbox)
                 # poses.append(d.head_pose)
@@ -538,6 +585,7 @@ class Detector(object):
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
             poses = self.wrong_pose_indices(frame, bboxes)
             imgs = images.get_images(frame, bboxes, normalization=self.normalization)
+            persons_bboxes = self.detect_persons(frame, self.person_threshold)
 
         skips = self.wrong_pose_skips(poses)
         # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
@@ -573,14 +621,22 @@ class Detector(object):
 
                 else:
 
+                    person_bbox = None
+                    if persons_bboxes is not None:
+                        for pb in persons_bboxes:
+                            if utils.box_includes(pb, bboxes[img_idx]):
+                                person_bbox = pb[:4].astype(int)
+                                break
                     face = self.process_output(
                         output,
                         bboxes[img_idx],
+                        person_bbox=person_bbox,
                         # face_prob=face_prob,
                         # label=labels[img_idx] if labels is not None else '',
                         # overlay_label=overlay_labels[img_idx] if overlay_labels is not None else '',
                         # use_classifiers=data is None,
                     )
+                    # face.person_bbox = persons_bboxes
 
                 if poses is not None and len(poses) > img_idx:
                     face.head_pose = poses[img_idx]
@@ -597,6 +653,7 @@ class Detector(object):
 
                 face = FaceInfo(
                     bbox=bboxes[img_idx][:4].astype(int),
+                    person_bbox=person_bbox,
                     state=WRONG_FACE_POS,
                     label='',
                     overlay_label='',
@@ -658,7 +715,8 @@ class Detector(object):
 
         font_face, font_scale, thickness = Detector._get_text_props(frame)
 
-        bbox = face.bbox.astype(int)
+        # bbox = face.bbox.astype(int)
+        bbox, pbbox = face.bbox, face.person_bbox
         color = self._color(face.state)
         cv2.rectangle(
             frame,
@@ -666,6 +724,14 @@ class Detector(object):
             color,
             thickness * (2 if face.state == DETECTED else 1),
         )
+
+        if face.person_bbox is not None:
+            cv2.rectangle(
+                frame,
+                (pbbox[0], pbbox[1]), (pbbox[2], pbbox[3]),  # (left, top), (right, bottom)
+                (0, 100, 0),
+                thickness,
+            )
 
         font_inner_padding_w, font_inner_padding_h = 5, 5
 

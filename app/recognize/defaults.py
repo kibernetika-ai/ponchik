@@ -31,4 +31,9 @@ HEAD_POSE_PATH = (
     '/opt/intel/openvino/deployment_tools/intel_models/'
     'head-pose-estimation-adas-0001/FP32/head-pose-estimation-adas-0001.xml'
 )
+PERSON_DETECTION_PATH = (
+    '/opt/intel/openvino/deployment_tools/intel_models/'
+    'person-detection-retail-0013/FP32/person-detection-retail-0013.xml'
+)
+PERSON_THRESHOLD = .5
 DEBUG = False

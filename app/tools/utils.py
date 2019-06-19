@@ -19,6 +19,13 @@ def box_intersection(box_a, box_b):
     return iou
 
 
+def box_includes(outer, inner):
+    return outer[0] <= inner[0] and \
+           outer[1] <= inner[1] and \
+           outer[2] >= inner[2] and \
+           outer[3] >= inner[3]
+
+
 def configure_logging():
     logging.basicConfig(
         format='%(asctime)s %(levelname)-5s %(name)-10s [-] %(message)s',

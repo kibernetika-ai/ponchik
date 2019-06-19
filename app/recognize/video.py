@@ -124,6 +124,13 @@ class Video:
                 chunks=True,
             )
             self.h5.create_dataset(
+                'person_boxes',
+                shape=(0, 4),
+                dtype=np.int32,
+                maxshape=(None, 4),
+                chunks=True,
+            )
+            self.h5.create_dataset(
                 'face_probs',
                 shape=(0,),
                 dtype=np.float32,
@@ -420,6 +427,7 @@ class Video:
                 if stored_face is None:
                     stored_face = detector.FaceInfo()
                 stored_face.bbox=self.h5data['bounding_boxes'][self.h5data_idx]
+                stored_face.person_bbox=self.h5data['person_boxes'][self.h5data_idx]
                 stored_face.embedding=self.h5data['embeddings'][self.h5data_idx]
                 stored_face.face_prob=self.h5data['face_probs'][self.h5data_idx]
                 stored_face.head_pose=self.h5data['head_poses'][self.h5data_idx]
@@ -505,7 +513,7 @@ class Video:
                     n['action_options'] = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append(n)
 
-    def write_h5_if_needed(self, frame, face_info):
+    def write_h5_if_needed(self, frame, face_info: detector.FaceInfo):
         if not self.h5:
             return
 
@@ -515,8 +523,9 @@ class Video:
         n = self.h5['embeddings'].shape[0]
 
         # resize +1
-        self.h5['embeddings'].resize((n + 1, 512))
+        self.h5['embeddings'].resize((n + 1, 512))  # todo set real shape size
         self.h5['bounding_boxes'].resize((n + 1, 4))
+        self.h5['person_boxes'].resize((n + 1, 4))
         self.h5['head_poses'].resize((n + 1, 3))
         self.h5['faces'].resize((n + 1,))
         self.h5['face_probs'].resize((n + 1,))
@@ -525,6 +534,7 @@ class Video:
         # Assign value
         self.h5['embeddings'][n] = face_info.embedding
         self.h5['bounding_boxes'][n] = face_info.bbox
+        self.h5['person_boxes'][n] = face_info.person_bbox
         self.h5['face_probs'][n] = face_info.face_prob
         self.h5['head_poses'][n] = face_info.head_pose
         self.h5['frame_nums'][n] = self.frame_idx

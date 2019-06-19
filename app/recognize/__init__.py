@@ -5,7 +5,7 @@ def add_common_args(parser):
     parser.add_argument(
         '--face_detection_path',
         default=defaults.FACE_DETECTION_PATH,
-        help='Path to face-detection-retail openvino model',
+        help='Path to face-detection openvino model',
     )
     parser.add_argument(
         '--head_pose_path',
