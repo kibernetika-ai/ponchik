@@ -21,9 +21,9 @@ from app.notify import notify
 LOG = logging.getLogger(__name__)
 
 
-def video_args(detector, listener, args):
+def video_args(dtct: detector.Detector, listener, args):
     return Video(
-        detector,
+        dtct,
         listener=listener,
         video_source=args.video_source,
         video_async=args.video_async,
@@ -164,6 +164,13 @@ class Video:
                 'person_probs',
                 shape=(0,),
                 dtype=np.float32,
+                maxshape=(None,),
+                chunks=True,
+            )
+            self.h5.create_dataset(
+                'person_frame_nums',
+                shape=(0,),
+                dtype=np.int32,
                 maxshape=(None,),
                 chunks=True,
             )
@@ -426,9 +433,11 @@ class Video:
 
     def process_frame(self, frame, overlays=True):
         original_copy = np.copy(frame)
-        stored = None
+        stored_faces = None
+        stored_persons = None
         if self.h5data:
-            stored = []
+            stored_faces = []
+            stored_persons = []
             if self.h5data_idx >= len(self.h5data['frame_nums']):
                 if not self.h5data_skip:
                     LOG.warning(
@@ -471,11 +480,12 @@ class Video:
 
 
                     # stored_face.detected =
-                stored.append(stored_face)
+                stored_faces.append(stored_face)
                 self.h5data_idx += 1
                 if self.h5data_idx >= len(self.h5data['face_frame_nums']):
                     break
-        face_infos = self.detector.process_frame(frame, overlays=overlays, data=stored)
+            # while self.h5data['frame_nums']
+        face_infos = self.detector.process_frame(frame, overlays=overlays, stored_faces=stored_faces, stored_persons=stored_persons)
         for fi in self.detector.current_frame_faces:
             self.write_h5_if_needed(original_copy, face_info=fi)
         for pi in self.detector.current_frame_persons:
@@ -571,9 +581,11 @@ class Video:
             # resize +1
             self.h5['person_bboxes'].resize((n + 1, 4))
             self.h5['person_probs'].resize((n + 1,))
+            self.h5['person_frame_nums'].resize((n + 1,))
             # Assign value
             self.h5['person_bboxes'][n] = person_info.bbox
             self.h5['person_probs'][n] = person_info.prob
+            self.h5['person_frame_nums'][n] = self.frame_idx
 
 
     def listen(self):

@@ -569,7 +569,7 @@ class Detector(object):
     #     # Return shape [N, 3] as a result
     #     return skips, np.array([yaw, pitch, roll]).transpose()
 
-    def process_frame(self, frame, overlays=True, data: [FaceInfo] = None):
+    def process_frame(self, frame, overlays=True, stored_faces:[FaceInfo]=None, stored_persons:[PersonInfo]=None):
 
         bboxes = []
         poses = []
@@ -580,13 +580,13 @@ class Detector(object):
         # overlay_labels = None
         persons_bboxes = None
         person_bbox = None
-        if data is not None:
+        if stored_faces is not None:
             embeddings = []
             face_probs = []
             labels = []
             overlay_labels = []
             # todo add from h5
-            for d in data:
+            for d in stored_faces:
                 bboxes.append(d.bbox)
                 # poses.append(d.head_pose)
                 embeddings.append(d.embedding)
@@ -628,9 +628,9 @@ class Detector(object):
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
 
-                if data is not None:
+                if stored_faces is not None:
 
-                    face = data[img_idx]
+                    face = stored_faces[img_idx]
 
                 else:
 
@@ -685,9 +685,9 @@ class Detector(object):
 
             faces.append(face)
 
-        persons = []
+        stored_persons = []
         for pbbox in persons_bboxes:
-            persons.append(PersonInfo(bbox=pbbox[:4].astype(int), prob=pbbox[4]))
+            stored_persons.append(PersonInfo(bbox=pbbox[:4].astype(int), prob=pbbox[4]))
 
         # else:
         #     for bbox in bboxes:
@@ -715,7 +715,7 @@ class Detector(object):
         self.detected_names.append(detected_names)
 
         self.current_frame_faces = faces
-        self.current_frame_persons = persons
+        self.current_frame_persons = stored_persons
 
         return faces
 
