@@ -320,7 +320,8 @@ class Video:
             if self.pipeline is not None:
                 self.pipeline.stop()
             if self.h5:
-                LOG.info('Written %s embeddings and related data.' % self.h5['face_embeddings'].shape[0])
+                LOG.info('Written data for %s faces and %s persons.' % (
+                    self.h5['face_bboxes'].shape[0], self.h5['person_bboxes'].shape[0]))
                 self.h5.close()
 
             if self.video_write_to:
