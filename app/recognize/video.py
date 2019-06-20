@@ -103,28 +103,28 @@ class Video:
                 build_h5py_to = os.path.splitext(self.video_source)[0] + '.h5'
             self.h5 = h5py.File(build_h5py_to, 'w')
             self.h5.create_dataset(
-                'embeddings',
+                'face_embeddings',
                 shape=(0, 512),
                 dtype=np.float32,
                 maxshape=(None, 512),
                 chunks=True,
             )
             self.h5.create_dataset(
-                'head_poses',
+                'face_head_poses',
                 shape=(0, 3),
                 dtype=np.float32,
                 maxshape=(None, 3),
                 chunks=True,
             )
             self.h5.create_dataset(
-                'bounding_boxes',
+                'face_bboxes',
                 shape=(0, 4),
                 dtype=np.int32,
                 maxshape=(None, 4),
                 chunks=True,
             )
             self.h5.create_dataset(
-                'person_boxes',
+                'face_person_bboxes',
                 shape=(0, 4),
                 dtype=np.int32,
                 maxshape=(None, 4),
@@ -138,7 +138,7 @@ class Video:
                 chunks=True,
             )
             self.h5.create_dataset(
-                'frame_nums',
+                'face_frame_nums',
                 shape=(0,),
                 dtype=np.int32,
                 maxshape=(None,),
@@ -146,10 +146,24 @@ class Video:
             )
             dt = h5py.special_dtype(vlen=np.dtype('uint8'))
             self.h5.create_dataset(
-                'faces',
+                'face_images',
                 shape=(0,),
                 # dtype="|S10",
                 dtype=dt,
+                maxshape=(None,),
+                chunks=True,
+            )
+            self.h5.create_dataset(
+                'person_bboxes',
+                shape=(0, 4),
+                dtype=np.int32,
+                maxshape=(None, 4),
+                chunks=True,
+            )
+            self.h5.create_dataset(
+                'person_probs',
+                shape=(0,),
+                dtype=np.float32,
                 maxshape=(None,),
                 chunks=True,
             )
@@ -306,7 +320,7 @@ class Video:
             if self.pipeline is not None:
                 self.pipeline.stop()
             if self.h5:
-                LOG.info('Written %s embeddings and related data.' % self.h5['embeddings'].shape[0])
+                LOG.info('Written %s embeddings and related data.' % self.h5['face_embeddings'].shape[0])
                 self.h5.close()
 
             if self.video_write_to:
@@ -420,19 +434,19 @@ class Video:
                         'max h5 data index {} reached, skipped all next frames'.format(len(self.h5data['frame_nums'])))
                     self.h5data_skip = True
                 return
-            while self.h5data['frame_nums'][self.h5data_idx] == self.frame_idx:
+            while self.h5data['face_frame_nums'][self.h5data_idx] == self.frame_idx:
                 stored_face = None
                 if self.postprocess:
                     stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_idx)
                 if stored_face is None:
                     stored_face = detector.FaceInfo()
-                stored_face.bbox=self.h5data['bounding_boxes'][self.h5data_idx]
-                stored_face.person_bbox=self.h5data['person_boxes'][self.h5data_idx]
+                stored_face.bbox=self.h5data['face_bboxes'][self.h5data_idx]
+                stored_face.person_bbox=self.h5data['face_person_bboxes'][self.h5data_idx]
                 if self._h5_box_is_none(stored_face.person_bbox):
                     stored_face.person_bbox = None
-                stored_face.embedding=self.h5data['embeddings'][self.h5data_idx]
+                stored_face.embedding=self.h5data['face_embeddings'][self.h5data_idx]
                 stored_face.face_prob=self.h5data['face_probs'][self.h5data_idx]
-                stored_face.head_pose=self.h5data['head_poses'][self.h5data_idx]
+                stored_face.head_pose=self.h5data['face_head_poses'][self.h5data_idx]
                 stored_face.state = detector.DETECTED
 
                 # stored_face = detector.FaceInfo(
@@ -458,12 +472,14 @@ class Video:
                     # stored_face.detected =
                 stored.append(stored_face)
                 self.h5data_idx += 1
-                if self.h5data_idx >= len(self.h5data['frame_nums']):
+                if self.h5data_idx >= len(self.h5data['face_frame_nums']):
                     break
         face_infos = self.detector.process_frame(frame, overlays=overlays, data=stored)
-        if face_infos is not None:
-            for fi in face_infos:
-                self.write_h5_if_needed(original_copy, fi)
+        for fi in self.detector.current_frame_faces:
+            self.write_h5_if_needed(original_copy, face_info=fi)
+        for pi in self.detector.current_frame_persons:
+            self.write_h5_if_needed(original_copy, person_info=pi)
+
         self.research_processed(face_infos, frame=original_copy)
 
         return face_infos
@@ -521,32 +537,43 @@ class Video:
                     n['action_options'] = self.faces_detected[fd].looks_like.copy()
                 self.notifies_queue.append(n)
 
-    def write_h5_if_needed(self, frame, face_info: detector.FaceInfo):
+    def write_h5_if_needed(self, frame, face_info: detector.FaceInfo = None, person_info: detector.PersonInfo = None):
         if not self.h5:
             return
 
-        img = images.crop_by_box(frame, face_info.bbox)
-        img_bytes = cv2.imencode('.jpg', img)[1].tostring()
+        if face_info is not None:
+            img = images.crop_by_box(frame, face_info.bbox)
+            img_bytes = cv2.imencode('.jpg', img)[1].tostring()
 
-        n = self.h5['embeddings'].shape[0]
+            n = self.h5['face_bboxes'].shape[0]
 
-        # resize +1
-        self.h5['embeddings'].resize((n + 1, 512))  # todo set real shape size
-        self.h5['bounding_boxes'].resize((n + 1, 4))
-        self.h5['person_boxes'].resize((n + 1, 4))
-        self.h5['head_poses'].resize((n + 1, 3))
-        self.h5['faces'].resize((n + 1,))
-        self.h5['face_probs'].resize((n + 1,))
-        self.h5['frame_nums'].resize((n + 1,))
+            # resize +1
+            self.h5['face_bboxes'].resize((n + 1, 4))
+            self.h5['face_embeddings'].resize((n + 1, 512))  # todo set real shape size
+            self.h5['face_person_bboxes'].resize((n + 1, 4))
+            self.h5['face_probs'].resize((n + 1,))
+            self.h5['face_head_poses'].resize((n + 1, 3))
+            self.h5['face_frame_nums'].resize((n + 1,))
+            self.h5['face_images'].resize((n + 1,))
 
-        # Assign value
-        self.h5['embeddings'][n] = face_info.embedding
-        self.h5['bounding_boxes'][n] = face_info.bbox
-        self.h5['person_boxes'][n] = self._h5_box_none() if face_info.person_bbox is None else face_info.person_bbox
-        self.h5['face_probs'][n] = face_info.face_prob
-        self.h5['head_poses'][n] = face_info.head_pose
-        self.h5['frame_nums'][n] = self.frame_idx
-        self.h5['faces'][n] = np.fromstring(img_bytes, dtype='uint8')
+            # Assign value
+            self.h5['face_bboxes'][n] = face_info.bbox
+            self.h5['face_embeddings'][n] = face_info.embedding
+            self.h5['face_person_bboxes'][n] = self._h5_box_none() if face_info.person_bbox is None else face_info.person_bbox
+            self.h5['face_probs'][n] = face_info.face_prob
+            self.h5['face_head_poses'][n] = face_info.head_pose
+            self.h5['face_frame_nums'][n] = self.frame_idx
+            self.h5['face_images'][n] = np.fromstring(img_bytes, dtype='uint8')
+
+        if person_info is not None:
+            n = self.h5['person_bboxes'].shape[0]
+            # resize +1
+            self.h5['person_bboxes'].resize((n + 1, 4))
+            self.h5['person_probs'].resize((n + 1,))
+            # Assign value
+            self.h5['person_bboxes'][n] = person_info.bbox
+            self.h5['person_probs'][n] = person_info.prob
+
 
     def listen(self):
         while True:

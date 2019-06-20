@@ -158,6 +158,16 @@ class FaceInfo:
         return self.state == DETECTED
 
 
+class PersonInfo:
+    def __init__(
+            self,
+            bbox=None,
+            prob=0,
+
+    ):
+        self.bbox = bbox
+        self.prob = prob
+
 class Detector(object):
     def __init__(
             self,
@@ -206,6 +216,9 @@ class Detector(object):
         self.process_not_detected = process_not_detected
         self.not_detected_embs = []
         self.detected_names = []
+
+        self.current_frame_faces = []
+        self.current_frame_persons = []
 
     def init(self):
         if self._initialized:
@@ -672,6 +685,10 @@ class Detector(object):
 
             faces.append(face)
 
+        persons = []
+        for pbbox in persons_bboxes:
+            persons.append(PersonInfo(bbox=pbbox[:4].astype(int), prob=pbbox[4]))
+
         # else:
         #     for bbox in bboxes:
         #         face = FaceInfo(
@@ -696,6 +713,9 @@ class Detector(object):
             self.not_detected_embs.append(not_detected_embs)
 
         self.detected_names.append(detected_names)
+
+        self.current_frame_faces = faces
+        self.current_frame_persons = persons
 
         return faces
 
