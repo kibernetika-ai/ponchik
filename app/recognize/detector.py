@@ -97,8 +97,8 @@ def detector_args(args):
             from ml_serving.drivers import driver
             tools.print_fun("Load PERSON DETECTION model %s" % args.person_detection_path)
             drv = driver.load_driver('openvino')
-            face_driver = drv()
-            face_driver.load_model(args.person_detection_path)
+            person_driver = drv()
+            person_driver.load_model(args.person_detection_path)
         else:
             tools.print_fun("person-detection openvino model is not found, skipped")
 

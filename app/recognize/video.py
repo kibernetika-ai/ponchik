@@ -51,7 +51,7 @@ def video_args(detector, listener, args):
 
 
 class Video:
-    def __init__(self, detector,
+    def __init__(self, detector: detector.Detector,
                  listener=None, video_source=None, video_async=False,
                  video_max_width=None, video_max_height=None, video_each_of_frame=1,
                  video_export_srt=False, video_export_srt_file=None,
