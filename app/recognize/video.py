@@ -285,7 +285,8 @@ class Video:
         try:
             processed_frame_idx = 0
             self.frame_idx = 0
-            self.h5data_idx = 0
+            self.h5data_face_idx = 0
+            self.h5data_person_idx = 0
             while True:
                 # Capture frame-by-frame
                 self.get_frame()
@@ -438,25 +439,25 @@ class Video:
         if self.h5data:
             stored_faces = []
             stored_persons = []
-            if self.h5data_idx >= len(self.h5data['frame_nums']):
+            if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
                 if not self.h5data_skip:
                     LOG.warning(
-                        'max h5 data index {} reached, skipped all next frames'.format(len(self.h5data['frame_nums'])))
+                        'max h5 data index {} reached, skipped all next frames'.format(len(self.h5data['face_frame_nums'])))
                     self.h5data_skip = True
                 return
-            while self.h5data['face_frame_nums'][self.h5data_idx] == self.frame_idx:
+            while self.h5data['face_frame_nums'][self.h5data_face_idx] == self.frame_idx:
                 stored_face = None
                 if self.postprocess:
-                    stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_idx)
+                    stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_face_idx)
                 if stored_face is None:
                     stored_face = detector.FaceInfo()
-                stored_face.bbox=self.h5data['face_bboxes'][self.h5data_idx]
-                stored_face.person_bbox=self.h5data['face_person_bboxes'][self.h5data_idx]
+                stored_face.bbox=self.h5data['face_bboxes'][self.h5data_face_idx]
+                stored_face.person_bbox=self.h5data['face_person_bboxes'][self.h5data_face_idx]
                 if self._h5_box_is_none(stored_face.person_bbox):
                     stored_face.person_bbox = None
-                stored_face.embedding=self.h5data['face_embeddings'][self.h5data_idx]
-                stored_face.face_prob=self.h5data['face_probs'][self.h5data_idx]
-                stored_face.head_pose=self.h5data['face_head_poses'][self.h5data_idx]
+                stored_face.embedding=self.h5data['face_embeddings'][self.h5data_face_idx]
+                stored_face.face_prob=self.h5data['face_probs'][self.h5data_face_idx]
+                stored_face.head_pose=self.h5data['face_head_poses'][self.h5data_face_idx]
                 stored_face.state = detector.DETECTED
 
                 # stored_face = detector.FaceInfo(
@@ -481,19 +482,29 @@ class Video:
 
                     # stored_face.detected =
                 stored_faces.append(stored_face)
-                self.h5data_idx += 1
-                if self.h5data_idx >= len(self.h5data['face_frame_nums']):
+                self.h5data_face_idx += 1
+                if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
                     break
-            # while self.h5data['frame_nums']
-        face_infos = self.detector.process_frame(frame, overlays=overlays, stored_faces=stored_faces, stored_persons=stored_persons)
+
+            while self.h5data['person_frame_nums'][self.h5data_person_idx] == self.frame_idx:
+                stored_person = detector.PersonInfo()
+                stored_person.bbox = self.h5data['person_bboxes'][self.h5data_person_idx]
+                stored_person.prob = self.h5data['person_probs'][self.h5data_person_idx]
+                stored_persons.append(stored_person)
+                self.h5data_person_idx += 1
+                if self.h5data_person_idx >= len(self.h5data['person_frame_nums']):
+                    break
+
+        self.detector.process_frame(frame, overlays=overlays, stored_faces=stored_faces, stored_persons=stored_persons)
+
         for fi in self.detector.current_frame_faces:
             self.write_h5_if_needed(original_copy, face_info=fi)
         for pi in self.detector.current_frame_persons:
             self.write_h5_if_needed(original_copy, person_info=pi)
 
-        self.research_processed(face_infos, frame=original_copy)
+        self.research_processed(self.detector.current_frame_faces, frame=original_copy)
 
-        return face_infos
+        return self.detector.current_frame_faces
 
     def _h5_box_is_none(self, box):
         return all(box == self._h5_box_none())

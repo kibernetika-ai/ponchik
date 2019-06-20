@@ -17,10 +17,10 @@ class PostProcessor:
 
         self.detector = detector
 
-        self.head_poses = data['head_poses']
-        self.frame_nums = data['frame_nums']
-        self.bounding_boxes = data['bounding_boxes']
-        self.embeddings = data['embeddings']
+        self.head_poses = data['face_head_poses']
+        self.frame_nums = data['face_frame_nums']
+        self.bounding_boxes = data['face_bboxes']
+        self.embeddings = data['face_embeddings']
 
         self.data_attrs = data.attrs
 

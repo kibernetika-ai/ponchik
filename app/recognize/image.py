@@ -1,18 +1,16 @@
 import os
+from app.recognize import detector
 
 import cv2
 
 
-def image_args(detector, args):
-    return Image(
-        detector,
-        image_source=args.image_source,
-    )
+def image_args(dtct: detector.Detector, args):
+    return Image(dtct, image_source=args.image_source)
 
 
 class Image:
-    def __init__(self, detector, image_source=None):
-        self.detector = detector
+    def __init__(self, dtct: detector.Detector, image_source=None):
+        self.detector: detector.Detector = dtct
         self.image_source = image_source
 
     def process(self):

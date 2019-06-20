@@ -578,8 +578,11 @@ class Detector(object):
         face_probs = None
         # labels = None
         # overlay_labels = None
-        persons_bboxes = None
+        persons_bboxes = []
+        persons_probs = []
+
         person_bbox = None
+
         if stored_faces is not None:
             embeddings = []
             face_probs = []
@@ -598,7 +601,21 @@ class Detector(object):
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
             poses = self.wrong_pose_indices(frame, bboxes)
             imgs = images.get_images(frame, bboxes, normalization=self.normalization)
-            persons_bboxes = self.detect_persons(frame, self.person_threshold)
+
+        if stored_persons is not None:
+            persons_bboxes = []
+            persons_probs = []
+            for d in stored_persons:
+                persons_bboxes.append(d.bbox)
+                persons_probs.append(d.prob)
+        else:
+            persons_bboxes_raw = self.detect_persons(frame, self.person_threshold)
+            if persons_bboxes_raw:
+                persons_bboxes = persons_bboxes_raw[:4].astype(int)
+                persons_probs = persons_bboxes_raw[4]
+                stored_persons = []
+                for i, b in enumerate(persons_bboxes):
+                    stored_persons.append(PersonInfo(bbox=b, prob=persons_probs[i]))
 
         skips = self.wrong_pose_skips(poses)
         # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
@@ -685,9 +702,9 @@ class Detector(object):
 
             faces.append(face)
 
-        stored_persons = []
-        for pbbox in persons_bboxes:
-            stored_persons.append(PersonInfo(bbox=pbbox[:4].astype(int), prob=pbbox[4]))
+        persons = []
+        for i, pbbox in enumerate(persons_bboxes):
+            persons.append(PersonInfo(bbox=pbbox, prob=persons_bboxes[i]))
 
         # else:
         #     for bbox in bboxes:
@@ -707,7 +724,7 @@ class Detector(object):
         #         faces.append(face)
 
         if overlays:
-            self.add_overlays(frame, faces)
+            self.add_overlays(frame, faces=faces, persons=persons)
 
         if self.process_not_detected:
             self.not_detected_embs.append(not_detected_embs)
@@ -715,17 +732,30 @@ class Detector(object):
         self.detected_names.append(detected_names)
 
         self.current_frame_faces = faces
-        self.current_frame_persons = stored_persons
+        self.current_frame_persons = persons
 
         return faces
 
-    def add_overlays(self, frame, faces: [FaceInfo]):
-        if not faces:
-            return
-        for face in faces:
-            self.add_overlay(frame, face)
+    def add_overlays(self, frame, faces:[FaceInfo]=None, persons:[PersonInfo]=None):
+        if persons:
+            for person in persons:
+                self.add_person_overlay(frame, person)
+        if faces:
+            for face in faces:
+                self.add_face_overlay(frame, face)
 
-    def add_overlay(self, frame, face, align_to_right=True):
+    def add_person_overlay(self, frame, person:PersonInfo):
+        font_face, font_scale, thickness = Detector._get_text_props(frame)
+        if person.bbox is not None:
+            pbbox = person.bbox
+            cv2.rectangle(
+                frame,
+                (pbbox[0], pbbox[1]), (pbbox[2], pbbox[3]),  # (left, top), (right, bottom)
+                (0, 80, 0),
+                thickness,
+            )
+
+    def add_face_overlay(self, frame, face:FaceInfo, align_to_right=True):
         """Add box and label overlays on frame
         :param frame: frame in BGR channels order
         :param face: Face info - box, label, embedding, pose etc...
