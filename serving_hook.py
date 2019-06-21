@@ -50,6 +50,7 @@ PARAMS = {
     'slack_channel': '',
     'slack_server': '',
     'badge_detector': '',
+    'normalization': None,
     'fixed_normalization': False,
 
     'min_face_size': defaults.MIN_FACE_SIZE,
