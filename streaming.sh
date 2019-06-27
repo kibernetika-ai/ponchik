@@ -166,5 +166,5 @@ kstreaming --driver openvino --model-path $face_detection_path --driver openvino
   --initial-stream live --input-name input --output-name output -o skip_frames=true \
  --rtmp-backend $backend -o enable_log=false -o inference_fps=$inference_fps $pull_model_args \
  -o slack_token="$slack_token" -o slack_channel="$slack_channel" -o slack_server="$slack_server" \
- $multi_detect_args $raw_args --http-enable
+ $multi_detect_args $raw_args --http-enable --disable-predict-log
 
