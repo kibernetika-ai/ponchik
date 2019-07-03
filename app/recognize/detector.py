@@ -39,9 +39,15 @@ def add_detector_args(parser):
         help='Threshold for detecting faces',
     )
     parser.add_argument(
+        '--person_detection_driver',
+        default=defaults.PERSON_DETECTION_DRIVER,
+        choices=[defaults.PERSON_DETECTION_DRIVER, "tensorflow"],
+        help='person-detection driver',
+    )
+    parser.add_argument(
         '--person_detection_path',
         default=defaults.PERSON_DETECTION_PATH,
-        help='Path to person-detection openvino model',
+        help='Path to person-detection model',
     )
     parser.add_argument(
         '--person_threshold',
@@ -93,14 +99,16 @@ def detector_args(args):
 
     person_driver = None
     if args.person_detection_path is not None:
-        if os.path.isfile(args.person_detection_path):
+        if args.person_detection_driver == "openvino" and os.path.isfile(args.person_detection_path) \
+                or args.person_detection_driver == "tensorflow" and os.path.isdir(args.person_detection_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load PERSON DETECTION model %s" % args.person_detection_path)
-            drv = driver.load_driver('openvino')
+            tools.print_fun("Load PERSON DETECTION model %s (driver %s)" %
+                            (args.person_detection_path, args.person_detection_driver))
+            drv = driver.load_driver(args.person_detection_driver)
             person_driver = drv()
             person_driver.load_model(args.person_detection_path)
         else:
-            tools.print_fun("person-detection openvino model is not found, skipped")
+            tools.print_fun("person-detection model is not found, skipped")
 
     multi_detect = None
     if args.multi_detect:
@@ -315,16 +323,23 @@ class Detector(object):
         return boxes
 
     def _detect_faces(self, frame, threshold=0.5, offset=(0, 0)):
-        boxes = self._detect(self.face_driver, frame, threshold, offset)
+        boxes = self._detect_openvino(self.face_driver, frame, threshold, offset)
         if boxes is not None:
             boxes = boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
         return boxes
 
     def detect_persons(self, frame, threshold=0.5):
-        return self._detect(self.person_driver, frame, threshold)
+        if self.person_driver is None:
+            return None
+        elif self.person_driver.driver_name == "openvino":
+            return self._detect_openvino(self.person_driver, frame, threshold)
+        elif self.person_driver.driver_name == "tensorflow":
+            return self._detect_tensorflow(self.person_driver, frame, threshold)
+        else:
+            return None
 
     @staticmethod
-    def _detect(drv, frame, threshold=0.5, offset=(0, 0)):
+    def _detect_openvino(drv, frame, threshold=0.5, offset=(0, 0)):
         if drv is None:
             return None
         # Get boxes shaped [N, 5]:
@@ -348,6 +363,31 @@ class Detector(object):
         boxes[:, 1] = boxes[:, 1] * frame.shape[0] + offset[1]
         boxes[:, 3] = boxes[:, 3] * frame.shape[0] + offset[1]
         return boxes
+
+    @staticmethod
+    def _detect_tensorflow(drv, frame, threshold=0.5):
+        input_name, input_shape = list(drv.inputs.items())[0]
+        inference_frame = np.expand_dims(frame, axis=0)
+        outputs = drv.predict({input_name: inference_frame})
+        boxes = outputs["detection_boxes"].copy().reshape([-1, 4])
+        scores = outputs["detection_scores"].copy().reshape([-1])
+        classes = np.int32((outputs["detection_classes"].copy())).reshape([-1])
+        scores = scores[np.where(scores > threshold)]
+        boxes = boxes[:len(scores)]
+        classes = classes[:len(scores)]
+        boxes = boxes[classes == 1]
+        scores = scores[classes == 1]
+        boxes[:, 0] *= frame.shape[0]
+        boxes[:, 1] *= frame.shape[1]
+        boxes[:, 2] *= frame.shape[0]
+        boxes[:, 3] *= frame.shape[1]
+        boxes[:, [0, 1, 2, 3]] = boxes[:, [1, 0, 3, 2]].astype(int)
+
+        confidence = np.expand_dims(scores, axis=0).transpose()
+        boxes = np.concatenate((boxes, confidence), axis=1)
+
+        return boxes
+
 
     def inference_facenet(self, img):
         outputs = self.facenet_driver.predict({list(self.facenet_driver.inputs)[0]: img})
@@ -610,9 +650,9 @@ class Detector(object):
                 persons_probs.append(d.prob)
         else:
             persons_bboxes_raw = self.detect_persons(frame, self.person_threshold)
-            if persons_bboxes_raw:
-                persons_bboxes = persons_bboxes_raw[:4].astype(int)
-                persons_probs = persons_bboxes_raw[4]
+            if persons_bboxes_raw is not None:
+                persons_bboxes = persons_bboxes_raw[:, :4].astype(int)
+                persons_probs = persons_bboxes_raw[:, 4]
                 stored_persons = []
                 for i, b in enumerate(persons_bboxes):
                     stored_persons.append(PersonInfo(bbox=b, prob=persons_probs[i]))
@@ -704,7 +744,7 @@ class Detector(object):
 
         persons = []
         for i, pbbox in enumerate(persons_bboxes):
-            persons.append(PersonInfo(bbox=pbbox, prob=persons_bboxes[i]))
+            persons.append(PersonInfo(bbox=pbbox, prob=persons_probs[i]))
 
         # else:
         #     for bbox in bboxes:

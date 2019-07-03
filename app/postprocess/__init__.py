@@ -28,7 +28,6 @@ class PostProcessor:
         self.frame_sequences = None
 
         self.frame_sequences_faces = None
-        self.sequences_frames_recognized = None
         self.frame_sequences_faces_not_recognized = None
         self.frame_sequence_recognition_result = None
         self.frame_sequence_cluster_result = None
@@ -206,7 +205,7 @@ class PostProcessor:
                     max_info = info[0]
             face_class = max_info if max_info_value > total_info_value / 2 else None
             if face_class is not None:
-                face_class.overlay_label = 'Seq1 {}\n{}'.format(i, face_class.overlay_label)
+                face_class.overlay_label = 'Seq.1 {}\n{}'.format(i, face_class.overlay_label)
             self.frame_sequence_recognition_result.append(face_class)
         LOG.info('recognized sequences: {}, not recognized: {}'.format(
             len([r for r in self.frame_sequence_recognition_result if r is not None]),
@@ -319,9 +318,9 @@ class PostProcessor:
         if sequence_idx is not None:
             res = self.frame_sequence_recognition_result[sequence_idx]
             if res is None:
-                return detector.FaceInfo(overlay_label='Seq3 {}'.format(sequence_idx))
+                return detector.FaceInfo(overlay_label='Seq.3 {}'.format(sequence_idx))
             return res
-        return detector.FaceInfo(overlay_label='Seq2 {}'.format(sequence_idx))
+        return detector.FaceInfo(overlay_label='Seq.2 {}'.format(sequence_idx))
 
     def export_srt(self, srt_file):
 
