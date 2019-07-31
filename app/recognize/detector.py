@@ -16,7 +16,6 @@ from app.tools import images, add_normalization_args
 from app.tools import utils
 from app import tools
 
-
 DETECTED = 1
 NOT_DETECTED = 2
 WRONG_FACE_POS = 3
@@ -119,7 +118,7 @@ def detector_args(args):
         facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
         person_driver=person_driver,
-        classifiers_dir= None if args.without_classifiers else args.classifiers_dir,
+        classifiers_dir=None if args.without_classifiers else args.classifiers_dir,
         threshold=args.threshold,
         person_threshold=args.person_threshold,
         min_face_size=args.min_face_size,
@@ -175,6 +174,7 @@ class PersonInfo:
     ):
         self.bbox = bbox
         self.prob = prob
+
 
 class Detector(object):
     def __init__(
@@ -388,13 +388,13 @@ class Detector(object):
 
         return boxes
 
-
     def inference_facenet(self, img):
         outputs = self.facenet_driver.predict({list(self.facenet_driver.inputs)[0]: img})
         output = outputs[list(self.facenet_driver.outputs)[0]]
         return output
 
-    def process_output(self, output, bbox, person_bbox=None, face_prob=None, label='', overlay_label='', use_classifiers=True):
+    def process_output(self, output, bbox, person_bbox=None, face_prob=None, label='', overlay_label='',
+                       use_classifiers=True):
 
         if face_prob is None:
             face_prob = bbox[4]
@@ -555,6 +555,7 @@ class Detector(object):
             classes_meta=classes_meta,
             meta=meta,
             looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
+            embedding=output,
         )
 
     def wrong_pose_indices(self, bgr_frame, boxes):
@@ -609,8 +610,9 @@ class Detector(object):
     #     # Return shape [N, 3] as a result
     #     return skips, np.array([yaw, pitch, roll]).transpose()
 
-    def process_frame(self, frame, overlays=True, stored_faces:[FaceInfo]=None, stored_persons:[PersonInfo]=None):
-
+    def process_frame(self, frame, overlays=True,
+                      stored_faces: [FaceInfo] = None,
+                      stored_persons: [PersonInfo] = None):
         bboxes = []
         poses = []
         imgs = []
@@ -667,7 +669,6 @@ class Detector(object):
         # if self.use_classifiers:
 
         for img_idx, img in enumerate(imgs):
-
             # set face probability from saved data
             face_prob = face_probs[img_idx] if face_probs else None
 
@@ -686,11 +687,8 @@ class Detector(object):
                 # output = output[facenet_output]
 
                 if stored_faces is not None:
-
                     face = stored_faces[img_idx]
-
                 else:
-
                     person_bbox = None
                     if persons_bboxes is not None:
                         for pb in persons_bboxes:
@@ -720,7 +718,6 @@ class Detector(object):
                         not_detected_embs.append(output)
 
             else:
-
                 face = FaceInfo(
                     bbox=bboxes[img_idx][:4].astype(int),
                     person_bbox=person_bbox,
@@ -776,7 +773,7 @@ class Detector(object):
 
         return faces
 
-    def add_overlays(self, frame, faces:[FaceInfo]=None, persons:[PersonInfo]=None):
+    def add_overlays(self, frame, faces: [FaceInfo] = None, persons: [PersonInfo] = None):
         if persons:
             for person in persons:
                 self.add_person_overlay(frame, person)
@@ -784,7 +781,7 @@ class Detector(object):
             for face in faces:
                 self.add_face_overlay(frame, face)
 
-    def add_person_overlay(self, frame, person:PersonInfo):
+    def add_person_overlay(self, frame, person: PersonInfo):
         font_face, font_scale, thickness = Detector._get_text_props(frame)
         if person.bbox is not None:
             pbbox = person.bbox
@@ -795,7 +792,7 @@ class Detector(object):
                 thickness,
             )
 
-    def add_face_overlay(self, frame, face:FaceInfo, align_to_right=True):
+    def add_face_overlay(self, frame, face: FaceInfo, align_to_right=True):
         """Add box and label overlays on frame
         :param frame: frame in BGR channels order
         :param face: Face info - box, label, embedding, pose etc...
@@ -834,7 +831,7 @@ class Detector(object):
                 str_w = max(str_w, lw)
                 str_h = max(str_h, lh)
                 widths.append(lw)
-            str_h = int(str_h * 1.6) # line height
+            str_h = int(str_h * 1.6)  # line height
 
             to_right = bbox[0] + str_w > frame.shape[1] - font_inner_padding_w
             top = max(str_h, bbox[1] - int((len(strs) - 0.5) * str_h))

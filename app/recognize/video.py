@@ -6,17 +6,17 @@ from threading import Thread
 import cv2
 import h5py
 import numpy as np
-from datetime import timedelta
+import datetime
+from scipy.spatial import distance
 
 from app.postprocess import PostProcessor
 from app.recognize import defaults
 from app.recognize.clusterizator import Clusterizator
-from app.tools import images, print_fun
+from app.tools import images
 from app.tools import sound
 from app.recognize.video_notify import InVideoDetected
 from app.recognize import detector
 from app.notify import notify
-
 
 LOG = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class Video:
                  video_write_to=None, video_start_sec=None,
                  postprocess=False, postprocess_clusterize_unrecognized=False,
                  postprocess_export_srt=False, postprocess_export_srt_to=None,
-         ):
+                 ):
         self.detector = detector
         self.video_source = video_source
         self.video_source_is_file = self.check_video_source_is_file()
@@ -94,6 +94,11 @@ class Video:
         self.video_export_srt_file = video_export_srt_file
         self.video_no_output = video_no_output
         self.h5 = None
+
+        self.saved_faces = []
+        self.save_faces = True
+        self.postprocess_check = None
+
         if build_h5py or build_h5py_to:
             if video_h5py:
                 raise ValueError('unable to read and write h5 data at once')
@@ -205,7 +210,7 @@ class Video:
                 self.postprocess.run()
                 if postprocess_export_srt:
                     if postprocess_export_srt_to is None:
-                        postprocess_export_srt_to = os.path.splitext(self.video_source)[0]+'.srt'
+                        postprocess_export_srt_to = os.path.splitext(self.video_source)[0] + '.srt'
                     self.postprocess.export_srt(postprocess_export_srt_to)
 
     def start_notify(self):
@@ -306,7 +311,7 @@ class Video:
                         video_writer.write(frame)
 
                     processed_frame_idx += 1
-                    t = timedelta(
+                    t = datetime.timedelta(
                         milliseconds=self.frame_idx / self.fps * 1000) if self.fps else '-'
 
                     if processed_frame_idx % 100 == 0:
@@ -377,7 +382,7 @@ class Video:
             cur_sub, cur_sub_start, cur_sub_i = None, None, None
             ts = None
             for i in range(len(subs_strs)):
-                ts = timedelta(milliseconds=(i / self.fps) * 1000 * self.video_each_of_frame)
+                ts = datetime.timedelta(milliseconds=(i / self.fps) * 1000 * self.video_each_of_frame)
                 sub = subs_strs[i]
                 prev_sub = cur_sub
                 if sub != cur_sub or (sub is not None and sub != prev_sub):
@@ -442,7 +447,8 @@ class Video:
             if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
                 if not self.h5data_skip:
                     LOG.warning(
-                        'max h5 data index {} reached, skipped all next frames'.format(len(self.h5data['face_frame_nums'])))
+                        'max h5 data index {} reached, skipped all next frames'.format(
+                            len(self.h5data['face_frame_nums'])))
                     self.h5data_skip = True
                 return
             while self.h5data['face_frame_nums'][self.h5data_face_idx] == self.frame_idx:
@@ -451,13 +457,13 @@ class Video:
                     stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_face_idx)
                 if stored_face is None:
                     stored_face = detector.FaceInfo()
-                stored_face.bbox=self.h5data['face_bboxes'][self.h5data_face_idx]
-                stored_face.person_bbox=self.h5data['face_person_bboxes'][self.h5data_face_idx]
+                stored_face.bbox = self.h5data['face_bboxes'][self.h5data_face_idx]
+                stored_face.person_bbox = self.h5data['face_person_bboxes'][self.h5data_face_idx]
                 if self._h5_box_is_none(stored_face.person_bbox):
                     stored_face.person_bbox = None
-                stored_face.embedding=self.h5data['face_embeddings'][self.h5data_face_idx]
-                stored_face.face_prob=self.h5data['face_probs'][self.h5data_face_idx]
-                stored_face.head_pose=self.h5data['face_head_poses'][self.h5data_face_idx]
+                stored_face.embedding = self.h5data['face_embeddings'][self.h5data_face_idx]
+                stored_face.face_prob = self.h5data['face_probs'][self.h5data_face_idx]
+                stored_face.head_pose = self.h5data['face_head_poses'][self.h5data_face_idx]
                 stored_face.state = detector.DETECTED
 
                 # stored_face = detector.FaceInfo(
@@ -471,16 +477,15 @@ class Video:
                 #     if sequence_face is not None:
                 #         stored_face.label = sequence_face.label
                 #         stored_face.overlay_label = sequence_face.overlay_label
-                    # lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
-                    # stored_face.label = lbl
-                    # stored_face.overlay_label = lbl
-                    # stored_face.classes = [lbl.replace(' ', '_')]
-                    # if dtctd == self.postprocess.RECOGNIZED:
-                    #     stored_face.state = detector.DETECTED
-                    # elif dtctd == self.postprocess.DETECTED:
+                # lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
+                # stored_face.label = lbl
+                # stored_face.overlay_label = lbl
+                # stored_face.classes = [lbl.replace(' ', '_')]
+                # if dtctd == self.postprocess.RECOGNIZED:
+                #     stored_face.state = detector.DETECTED
+                # elif dtctd == self.postprocess.DETECTED:
 
-
-                    # stored_face.detected =
+                # stored_face.detected =
                 stored_faces.append(stored_face)
                 self.h5data_face_idx += 1
                 if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
@@ -510,7 +515,59 @@ class Video:
         return all(box == self._h5_box_none())
 
     def _h5_box_none(self):
-        return np.array([0,0,0,0])
+        return np.array([0, 0, 0, 0])
+
+    def get_saved_faces(self):
+        return self.saved_faces
+
+    def save_face_infos(self, face_infos: [detector.FaceInfo]):
+        self.saved_faces = face_infos
+
+    def postprocess_notify(self, face_infos: [detector.FaceInfo], frame=None, time=None):
+        distance_threshold = .4
+        if frame is None:
+            frame = self.frame
+
+        if time and self.postprocess_check:
+            if time - self.postprocess_check < 1.:
+                return
+
+        # Pick up not detected ones
+        not_detected = [fi for fi in face_infos if fi.state == detector.NOT_DETECTED]
+
+        # Check if there are embeddings like those which are already saved
+        seen_before = []
+        far_embeddings = []
+        saved_faces = self.get_saved_faces()
+        for nd in not_detected:
+            if nd.embedding is None:
+                continue
+
+            if saved_faces:
+                found = False
+                for saved in saved_faces:
+                    if distance.cosine(nd.embedding, saved.embedding) <= distance_threshold:
+                        seen_before.append(saved)
+                        found = True
+                        break
+
+                if not found:
+                    if not nd.label:
+                        nd.label = 'seen before [id=%s]' % (len(far_embeddings) + len(saved_faces) + 1)
+                    far_embeddings.append(nd)
+            else:
+                if not nd.label:
+                    nd.label = 'seen before [id=%s]' % (len(far_embeddings) + 1)
+                far_embeddings.append(nd)
+
+        # Save unknown/far embeddings
+        saved_faces += far_embeddings
+        self.save_face_infos(saved_faces)
+        # Notify about close embeddings
+        for seen in seen_before:
+            notify(name=seen.label)
+
+        self.postprocess_check = time
 
     def research_processed(self, face_infos: [detector.FaceInfo], frame=None):
         if frame is None:
@@ -581,7 +638,8 @@ class Video:
             # Assign value
             self.h5['face_bboxes'][n] = face_info.bbox
             self.h5['face_embeddings'][n] = face_info.embedding
-            self.h5['face_person_bboxes'][n] = self._h5_box_none() if face_info.person_bbox is None else face_info.person_bbox
+            self.h5['face_person_bboxes'][
+                n] = self._h5_box_none() if face_info.person_bbox is None else face_info.person_bbox
             self.h5['face_probs'][n] = face_info.face_prob
             self.h5['face_head_poses'][n] = face_info.head_pose
             self.h5['face_frame_nums'][n] = self.frame_idx
@@ -597,7 +655,6 @@ class Video:
             self.h5['person_bboxes'][n] = person_info.bbox
             self.h5['person_probs'][n] = person_info.prob
             self.h5['person_frame_nums'][n] = self.frame_idx
-
 
     def listen(self):
         while True:

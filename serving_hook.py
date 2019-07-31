@@ -49,6 +49,7 @@ PARAMS = {
     'slack_token': '',
     'slack_channel': '',
     'slack_server': '',
+    'notify_log': False,
     'badge_detector': '',
     'normalization': defaults.NORMALIZATION,
     'fixed_normalization': False,
@@ -94,6 +95,7 @@ def init_hook(**kwargs):
         ]
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
+    PARAMS['notify_log'] = _boolean_string(PARAMS['notify_log'])
     PARAMS['fixed_normalization'] = _boolean_string(PARAMS['fixed_normalization'])
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
@@ -253,8 +255,10 @@ def process_recognize(inputs, ctx, **kwargs):
 
     face_infos = processing.process_frame(bgr_frame, overlays=True)
     faces_bbox = [fi.bbox for fi in face_infos]
+
     if badge_detector is not None:
         badge_detector.process(frame[:, :, :].copy(), faces_bbox)
+
     ret = {
         'boxes': np.array(faces_bbox),
         'labels': np.array([processed.label for processed in face_infos], dtype=np.str),
@@ -262,6 +266,8 @@ def process_recognize(inputs, ctx, **kwargs):
 
     if PARAMS['enable_log']:
         log_recognition(frame, ret, **kwargs)
+
+    processing.postprocess_notify(face_infos, time=time.time())
 
     if PARAMS['need_table']:
         table_result = build_table(frame, face_infos)
@@ -421,6 +427,8 @@ def _load_nets(ctx):
             PARAMS['slack_channel'],
             PARAMS['slack_server']
         )
+    elif PARAMS['notify_log']:
+        notify.notifier = notify.NotifyPrint
 
     global processing
     processing = video.Video(
