@@ -48,8 +48,6 @@ def main():
         action='store_true',
     )
     args = parser.parse_args()
-    print(args)
-    exit(1)
     if not args.skip_align:
         al = aligner_args(args)
         al.align(args.align_images_limit)
