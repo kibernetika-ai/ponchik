@@ -131,6 +131,12 @@ def detector_args(args):
 
 
 class FaceInfo:
+    __slots__ = [
+        'bbox', 'person_bbox', 'state', 'label', 'overlay_label',
+        'prob', 'face_prob', 'classes', 'classes_meta', 'meta',
+        'looks_like', 'embedding', 'head_pose', 'last_seen'
+    ]
+
     def __init__(
             self,
             bbox=None,
@@ -160,6 +166,7 @@ class FaceInfo:
         self.looks_like = looks_like if looks_like else []
         self.embedding = embedding
         self.head_pose = head_pose
+        self.last_seen = None
 
     def is_detected(self):
         return self.state == DETECTED

@@ -17,6 +17,9 @@ BATCH_SIZE = 10
 DEVICE = "CPU"
 CAMERA_DEVICE = "CV"
 THRESHOLD = .5
+DISTANCE_THRESHOLD = .3
+NOTIFY_THRESHOLD = 60  # 60 sec
+EMBEDDING_EXPIRATION_TIME = 3 * 60  # 30 min
 HEAD_POSE_THRESHOLDS = [37., 35., 25.]
 # FACE_DETECTION_PATH = (
 #     '/opt/intel/openvino/deployment_tools/intel_models/'

@@ -523,51 +523,68 @@ class Video:
     def save_face_infos(self, face_infos: [detector.FaceInfo]):
         self.saved_faces = face_infos
 
-    def postprocess_notify(self, face_infos: [detector.FaceInfo], frame=None, time=None):
-        distance_threshold = .4
+    def postprocess_notify(self, face_infos: [detector.FaceInfo], frame=None):
+        cur_time = time.time()
         if frame is None:
             frame = self.frame
 
-        if time and self.postprocess_check:
-            if time - self.postprocess_check < 1.:
+        if self.postprocess_check:
+            if cur_time - self.postprocess_check < defaults.NOT_DETECTED_CHECK_PERIOD:
                 return
 
         # Pick up not detected ones
         not_detected = [fi for fi in face_infos if fi.state == detector.NOT_DETECTED]
 
         # Check if there are embeddings like those which are already saved
-        seen_before = []
+        notify_list = []
         far_embeddings = []
         saved_faces = self.get_saved_faces()
         for nd in not_detected:
             if nd.embedding is None:
                 continue
 
+            found = False
             if saved_faces:
-                found = False
-                for saved in saved_faces:
-                    if distance.cosine(nd.embedding, saved.embedding) <= distance_threshold:
-                        seen_before.append(saved)
+                for i in range(len(saved_faces)):
+                    if distance.cosine(nd.embedding, saved_faces[i].embedding) <= defaults.DISTANCE_THRESHOLD:
+                        if cur_time - saved_faces[i].last_seen >= defaults.NOTIFY_THRESHOLD:
+                            # If face was away for 1 min and then come back, generate notification.
+                            saved_faces[i].overlay_label = (
+                                'Person [id={}] came back after {} minutes'.format(
+                                    saved_faces[i].label, int(round((cur_time - saved_faces[i].last_seen) / 60))
+                                )
+                            )
+                            notify_list.append(saved_faces[i])
+
+                        # Update last seen
+                        saved_faces[i].last_seen = cur_time
                         found = True
                         break
 
-                if not found:
-                    if not nd.label:
-                        nd.label = 'seen before [id=%s]' % (len(far_embeddings) + len(saved_faces) + 1)
-                    far_embeddings.append(nd)
-            else:
+            if not saved_faces or not found:
                 if not nd.label:
-                    nd.label = 'seen before [id=%s]' % (len(far_embeddings) + 1)
+                    nd.label = '%s' % (len(far_embeddings) + 1)
+                    nd.last_seen = cur_time
                 far_embeddings.append(nd)
+
+        # Check previously saved faces for expiration
+        for i in range(len(saved_faces)):
+            if time.time() - saved_faces[i].last_seen >= defaults.EMBEDDING_EXPIRATION_TIME:
+                LOG.info(
+                    "Saved embedding [id={}] has been expired after {} sec".format(
+                        saved_faces[i].label, defaults.EMBEDDING_EXPIRATION_TIME
+                    )
+                )
+                saved_faces.remove(saved_faces[i])
 
         # Save unknown/far embeddings
         saved_faces += far_embeddings
         self.save_face_infos(saved_faces)
         # Notify about close embeddings
-        for seen in seen_before:
-            notify(name=seen.label)
+        for seen in notify_list:
+            notify(name=seen.overlay_label)
 
-        self.postprocess_check = time
+        self.postprocess_check = cur_time
 
     def research_processed(self, face_infos: [detector.FaceInfo], frame=None):
         if frame is None:
