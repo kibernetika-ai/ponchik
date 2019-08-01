@@ -54,8 +54,7 @@ def add_classifier_args(parser):
     )
     parser.add_argument(
         '--aug_blur',
-        type=bool,
-        default=defaults.AUG_BLUR,
+        action='store_true',
         help='Add gaussian blur to images.',
     )
     parser.add_argument(
@@ -99,7 +98,7 @@ class Classifiers:
             model_path=defaults.MODEL_PATH,
             aug_flip=defaults.AUG_FLIP,
             aug_noise=defaults.AUG_NOISE,
-            aug_blur=defaults.AUG_BLUR,
+            aug_blur=False,
             aug_upscale=defaults.AUG_UPSCALE,
             image_size=defaults.IMAGE_SIZE,
             batch_size=defaults.BATCH_SIZE,

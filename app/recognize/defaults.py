@@ -11,7 +11,6 @@ IMAGE_MARGIN = 32
 MODEL_PATH = "./models/facenet_pretrained_vgg_openvino_cpu_1_0_0/facenet.xml"
 AUG_FLIP = True
 AUG_NOISE = 2
-AUG_BLUR = True
 AUG_UPSCALE = True
 NORMALIZATION = images.NORMALIZATION_FIXED
 BATCH_SIZE = 10
