@@ -509,6 +509,8 @@ class Video:
 
         self.research_processed(self.detector.current_frame_faces, frame=original_copy)
 
+        self.postprocess_notify(self.detector.current_frame_faces)
+
         return self.detector.current_frame_faces
 
     def _h5_box_is_none(self, box):
@@ -540,6 +542,7 @@ class Video:
         far_embeddings = []
         saved_faces = self.get_saved_faces()
         for nd in not_detected:
+
             if nd.embedding is None:
                 continue
 
