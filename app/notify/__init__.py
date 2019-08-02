@@ -61,6 +61,6 @@ def notify(**kwargs):
             print_fun("=== Notifications aren't initialized ===")
             not_init_say = True
         return
-    if not kwargs['name']:
+    if not kwargs.get('name') and not kwargs.get('text'):
         kwargs['name'] = '--Somebody--'
     notifier.notify(**kwargs)

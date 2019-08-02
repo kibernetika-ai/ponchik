@@ -49,7 +49,11 @@ class NotifySlack:
             finally:
                 os.remove(tmp_img)
 
-        message_txt = '%s has been detected' % kwargs['name']
+        override_text = kwargs.get('text')
+        if not override_text:
+            message_txt = '%s has been detected' % kwargs['name']
+        else:
+            message_txt = '%s' % kwargs['name']
 
         msg_strings = [':exclamation: *%s* has been detected' % kwargs['name']]
         if 'position' in kwargs:

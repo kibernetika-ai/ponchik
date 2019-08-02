@@ -267,7 +267,7 @@ def process_recognize(inputs, ctx, **kwargs):
     if PARAMS['enable_log']:
         log_recognition(frame, ret, **kwargs)
 
-    processing.postprocess_notify(face_infos)
+    processing.postprocess_notify(face_infos, frame=bgr_frame)
 
     if PARAMS['need_table']:
         table_result = build_table(frame, face_infos)

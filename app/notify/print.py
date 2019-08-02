@@ -5,7 +5,11 @@ class NotifyPrint:
 
     @staticmethod
     def notify(**kwargs):
-        msg_strings = ['%s has been detected' % kwargs['name']]
+        override_text = kwargs.get('text')
+        if not override_text:
+            msg_strings = ['%s has been detected' % kwargs['name']]
+        else:
+            msg_strings = ['%s' % kwargs['text']]
         if 'position' in kwargs:
             msg_strings.append('Position: %s' % kwargs['position'])
         if 'company' in kwargs:
