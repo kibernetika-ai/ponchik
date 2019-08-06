@@ -69,6 +69,11 @@ def add_classifier_args(parser):
         help='Number of images to process in a batch.',
         default=defaults.BATCH_SIZE,
     )
+    parser.add_argument(
+        '--with_svm',
+        action='store_true',
+        help='Use SVM classifier for training and recognition.',
+    )
 
 
 def classifiers_args(args):
@@ -85,6 +90,7 @@ def classifiers_args(args):
         image_size=args.image_size,
         batch_size=args.batch_size,
         device=args.device,
+        with_svm=args.with_svm,
     )
 
 
@@ -103,8 +109,11 @@ class Classifiers:
             image_size=defaults.IMAGE_SIZE,
             batch_size=defaults.BATCH_SIZE,
             device=defaults.DEVICE,
+            with_svm=False,
     ):
-        self.algorithms = ["kNN", "SVM"]
+        self.algorithms = ["kNN"]
+        if with_svm:
+            self.algorithms.append("SVM")
         self.driver_name = "openvino"
         self.aligned_dir = aligned_dir
         self.complementary_train = complementary_train
