@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import shutil
-import tarfile
 import threading
 import time
 
@@ -76,7 +75,7 @@ badge_detector = None
 
 
 def init_hook(**kwargs):
-    global PARAMS
+    global PARAMS, openvino_facenet
     PARAMS.update(kwargs)
 
     if not isinstance(PARAMS['threshold'], list):
@@ -125,7 +124,8 @@ def init_hook(**kwargs):
                 ws=PARAMS['workspace_name'],
                 name=PARAMS['model_name'],
                 token=PARAMS['token'],
-                callback=reload_detector,
+                classifiers_dir=PARAMS['classifiers_dir'],
+                openvino_facenet=openvino_facenet,
             ),
             daemon=True
         )
@@ -138,22 +138,6 @@ def init_hook(**kwargs):
         log_file = os.path.join(PARAMS['logdir'], 'log.txt')
         if os.path.exists(log_file):
             os.remove(log_file)
-
-
-def reload_detector(version, fileobj):
-    global openvino_facenet
-    clf_dir = PARAMS['classifiers_dir']
-
-    tar = tarfile.open(fileobj=fileobj)
-    LOG.info('Extracting new version %s to %s...' % (version, clf_dir))
-
-    shutil.rmtree(clf_dir, ignore_errors=True)
-    os.mkdir(clf_dir)
-    tar.extractall(clf_dir)
-
-    LOG.info('Reloading classifiers...')
-    if openvino_facenet is not None:
-        openvino_facenet.load_classifiers()
 
 
 def process(inputs, ctx, **kwargs):

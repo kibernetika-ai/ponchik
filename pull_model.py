@@ -1,14 +1,17 @@
 import datetime
 import io
+import json
 import logging
+import os
+import shutil
+import tarfile
 import time
 
 import croniter
 import requests
 
-
+VER_FILE = "__version"
 LOG = logging.getLogger(__name__)
-versions = {}
 
 
 def version_request(base, ws, name, token):
@@ -39,77 +42,112 @@ def download_version(url, token):
     return content
 
 
-def loop(pattern, base_url, ws, name, token, callback):
+def loop(pattern, base_url, ws, name, token, classifiers_dir, openvino_facenet):
     cron = croniter.croniter(pattern, datetime.datetime.utcnow())
     next_time = cron.get_next(datetime.datetime)
+
+    curver_id = None
+    curver_updated = None
+    current_version_file = os.path.join(classifiers_dir, VER_FILE)
+    if os.path.isfile(current_version_file):
+        with open(current_version_file, 'r') as r:
+            try:
+                curver = json.load(r)
+                curver_id = curver['version_id']
+                curver_updated = curver['updated']
+            except Exception as e:
+                LOG.error('load current version data error: %s' % e)
+                pass
 
     while True:
         current = datetime.datetime.utcnow()
         if current >= next_time:
-            LOG.info('[%s] Check for new version... [model=%s/%s]' % (
-                next_time.strftime('%Y-%m-%d %H:%M:%S'), ws, name
-                )
-            )
-            changed, version, url = check(base_url, ws, name, token)
+            LOG.info('Check for new version... [model=%s/%s]' % (ws, name))
+            changed, version, updated, url = check(
+                base_url, ws, name, token, curver_id, curver_updated)
             if changed:
                 # Download
-                LOG.info('[%s] Downloading new version %s...' % (next_time.strftime('%Y-%m-%d %H:%M:%S'), version))
+                version_id = get_version_id(ws, name, version)
+                LOG.info('Downloading new version %s...' % version_id)
                 fileobj = download_version(url, token)
-                callback(version, fileobj)
+                curver_id, curver_updated = \
+                    pull_version(version_id, updated, fileobj, classifiers_dir, openvino_facenet)
             next_time = cron.get_next(datetime.datetime)
 
         time.sleep(1)
 
 
-def check(base_url, ws, name, token):
+def check(base_url, ws, name, token, current_version_id=None, current_version_updated=None):
     try:
         resp = version_request(base_url, ws, name, token)
     except Exception as e:
         LOG.info('Error: %s' % e)
-        return None, None, None
+        return None, None, None, None
 
     if resp.status_code >= 400:
         LOG.info('Response status %s.' % resp.status_code)
         LOG.info(resp.text)
-        return None, None, None
+        return None, None, None, None
 
     try:
         vs = resp.json()
     except (ValueError, TypeError) as e:
         LOG.info('not json: %s' % e)
-        return None, None, None
+        return None, None, None, None
 
-    global versions
-    #TODO: Fix if no default classifier
-    #if len(versions) == 0:
-
-        #for v in vs:
-        #    versions[v['Version']] = v
-    #    return None, None, None
+    versions = []
+    read_current_version = None
 
     for v in vs:
-        should_add = False
         if v['Status'] != 'ok':
             continue
+        if get_version_id(ws, name, v['Version']) == current_version_id:
+            read_current_version = v
+            break
+        versions.append(v)
 
-        if v['Version'] not in versions:
-            LOG.info('New version: %s' % v['Version'])
-            should_add = True
+    if len(versions) > 0:
+        v = versions[0]
+        return True, v['Version'], v['Updated'], v['DownloadURL']
 
-        # Changed size
-        for _, old in versions.items():
-            if v['Version'] == old['Version'] and old['SizeBytes'] != v['SizeBytes']:
-                LOG.info(
-                    'Old version %s with new size %s'
-                    % (v['Version'], v['SizeBytes'])
-                )
-                should_add = True
-                break
+    elif read_current_version is not None and current_version_updated is not None:
+        f = '%Y-%m-%dT%H:%M:%S%z'
+        try:
+            prev = datetime.datetime.strptime(current_version_updated, f)
+            read = datetime.datetime.strptime(read_current_version['Updated'], f)
+            if prev < read:
+                v = read_current_version
+                return True, v['Version'], v['Updated'], v['DownloadURL']
+        except Exception as e:
+            LOG.info('Error getting update dates: %s' % e)
 
-        if should_add:
-            versions[v['Version']] = v
+    return False, None, None, None
 
-            # report changed.
-            return True, v['Version'], v['DownloadURL']
-        else:
-            return False, None, None
+
+def get_version_id(ws, name, version):
+    return "{}/{}:{}".format(ws, name, version)
+
+
+def pull_version(version_id, updated, fileobj, classifiers_dir, openvino_facenet):
+
+    tar = tarfile.open(fileobj=fileobj)
+    LOG.info('Extracting new version %s to %s...' % (version_id, classifiers_dir))
+
+    shutil.rmtree(classifiers_dir, ignore_errors=True)
+    os.mkdir(classifiers_dir)
+    tar.extractall(classifiers_dir)
+
+    LOG.info('Reloading classifiers...')
+    if openvino_facenet is not None:
+        openvino_facenet.load_classifiers()
+    else:
+        LOG.info('Classifiers not detected, skipped...')
+
+    ver_file = os.path.join(classifiers_dir, VER_FILE)
+    with open(ver_file, 'w') as v:
+        json.dump(dict(
+            version_id=version_id,
+            updated=updated,
+        ), v)
+
+    return version_id, updated
