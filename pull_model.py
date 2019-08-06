@@ -80,11 +80,12 @@ def check(base_url, ws, name, token):
         return None, None, None
 
     global versions
-    if len(versions) == 0:
+    #TODO: Fix if no default classifier
+    #if len(versions) == 0:
 
-        for v in vs:
-            versions[v['Version']] = v
-        return None, None, None
+        #for v in vs:
+        #    versions[v['Version']] = v
+    #    return None, None, None
 
     for v in vs:
         should_add = False
