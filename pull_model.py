@@ -106,20 +106,21 @@ def check(base_url, ws, name, token, current_version_id=None, current_version_up
             break
         versions.append(v)
 
+    upd = None
     if len(versions) > 0:
-        v = versions[0]
-        return True, v['Version'], v['Updated'], v['DownloadURL']
-
+        upd = versions[0]
     elif read_current_version is not None and current_version_updated is not None:
         f = '%Y-%m-%dT%H:%M:%S%z'
         try:
             prev = datetime.datetime.strptime(current_version_updated, f)
             read = datetime.datetime.strptime(read_current_version['Updated'], f)
             if prev < read:
-                v = read_current_version
-                return True, v['Version'], v['Updated'], v['DownloadURL']
+                upd = read_current_version
         except Exception as e:
             LOG.info('Error getting update dates: %s' % e)
+
+    if upd is not None:
+        return True, upd['Version'], upd['Updated'], upd['DownloadURL']
 
     return False, None, None, None
 
