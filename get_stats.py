@@ -19,6 +19,19 @@ def parse_args():
 args = None
 
 
+def get_model_time(metrics_dict):
+    vals = {}
+    for m in metrics_dict['serving_process_request_ms_avg_time']:
+        mpath = m.labels.get('model_path', '')
+        if 'face-detection' in mpath:
+            vals['face-detection'] = m.value
+        elif 'head-pose' in mpath:
+            vals['head-pose'] = m.value
+        elif 'facenet' in mpath:
+            vals['face-recognition'] = m.value
+    return vals
+
+
 def stats(stdscr):
     while True:
         stdscr.clear()
@@ -31,12 +44,25 @@ def stats(stdscr):
             else:
                 metrics_dict[family.name] = family.samples
 
-        stdscr.addstr(0, 0,
+        row = 0
+        values = get_model_time(metrics_dict)
+        stdscr.addstr(row, 0,
+                      'Detection average time: {:.3f}ms'.format(values.get('face-detection', -1)))
+        row += 1
+        stdscr.addstr(row, 0,
+                      'Pose-Estimation average time: {:.3f}ms'.format(values.get('head-pose', -1)))
+        row += 1
+        stdscr.addstr(row, 0,
+                      'Recognition average time: {:.3f}ms'.format(values.get('face-recognition', -1)))
+        row += 1
+
+        stdscr.addstr(row, 0,
                       'Inference average time: {:.3f}ms'.format(metrics_dict['serving_request_ms_avg_time'][0].value))
+        row += 1
         rtime = metrics_dict['serving_request_time'][0].value
         fps = 1 / rtime * 1000 if rtime != 0 else 0
-        stdscr.addstr(1, 0,
-                      'Max Inference FPS: {}'.format(fps))
+        stdscr.addstr(row, 0,
+                      'Max Inference FPS: {:.2f}'.format(fps))
         stdscr.refresh()
         time.sleep(5)
 
