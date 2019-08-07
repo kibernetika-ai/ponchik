@@ -104,6 +104,14 @@ key="$1"
     base_url="$2"
     shift; shift;
     ;;
+    --model-name)
+    model_name="$2"
+    shift; shift;
+    ;;
+    --workspace-name)
+    workspace_name="$2"
+    shift; shift;
+    ;;
     --slack-token)
     slack_token="$2"
     shift; shift;

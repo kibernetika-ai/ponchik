@@ -110,7 +110,7 @@ def check(base_url, ws, name, token, current_version_id=None, current_version_up
     if len(versions) > 0:
         upd = versions[0]
     elif read_current_version is not None and current_version_updated is not None:
-        f = '%Y-%m-%dT%H:%M:%S%z'
+        f = '%Y-%m-%dT%H:%M:%SZ'
         try:
             prev = datetime.datetime.strptime(current_version_updated, f)
             read = datetime.datetime.strptime(read_current_version['Updated'], f)
