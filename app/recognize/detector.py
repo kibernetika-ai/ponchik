@@ -7,13 +7,11 @@ import cv2
 from ml_serving.drivers import driver
 import numpy as np
 import six
-from sklearn import neighbors
-from sklearn import svm
+from scipy.spatial import distance
+from sklearn import svm, neighbors
 
-from app.recognize import classifiers
-from app.recognize import defaults
-from app.tools import images, add_normalization_args
-from app.tools import utils
+from app.recognize import classifiers, defaults
+from app.tools import images, add_normalization_args, utils
 from app import tools
 
 DETECTED = 1
@@ -26,6 +24,7 @@ class DetectorClassifiers:
         self.classifiers = []
         self.classifier_names = []
         self.embedding_sizes = []
+        self.embeddings = None
         self.class_names = None
         self.class_stats = None
 
@@ -248,7 +247,7 @@ class Detector(object):
         if self.facenet_driver is None or self.classifiers_dir is None:
             return
 
-        loaded_classifiers = glob.glob(os.path.join(self.classifiers_dir, "*.pkl"))
+        loaded_classifiers = glob.glob(classifiers.classifier_filename(self.classifiers_dir, '*'))
 
         if len(loaded_classifiers) > 0:
             new = DetectorClassifiers()
@@ -289,6 +288,14 @@ class Detector(object):
 
             self.classifiers = new
             self.use_classifiers = True
+
+            embs_filename = classifiers.embeddings_filename(self.classifiers_dir)
+            if os.path.isfile(embs_filename):
+                with open(embs_filename, 'rb') as r:
+                    opts = {'file': r}
+                    if six.PY3:
+                        opts['encoding'] = 'latin1'
+                    new.embeddings = pickle.load(**opts)
 
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
@@ -441,6 +448,8 @@ class Detector(object):
 
             best_class_indices = np.argmax(predictions, axis=1)
 
+            # print('??', predictions, best_class_indices)
+
             if isinstance(clf, neighbors.KNeighborsClassifier):
                 def process_index(idx):
                     cnt = self.classifiers.class_stats[best_class_indices[idx]]['embeddings']
@@ -460,6 +469,24 @@ class Detector(object):
                         # )
                         best_class_indices[idx] = max_candidate[0]
 
+                    min_distance = None
+                    filename = None
+                    if self.classifiers.embeddings is not None:
+                        min_distance = 10e10
+                        cls_name = self.classifiers.class_names[best_class_indices[idx]].replace(' ', '_')
+                        if cls_name in self.classifiers.embeddings:
+                            cls_embs = self.classifiers.embeddings[cls_name]
+                            for img in cls_embs:
+                                embs = cls_embs[img]
+                                for emb in embs:
+                                    d = distance.cosine(output, emb)
+                                    if min_distance > d:
+                                        min_distance = d
+                                        filename = os.path.split(img)[1]
+                                # print('!! len', img, len(embs))
+                                # pass
+                        # print('!!!', self.classifiers.class_names[best_class_indices[idx]])
+
                     ttl_cnt = counts[best_class_indices[idx]]
 
                     # probability:
@@ -472,10 +499,18 @@ class Detector(object):
                     looks_like.remove(best_class_indices[idx])
                     if not len(looks_like):
                         looks_like = []
-                    return prob, '%.3f %d/%d' % (
+                    debug_label = '%.3f %d/%d' % (
                         eval_values[idx],
                         ttl_cnt, cnt,
-                    ), looks_like
+                    )
+                    if min_distance is not None or filename is not None:
+                        debug_label = '\n   {}'.format(debug_label)
+                        if min_distance is not None:
+                            debug_label += '\n   min cosine dist: {0:.3f}'.format(min_distance)
+                        if filename is not None:
+                            debug_label += '\n   from image {}'.format(filename)
+                        debug_label = '{}\n'.format(debug_label)
+                    return prob, debug_label, looks_like
 
             elif isinstance(clf, svm.SVC):
                 def process_index(idx):

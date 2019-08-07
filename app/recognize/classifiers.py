@@ -74,6 +74,11 @@ def add_classifier_args(parser):
         action='store_true',
         help='Use SVM classifier for training and recognition.',
     )
+    parser.add_argument(
+        '--store_embeddings',
+        action='store_true',
+        help='Save embeddings to model for debug.',
+    )
 
 
 def classifiers_args(args):
@@ -91,6 +96,7 @@ def classifiers_args(args):
         batch_size=args.batch_size,
         device=args.device,
         with_svm=args.with_svm,
+        store_embeddings=args.store_embeddings,
     )
 
 
@@ -110,6 +116,7 @@ class Classifiers:
             batch_size=defaults.BATCH_SIZE,
             device=defaults.DEVICE,
             with_svm=False,
+            store_embeddings=False,
     ):
         self.algorithms = ["kNN"]
         if with_svm:
@@ -130,6 +137,7 @@ class Classifiers:
         self.loading_image_total_time = 0
         self.loading_images = 0
         self.serving = None
+        self.store_embeddings = store_embeddings
 
     def train(self):
 
@@ -165,13 +173,13 @@ class Classifiers:
         }
 
         stored_embeddings = {}
-        embeddings_filename = os.path.join(
+        emb_fn = os.path.join(
             self.aligned_dir,
             "embeddings-%s.pkl" % hashlib.md5(json.dumps(emb_args, sort_keys=True).encode()).hexdigest(),
         )
-        if os.path.isfile(embeddings_filename):
+        if os.path.isfile(emb_fn):
             print_fun("Found stored embeddings data, loading...")
-            with open(embeddings_filename, 'rb') as embeddings_file:
+            with open(emb_fn, 'rb') as embeddings_file:
                 stored_embeddings = pickle.load(embeddings_file)
 
         if not self.complementary_train:
@@ -234,11 +242,11 @@ class Classifiers:
                 continue
 
             t = time.time()
-            images = self.load_data(paths_batch_load, labels_batch_load)
+            imgs = self.load_data(paths_batch_load, labels_batch_load)
             print_fun("Load & Augmentation: %.3fms" % ((time.time() - t) * 1000))
 
             t = time.time()
-            emb_outputs = self._predict(images)
+            emb_outputs = self._predict(imgs)
             print_fun("Inference: %.3fms" % ((time.time() - t) * 1000))
 
             for n, e in enumerate(emb_outputs):
@@ -250,10 +258,10 @@ class Classifiers:
                     stored_embeddings[cls_name][path] = []
                 stored_embeddings[cls_name][path].append(e)
 
-            emb_array[emb_index:emb_index + len(images), :] = emb_outputs
+            emb_array[emb_index:emb_index + len(imgs), :] = emb_outputs
             fit_labels.extend(labels_batch_load)
 
-            emb_index += len(images)
+            emb_index += len(imgs)
 
         # average_time = total_time / embeddings_size * 1000
         # print_fun('Average time: %.3fms' % average_time)
@@ -266,13 +274,18 @@ class Classifiers:
         classifiers_dir = os.path.expanduser(self.classifiers_dir)
 
         # Save embeddings
-        with open(embeddings_filename, 'wb') as embeddings_file:
-            pickle.dump(stored_embeddings, embeddings_file, protocol=2)
+        with open(emb_fn, 'wb') as emb_f:
+            pickle.dump(stored_embeddings, emb_f, protocol=2)
 
         # Clear (or create) classifiers directory
         if os.path.exists(classifiers_dir):
             shutil.rmtree(classifiers_dir, ignore_errors=True)
         os.makedirs(classifiers_dir)
+
+        # Save embeddings to model
+        if self.store_embeddings:
+            with open(embeddings_filename(classifiers_dir), 'wb') as emb_f:
+                pickle.dump(stored_embeddings, emb_f, protocol=2)
 
         # Create a list of class names
         dataset_class_names = [cls.name for cls in loaded_dataset]
@@ -304,10 +317,10 @@ class Classifiers:
             clf.fit(emb_array, fit_labels)
 
             # Saving classifier model
-            classifier_filename = os.path.join(classifiers_dir, "classifier-%s.pkl" % algorithm.lower())
-            with open(classifier_filename, 'wb') as outfile:
+            clf_fn = classifier_filename(classifiers_dir, algorithm)
+            with open(clf_fn, 'wb') as outfile:
                 pickle.dump((clf, class_names, class_stats), outfile, protocol=2)
-            print_fun('Saved classifier model to file "%s"' % classifier_filename)
+            print_fun('Saved classifier model to file "%s"' % clf_fn)
 
             # update_data({'average_time_%s': '%.3fms' % average_time}, use_mlboard, mlboard)
 
@@ -363,7 +376,12 @@ class Classifiers:
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 
-        imgs = self.apply_aug_noise_blur_upscale(paths_batch, labels, imgs)
+        # print('paths_batch 1', paths_batch)
+        print('labels 1', labels)
+        imgs = self.apply_augmentation(paths_batch, labels, imgs)
+        # print('paths_batch 2', paths_batch)
+        print('labels 2', labels)
+        # exit(1)
 
         batch_log = ' ... %d images' % len(imgs)
         # if self.aug_noise > 0 or self.aug_flip:
@@ -388,7 +406,7 @@ class Classifiers:
 
         return imgs
 
-    def apply_aug_noise_blur_upscale(self, paths_batch, labels, imgs, already_flipped=False):
+    def apply_augmentation(self, paths_batch, labels, imgs, already_flipped=False):
         imgs_size = len(imgs)
         for k in range(imgs_size):
             img = imgs[k]
@@ -414,7 +432,7 @@ class Classifiers:
                 flipped_imgs = [flipped]
                 flipped_labels = [labels[k]]
                 flipped_paths_batch = [paths_batch[k]]
-                flipped_imgs_aug = self.apply_aug_noise_blur_upscale(
+                flipped_imgs_aug = self.apply_augmentation(
                     flipped_paths_batch, flipped_labels, flipped_imgs, already_flipped=True)
                 for flipped_img_aug in flipped_imgs_aug:
                     imgs = np.concatenate((imgs, flipped_img_aug.reshape(1, *flipped_img_aug.shape)))
@@ -431,7 +449,7 @@ class Classifiers:
         if self.aug_upscale:
             m += 1
         if self.aug_flip:
-            m = m*2
+            m = m * 2
         return count * m
 
     def store_previews(self):
@@ -451,3 +469,11 @@ class Classifiers:
                                 shutil.copyfile(ff, os.path.join(previews_dir, "%s.png" % d))
                                 break
         return previews_dir
+
+
+def classifier_filename(classifiers_dir, algorithm):
+    return os.path.join(classifiers_dir, "classifier-%s.pkl" % algorithm.lower())
+
+
+def embeddings_filename(classifiers_dir):
+    return os.path.join(classifiers_dir, "embeddings.pkl")
