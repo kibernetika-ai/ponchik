@@ -86,10 +86,10 @@ def load_data(image_paths, image_size, fixed_normalization=False):
         if len(img.shape) >= 3 and img.shape[2] > 3:
             # RGBA, convert to RGB
             img = np.array(Image.fromarray(img).convert('RGB'))
-        if fixed_normalization:
-            img = images.fixed_normalize(img)
-        else:
-            img = images.prewhiten(img)
+        #if fixed_normalization:
+        #    img = images.fixed_normalize(img)
+        #else:
+        #    img = images.prewhiten(img)
         imgs[i, :, :, :] = img
     return imgs
 

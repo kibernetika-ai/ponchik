@@ -341,18 +341,33 @@ class Classifiers:
                   (len(self.algorithms), len(emb_array), nrof_images, len(set(fit_labels))))
 
     def _load_model(self):
+        print_fun('Load model: {}'.format(self.model_path))
+        if self.serving is None:
+            drv = driver.load_driver('tensorflow')
+            self.serving = drv()
+            self.serving.load_model(self.model_path)
+
+    def _load_model_old(self):
         if self.serving is None:
             drv = driver.load_driver(self.driver_name)
             self.serving = drv()
-            self.serving.load_model(
-                self.model_path,
-                inputs='input:0,phase_train:0',
-                outputs='embeddings:0',
-                device=self.device,
-                flexible_batch_size=True,
-            )
+            self.serving.load_model(self.model_path)
 
     def _predict(self, imgs):
+        results = []
+        for img in imgs:
+            img = img.astype(np.float32)
+            img_f = np.fliplr(img)
+            img = img/127.5-1.0
+            img_f = img_f/127.5-1.0
+            feed = np.stack([img,img_f],axis=0)
+            res = self.serving.predict({'input_image':feed})
+            res = res['embd_extractor/batchnorm_1/reshape_1']
+            res = res[0]/np.linalg.norm(res[0])+res[1]/np.linalg.norm(res[1])
+            results.append(res)
+        return results
+
+    def _predict_old(self, imgs):
         if self.serving.driver_name == 'tensorflow':
             feed_dict = {'input:0': imgs, 'phase_train:0': False}
         elif self.serving.driver_name == 'openvino':
