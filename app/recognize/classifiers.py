@@ -364,6 +364,7 @@ class Classifiers:
             res = self.serving.predict({'input_image':feed})
             res = res['embd_extractor/batchnorm_1/reshape_1']
             res = res[0]/np.linalg.norm(res[0])+res[1]/np.linalg.norm(res[1])
+            res = res/np.linalg.norm(res)
             results.append(res)
         return results
 
