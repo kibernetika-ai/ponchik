@@ -6,7 +6,7 @@ clf_path=data/classifiers
 inference_fps=10
 #face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-retail-0004/FP32/face-detection-retail-0004.xml
 face_detection_path=/opt/intel/openvino/deployment_tools/intel_models/face-detection-adas-0001/FP32/face-detection-adas-0001.xml
-model_path=models/facenet_pretrained_openvino_cpu/facenet.xml
+model_path=models/insight-face-1.0.0-msm-1006k
 head_pose_path=models/head_pose/head-pose-estimation-adas-0001.xml
 backend=srs # livego / rtmp-mux / srs
 OUTPUT=""
@@ -168,7 +168,7 @@ then
   fi
 fi
 
-kstreaming --driver openvino --model-path $face_detection_path --driver openvino --model-path $model_path $head_pose_args \
+kstreaming --driver openvino --model-path $face_detection_path --driver tensorflow --model-path $model_path $head_pose_args \
  --hooks serving_hook.py -o classifiers_dir=$clf_path \
  -o need_table=false -o timing=false -o output_type=image --input $INPUT $output_arg --rs-file "$rs_file" \
   --initial-stream live --input-name input --output-name output -o skip_frames=true \

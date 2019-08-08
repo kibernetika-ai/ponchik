@@ -7,7 +7,7 @@ NORMALIZATION_FIXED = "fixed"
 NORMALIZATION_PREWHITEN = "prewhiten"
 
 
-def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, normalization=None):
+def get_images(image, bounding_boxes, face_crop_size=112, face_crop_margin=32, normalization=None):
     images = []
 
     nrof_faces = bounding_boxes.shape[0]
@@ -30,14 +30,14 @@ def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, n
             bb[3] = np.minimum(det[3] + face_crop_margin / 2, img_size[0])
             cropped = image[bb[1]:bb[3], bb[0]:bb[2], :]
             scaled = cv2.resize(cropped, (face_crop_size, face_crop_size), interpolation=cv2.INTER_AREA)
-            if normalization == NORMALIZATION_PREWHITEN:
-                images.append(prewhiten(scaled))
-            elif normalization == NORMALIZATION_STANDARD:
-                images.append(normalize(scaled))
-            elif normalization == NORMALIZATION_FIXED:
-                images.append(fixed_normalize(scaled))
-            else:
-                images.append(scaled)
+            #if normalization == NORMALIZATION_PREWHITEN:
+            #    images.append(prewhiten(scaled))
+            #elif normalization == NORMALIZATION_STANDARD:
+            #    images.append(normalize(scaled))
+            #elif normalization == NORMALIZATION_FIXED:
+            #    images.append(fixed_normalize(scaled))
+            #else:
+            images.append(scaled)
 
     return images
 

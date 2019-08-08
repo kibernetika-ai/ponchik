@@ -404,9 +404,17 @@ class Detector(object):
         return boxes
 
     def inference_facenet(self, img):
-        outputs = self.facenet_driver.predict({list(self.facenet_driver.inputs)[0]: img})
-        output = outputs[list(self.facenet_driver.outputs)[0]]
-        return output
+        img = img.astype(np.float32)
+        img_f = np.fliplr(img)
+        img = img/127.5-1.0
+        img_f = img_f/127.5-1.0
+        feed = np.stack([img,img_f],axis=0)
+        res = self.facenet_driver.predict({'input_image':feed})
+        res = res['embd_extractor/batchnorm_1/reshape_1']
+        res = res[0]/np.linalg.norm(res[0])+res[1]/np.linalg.norm(res[1])
+        res = res/np.linalg.norm(res)
+        return res
+
 
     def process_output(self, output, bbox, person_bbox=None, face_prob=None, label='', overlay_label='',
                        use_classifiers=True):
@@ -480,7 +488,7 @@ class Detector(object):
                             for img in cls_embs:
                                 embs = cls_embs[img]
                                 for emb in embs:
-                                    d = distance.cosine(output, emb)
+                                    d = distance.euclidean(output, emb)
                                     if min_distance > d:
                                         min_distance = d
                                         filename = os.path.split(img)[1]
@@ -724,7 +732,7 @@ class Detector(object):
                     output = embeddings[img_idx]
                 else:
                     img = img[:, :, ::-1]
-                    img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
+                    img = img.reshape([112, 112,3])
                     output = self.inference_facenet(img)
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]
