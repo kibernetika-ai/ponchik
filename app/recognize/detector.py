@@ -13,6 +13,7 @@ from sklearn import svm, neighbors
 from app.recognize import classifiers, defaults
 from app.tools import images, add_normalization_args, utils
 from app import tools
+import math
 
 DETECTED = 1
 NOT_DETECTED = 2
@@ -970,3 +971,11 @@ class Detector(object):
             return 0, 0, 250
         else:
             return 250, 0, 250
+
+
+def cosine_dist(embeddings1, embeddings2):
+    dot = np.sum(np.multiply(embeddings1, embeddings2))
+    norm = np.linalg.norm(embeddings1) * np.linalg.norm(embeddings2)
+    similarity = dot/norm
+    d = np.arccos(similarity) / math.pi
+    return d
