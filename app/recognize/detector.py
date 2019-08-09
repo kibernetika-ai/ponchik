@@ -200,6 +200,7 @@ class Detector(object):
             account_head_pose=True,
             multi_detect=None,
             normalization=defaults.NORMALIZATION,
+            only_distance=False,
     ):
         self._initialized = False
         self.face_driver: driver.ServingDriver = face_driver
@@ -217,6 +218,7 @@ class Detector(object):
         self.person_threshold = person_threshold
 
         self.use_classifiers = False
+        self.only_distance = only_distance
         self.normalization = normalization
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
@@ -430,6 +432,70 @@ class Detector(object):
                 head_pose=None
             )
 
+        looks_likes = []
+
+        if not self.only_distance:
+            out = self.recognize_classifier(output)
+            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
+        else:
+            out = self.recognize_distance(output)
+            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
+        meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
+
+        classes_meta = {}
+        for cl in classes:
+            cl_ = cl.replace(" ", "_")
+            if cl_ in self.meta:
+                classes_meta[cl_] = self.meta[cl_]
+
+        return FaceInfo(
+            bbox=bbox[:4].astype(int),
+            person_bbox=person_bbox,
+            state=DETECTED if detected else NOT_DETECTED,
+            label=summary_overlay_label,
+            overlay_label=overlay_label_str,
+            prob=mean_prob,
+            face_prob=face_prob,
+            classes=classes,
+            classes_meta=classes_meta,
+            meta=meta,
+            looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
+            embedding=output,
+        )
+
+    def recognize_distance(self, output):
+        output = output.reshape([-1])
+        min_dist = 10e10
+        threshold = 0.3
+        detected_class = None
+        for cls in self.classifiers.embeddings:
+            for embs in self.classifiers.embeddings[cls].values():
+                for emb in embs:
+                    dist = distance.cosine(output, emb)
+                    if dist < min_dist and dist < threshold:
+                        min_dist = dist
+                        detected_class = cls
+
+        if detected_class:
+            prob = 1 - (max(min_dist, 0.1) - 0.1)
+            summary_overlay_label = detected_class
+            if self.debug:
+                overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
+                overlay_label_str += "\ndistance: %.3f" % min_dist
+            else:
+                overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
+            classes = [detected_class]
+            detected = True
+        else:
+            summary_overlay_label = ''
+            overlay_label_str = "Summary: not detected"
+            classes = []
+            detected = False
+            prob = 0.
+
+        return overlay_label_str, summary_overlay_label, classes, detected_class, prob, detected
+
+    def recognize_classifier(self, output):
         detected_indices = []
         label_strings = []
         probs = []
@@ -437,7 +503,6 @@ class Detector(object):
         prob_detected = True
         summary_overlay_label = ""
         looks_likes = []
-
         for clfi, clf in enumerate(self.classifiers.classifiers):
             try:
                 output = output.reshape(1, self.classifiers.embedding_sizes[clfi])
@@ -578,28 +643,8 @@ class Detector(object):
             overlay_label_str = label_strings[0]
 
         stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
-        meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
+        return overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected
 
-        classes_meta = {}
-        for cl in classes:
-            cl_ = cl.replace(" ", "_")
-            if cl_ in self.meta:
-                classes_meta[cl_] = self.meta[cl_]
-
-        return FaceInfo(
-            bbox=bbox[:4].astype(int),
-            person_bbox=person_bbox,
-            state=DETECTED if detected else NOT_DETECTED,
-            label=summary_overlay_label,
-            overlay_label=overlay_label_str,
-            prob=mean_prob,
-            face_prob=face_prob,
-            classes=classes,
-            classes_meta=classes_meta,
-            meta=meta,
-            looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
-            embedding=output,
-        )
 
     def wrong_pose_indices(self, bgr_frame, boxes):
         if self.head_pose_driver is None:

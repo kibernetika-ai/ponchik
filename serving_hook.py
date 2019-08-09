@@ -23,6 +23,7 @@ LOG = logging.getLogger(__name__)
 PARAMS = {
     'device': 'CPU',
     'classifiers_dir': '',
+    'only_distance': False,
     'threshold': [0.3, 0.7, 0.7],
     'head_pose_thresholds': defaults.HEAD_POSE_THRESHOLDS,
     'debug': 'false',
@@ -95,6 +96,7 @@ def init_hook(**kwargs):
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
     PARAMS['notify_log'] = _boolean_string(PARAMS['notify_log'])
+    PARAMS['only_distance'] = _boolean_string(PARAMS['only_distance'])
     PARAMS['fixed_normalization'] = _boolean_string(PARAMS['fixed_normalization'])
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
@@ -401,6 +403,7 @@ def _load_nets(ctx):
         multi_detect=PARAMS['multi_detect'],
         threshold=PARAMS['threshold'][0],
         normalization=PARAMS['normalization'],
+        only_distance=PARAMS['only_distance'],
     )
     ot.init()
     openvino_facenet = ot
