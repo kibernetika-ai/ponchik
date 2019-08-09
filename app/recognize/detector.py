@@ -488,7 +488,7 @@ class Detector(object):
     def recognize_distance(self, output):
         output = output.reshape([-1, 512])
         # min_dist = 10e10
-        threshold = 0.35
+        threshold = 0.45
         if self.kd_tree is None:
             print('building tree...')
             # neighbors.DistanceMetric()
@@ -501,8 +501,7 @@ class Detector(object):
         dist, idx = self.kd_tree.query((output + 1.) / 2., k=1)
         dist = dist[0][0]
         idx = idx[0][0]
-        if dist < threshold:
-            detected_class = self.classifiers.class_index[idx]
+        detected_class = self.classifiers.class_index[idx]
         # for cls in self.classifiers.embeddings:
         #     for embs in self.classifiers.embeddings[cls].values():
         #         for emb in embs:
@@ -511,7 +510,7 @@ class Detector(object):
         #                 min_dist = dist
         #                 detected_class = cls
 
-        if detected_class:
+        if dist < threshold:
             prob = 1 - (max(dist, 0.2) - 0.2)
             summary_overlay_label = detected_class
             if self.debug:
@@ -524,7 +523,7 @@ class Detector(object):
         else:
             summary_overlay_label = ''
             if self.debug:
-                overlay_label_str = "Summary: not detected; distance: %.3f" % dist
+                overlay_label_str = "Summary: not detected; distance(%s): %.3f" % (detected_class,dist)
             else:
                 overlay_label_str = ''
             classes = []
