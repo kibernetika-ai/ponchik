@@ -26,6 +26,8 @@ class DetectorClassifiers:
         self.classifier_names = []
         self.embedding_sizes = []
         self.embeddings = None
+        self.plain_embeddings = None
+        self.class_index = None
         self.class_names = None
         self.class_stats = None
 
@@ -219,6 +221,7 @@ class Detector(object):
 
         self.use_classifiers = False
         self.only_distance = only_distance
+        self.kd_tree = None
         self.normalization = normalization
         self.classifiers = DetectorClassifiers()
         self.threshold = threshold
@@ -299,6 +302,25 @@ class Detector(object):
                     if six.PY3:
                         opts['encoding'] = 'latin1'
                     new.embeddings = pickle.load(**opts)
+
+                    size = 0
+                    for i, cls in enumerate(self.classifiers.embeddings):
+                        for embs in self.classifiers.embeddings[cls].values():
+                            size += len(embs)
+
+                    plain_embeddings = np.zeros([size, embedding_size])
+                    class_index = []
+                    emb_i = 0
+                    for i, cls in enumerate(self.classifiers.embeddings):
+                        for embs in self.classifiers.embeddings[cls].values():
+                            for emb in embs:
+                                plain_embeddings[emb_i] = emb
+                                emb_i += 1
+                                class_index.append(cls)
+                                pass
+
+                    self.classifiers.plain_embeddings = plain_embeddings
+                    self.classifiers.class_index = class_index
 
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
@@ -464,31 +486,46 @@ class Detector(object):
         )
 
     def recognize_distance(self, output):
-        output = output.reshape([-1])
-        min_dist = 10e10
-        threshold = 0.3
+        output = output.reshape([-1, 512])
+        # min_dist = 10e10
+        threshold = 0.8
+        if self.kd_tree is None:
+            print('building tree...')
+            # neighbors.DistanceMetric()
+            # self.kd_tree = neighbors.BallTree(self.classifiers.plain_embeddings, metric=distance.cosine)
+            self.kd_tree = neighbors.KDTree(self.classifiers.plain_embeddings, metric='euclidean')
+        # __import__('ipdb').set_trace()
         detected_class = None
-        for cls in self.classifiers.embeddings:
-            for embs in self.classifiers.embeddings[cls].values():
-                for emb in embs:
-                    dist = distance.cosine(output, emb)
-                    if dist < min_dist and dist < threshold:
-                        min_dist = dist
-                        detected_class = cls
+
+        dist, idx = self.kd_tree.query(output, k=1)
+        dist = dist[0][0]
+        idx = idx[0][0]
+        if dist < threshold:
+            detected_class = self.classifiers.class_index[idx]
+        # for cls in self.classifiers.embeddings:
+        #     for embs in self.classifiers.embeddings[cls].values():
+        #         for emb in embs:
+        #             dist = distance.cosine(output, emb)
+        #             if dist < min_dist and dist < threshold:
+        #                 min_dist = dist
+        #                 detected_class = cls
 
         if detected_class:
-            prob = 1 - (max(min_dist, 0.1) - 0.1)
+            prob = 1 - (max(dist, 0.5) - 0.5)
             summary_overlay_label = detected_class
             if self.debug:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
-                overlay_label_str += "\ndistance: %.3f" % min_dist
+                overlay_label_str += "\ndistance: %.3f" % dist
             else:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
             classes = [detected_class]
             detected = True
         else:
             summary_overlay_label = ''
-            overlay_label_str = "Summary: not detected"
+            if self.debug:
+                overlay_label_str = "Summary: not detected"
+            else:
+                overlay_label_str = ''
             classes = []
             detected = False
             prob = 0.
