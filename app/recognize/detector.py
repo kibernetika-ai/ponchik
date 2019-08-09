@@ -488,16 +488,17 @@ class Detector(object):
     def recognize_distance(self, output):
         output = output.reshape([-1, 512])
         # min_dist = 10e10
-        threshold = 0.8
+        threshold = 0.35
         if self.kd_tree is None:
             print('building tree...')
             # neighbors.DistanceMetric()
             # self.kd_tree = neighbors.BallTree(self.classifiers.plain_embeddings, metric=distance.cosine)
-            self.kd_tree = neighbors.KDTree(self.classifiers.plain_embeddings, metric='euclidean')
+            embeddings = (self.classifiers.plain_embeddings + 1.) / 2.
+            self.kd_tree = neighbors.KDTree(embeddings, metric='euclidean')
         # __import__('ipdb').set_trace()
         detected_class = None
 
-        dist, idx = self.kd_tree.query(output, k=1)
+        dist, idx = self.kd_tree.query((output + 1.) / 2., k=1)
         dist = dist[0][0]
         idx = idx[0][0]
         if dist < threshold:
@@ -511,7 +512,7 @@ class Detector(object):
         #                 detected_class = cls
 
         if detected_class:
-            prob = 1 - (max(dist, 0.5) - 0.5)
+            prob = 1 - (max(dist, 0.2) - 0.2)
             summary_overlay_label = detected_class
             if self.debug:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
@@ -523,7 +524,7 @@ class Detector(object):
         else:
             summary_overlay_label = ''
             if self.debug:
-                overlay_label_str = "Summary: not detected"
+                overlay_label_str = "Summary: not detected; distance: %.3f" % dist
             else:
                 overlay_label_str = ''
             classes = []
