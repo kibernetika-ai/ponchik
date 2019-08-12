@@ -376,12 +376,7 @@ class Classifiers:
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 
-        # print('paths_batch 1', paths_batch)
-        print('labels 1', labels)
         imgs = self.apply_augmentation(paths_batch, labels, imgs)
-        # print('paths_batch 2', paths_batch)
-        print('labels 2', labels)
-        # exit(1)
 
         batch_log = ' ... %d images' % len(imgs)
         # if self.aug_noise > 0 or self.aug_flip:
