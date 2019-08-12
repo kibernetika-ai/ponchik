@@ -60,7 +60,10 @@ def main():
         if args.model_name is not None and args.model_version is not None:
             from app.mlboard import mlboard, update_task_info, catalog_ref
             print_fun('Uploading model...')
-            mlboard.model_upload(args.model_name, args.model_version, args.classifiers_dir)
+            model_version = args.model_version
+            if args.device not in args.model_version:
+                model_version = args.model_version + '-%s' % args.device
+            mlboard.model_upload(args.model_name, model_version, args.classifiers_dir)
             update_task_info({'model_reference': catalog_ref(args.model_name, 'mlmodel', args.model_version)})
             print_fun("New model uploaded as '%s', version '%s'." % (args.model_name, args.model_version))
 

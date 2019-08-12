@@ -34,7 +34,8 @@ Options:
   --classifiers <dir> Classifiers directory, default $clf_path.
   --multi-detect <int>,<int>,... Multi detect steps, comma separated. Recommended value 2 or 3.
   --inference-fps <int> Inference FPS, default $inference_fps.
-  --model-path <path> Facenet model path, default $model_path
+  --model-path <path> Facenet model path, default $model_path.
+  --face-detection-path <path> Path to face-detection model xml. Default $face_detection_path.
   --head-pose-path <path> Path to head-pose-model
   --input <type> Input type. Can be one of 'camera', 'realsense', 'server' 
                  or any opencv-compatible URL (rtmp/rtsp/filepath etc.). Default $INPUT.
@@ -82,6 +83,10 @@ key="$1"
     ;;
     --model-path)
     model_path="$2"
+    shift; shift
+    ;;
+    --face-detection-path)
+    face_detection_path="$2"
     shift; shift
     ;;
     --head-pose-path)
