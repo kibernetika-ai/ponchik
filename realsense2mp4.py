@@ -19,6 +19,7 @@ config.enable_stream(
     h,
     rs.format.bgr8, 6
 )
+pipeline.start(config)
 for i in range(fps * 60):
     frames = pipeline.wait_for_frames()
     new_frame = frames.get_color_frame()
