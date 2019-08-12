@@ -321,6 +321,8 @@ class Detector(object):
 
                     self.classifiers.plain_embeddings = plain_embeddings
                     self.classifiers.class_index = class_index
+                    # Reset kd_tree
+                    self.kd_tree = None
 
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
@@ -495,8 +497,6 @@ class Detector(object):
             # self.kd_tree = neighbors.BallTree(self.classifiers.plain_embeddings, metric=distance.cosine)
             embeddings = (self.classifiers.plain_embeddings + 1.) / 2.
             self.kd_tree = neighbors.KDTree(embeddings, metric='euclidean')
-        # __import__('ipdb').set_trace()
-        detected_class = None
 
         dist, idx = self.kd_tree.query((output + 1.) / 2., k=1)
         dist = dist[0][0]
