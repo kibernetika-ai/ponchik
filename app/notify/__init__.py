@@ -1,5 +1,4 @@
-from app.notify.slack import NotifySlack
-from app.notify.print import NotifyPrint
+from app.notify import file, slack, print
 from app.tools import print_fun
 
 notifier = None
@@ -7,23 +6,34 @@ not_init_say = False
 notifier_disabled = False
 
 
-def init_notifier_slack(slack_token, slack_channel, slack_server):
-    global notifier
-    if slack_token and slack_channel and slack_server:
-        notifier = NotifySlack(slack_token, slack_channel, slack_server)
-        if not notifier.is_ok():
-            notifier = None
-
-
 def init_notifier_args(args):
     if args.notify_slack_token and args.notify_slack_channel and args.notify_slack_server:
         init_notifier_slack(args.notify_slack_token, args.notify_slack_channel, args.notify_slack_server)
     elif args.notify_log:
-        global notifier
-        notifier = NotifyPrint
+        init_notifier_print()
+    elif args.notify_file:
+        init_notifier_file(args.notify_file)
     else:
         global notifier_disabled
         notifier_disabled = True
+
+
+def init_notifier_slack(slack_token, slack_channel, slack_server):
+    global notifier
+    if slack_token and slack_channel and slack_server:
+        notifier = slack.NotifySlack(slack_token, slack_channel, slack_server)
+        if not notifier.is_ok():
+            notifier = None
+
+
+def init_notifier_print():
+    global notifier
+    notifier = print.NotifyPrint
+
+
+def init_notifier_file(filename):
+    global notifier
+    notifier = file.NotifyFile(filename)
 
 
 def add_notify_args(parser):
@@ -49,6 +59,12 @@ def add_notify_args(parser):
         '--notify_log',
         help='Enable notify to log.',
         action='store_true',
+    )
+    parser.add_argument(
+        '--notify_file',
+        help='Enable notify to file.',
+        type=str,
+        default=None,
     )
 
 

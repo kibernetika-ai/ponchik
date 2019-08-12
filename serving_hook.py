@@ -13,7 +13,7 @@ from app.recognize import detector
 from app.recognize import defaults
 from app.recognize import video
 from app.recognize import video_notify
-from app import notify
+from app.notify import init_notifier_slack, init_notifier_print, init_notifier_file
 from app.tools import images, dataset
 from app.mlboard import mlboard
 
@@ -411,13 +411,15 @@ def _load_nets(ctx):
     openvino_facenet = ot
 
     if PARAMS['slack_channel'] and PARAMS['slack_token'] and PARAMS['slack_server']:
-        notify.init_notifier_slack(
+        init_notifier_slack(
             PARAMS['slack_token'],
             PARAMS['slack_channel'],
             PARAMS['slack_server']
         )
     elif PARAMS['notify_log']:
-        notify.notifier = notify.NotifyPrint
+        init_notifier_print()
+    elif PARAMS['notify_file']:
+        init_notifier_file(PARAMS['notify_file'])
 
     global processing
     processing = video.Video(
