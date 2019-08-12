@@ -490,7 +490,7 @@ class Detector(object):
     def recognize_distance(self, output):
         output = output.reshape([-1, 512])
         # min_dist = 10e10
-        threshold = 0.45
+        threshold = 0.37
         if self.kd_tree is None:
             print('building tree...')
             # neighbors.DistanceMetric()
