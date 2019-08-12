@@ -61,6 +61,7 @@ class Video:
                  video_write_to=None, video_start_sec=None,
                  postprocess=False, postprocess_clusterize_unrecognized=False,
                  postprocess_export_srt=False, postprocess_export_srt_to=None,
+                 postprocess_notify=False,
                  ):
         self.detector = detector
         self.video_source = video_source
@@ -98,6 +99,7 @@ class Video:
         self.saved_faces = []
         self.save_faces = True
         self.postprocess_check = None
+        self.postprocess_notify_enabled = postprocess_notify
 
         if build_h5py or build_h5py_to:
             if video_h5py:
@@ -509,7 +511,8 @@ class Video:
 
         self.research_processed(self.detector.current_frame_faces, frame=original_copy)
 
-        self.postprocess_notify(self.detector.current_frame_faces)
+        if self.postprocess_notify_enabled:
+            self.postprocess_notify(self.detector.current_frame_faces, frame=frame)
 
         return self.detector.current_frame_faces
 

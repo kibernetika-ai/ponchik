@@ -50,6 +50,7 @@ PARAMS = {
     'slack_channel': '',
     'slack_server': '',
     'notify_log': False,
+    'postprocess_notify': False,
     'badge_detector': '',
     'normalization': defaults.NORMALIZATION,
     'fixed_normalization': False,
@@ -96,6 +97,7 @@ def init_hook(**kwargs):
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
     PARAMS['notify_log'] = _boolean_string(PARAMS['notify_log'])
+    PARAMS['postprocess_notify'] = _boolean_string(PARAMS['postprocess_notify'])
     PARAMS['only_distance'] = _boolean_string(PARAMS['only_distance'])
     PARAMS['fixed_normalization'] = _boolean_string(PARAMS['fixed_normalization'])
     PARAMS['enable_log'] = _boolean_string(PARAMS['enable_log'])
@@ -253,7 +255,7 @@ def process_recognize(inputs, ctx, **kwargs):
     if PARAMS['enable_log']:
         log_recognition(frame, ret, **kwargs)
 
-    processing.postprocess_notify(face_infos, frame=bgr_frame)
+    # processing.postprocess_notify(face_infos, frame=bgr_frame)
 
     if PARAMS['need_table']:
         table_result = build_table(frame, face_infos)
@@ -422,6 +424,7 @@ def _load_nets(ctx):
         detector=ot,
         video_async=False,
         not_detected_store=False,
+        postprocess_notify=PARAMS['postprocess_notify'],
     )
     processing.start_notify()
 
