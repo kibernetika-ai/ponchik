@@ -1,0 +1,5 @@
+ds
+FROM kuberlab/serving:latest-openvino-fpga
+
+RUN pip install croniter slackclient srt
+COPY ./ /svod
