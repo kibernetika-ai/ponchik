@@ -11,5 +11,5 @@ source /opt/intel/openvino/bin/setupvars.sh -pyver 3.6
     --workspace-name expo-recall \
     --inference-fps 0 \
     --head-pose-path models/head_pose/head-pose-estimation-adas-0001.xml \
-    --slack-token 'xoxb-104043499155-617859204675-14SVmMGhq52pPJLXKmBTZYoA' \
+    --slack-token 'xoxb-XXXXXXXXXXXX-XXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXX' \
     --slack-channel 'svod-faces'
