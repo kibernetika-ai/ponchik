@@ -51,6 +51,12 @@ def add_detector_args(parser):
         help='Path to person-detection model',
     )
     parser.add_argument(
+        '--detect_dst_threshold',
+        type=float,
+        default=defaults.DISTANCE_THRESHOLD,
+        help='Path to person-detection model',
+    )
+    parser.add_argument(
         '--person_threshold',
         type=float,
         default=defaults.PERSON_THRESHOLD,
@@ -123,6 +129,7 @@ def detector_args(args):
         classifiers_dir=None if args.without_classifiers else args.classifiers_dir,
         threshold=args.threshold,
         person_threshold=args.person_threshold,
+        detect_dst_threshold=args.detect_dst_threshold,
         min_face_size=args.min_face_size,
         debug=args.debug,
         process_not_detected=args.process_not_detected,
@@ -195,6 +202,7 @@ class Detector(object):
             head_pose_thresholds=defaults.HEAD_POSE_THRESHOLDS,
             threshold=defaults.THRESHOLD,
             person_threshold=defaults.PERSON_THRESHOLD,
+            detect_dst_threshold=defaults.DISTANCE_THRESHOLD,
             min_face_size=defaults.MIN_FACE_SIZE,
             person_driver=None,
             debug=defaults.DEBUG,
@@ -215,7 +223,7 @@ class Detector(object):
         self.head_pose_pitch = "angle_p_fc"
         self.head_pose_roll = "angle_r_fc"
         self.account_head_pose = account_head_pose
-
+        self.detect_dst_threshold = detect_dst_threshold
         self.person_driver: driver.ServingDriver = person_driver
         self.person_threshold = person_threshold
 
@@ -462,7 +470,7 @@ class Detector(object):
             out = self.recognize_classifier(output)
             overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
         else:
-            out = self.recognize_distance(output)
+            out = self.recognize_distance(output,self.detect_dst_threshold)
             overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
         meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
 
@@ -487,10 +495,9 @@ class Detector(object):
             embedding=output,
         )
 
-    def recognize_distance(self, output):
+    def recognize_distance(self, output,threshold=0.4):
         output = output.reshape([-1, 512])
         # min_dist = 10e10
-        threshold = 0.37
         if self.kd_tree is None:
             print('building tree...')
             # neighbors.DistanceMetric()

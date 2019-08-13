@@ -33,7 +33,7 @@ PARAMS = {
     'clarified_dir': '',
     'uploaded_dir': '',
     'project_name': '',
-
+    'detect_dst_threshold': 0.42,
     'enable_log': False,
     'log_console': False,
     'logdir': 'faces_dir',
@@ -379,6 +379,7 @@ def _load_nets(ctx):
         facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
         head_pose_thresholds=PARAMS['head_pose_thresholds'],
+        detect_dst_threshold=PARAMS['detect_dst_threshold'],
         min_face_size=PARAMS['min_face_size'],
         multi_detect=PARAMS['multi_detect'],
         threshold=PARAMS['threshold'][0],
