@@ -35,6 +35,7 @@ PARAMS = {
     'project_name': '',
 
     'enable_log': False,
+    'log_console': False,
     'logdir': 'faces_dir',
     'timing': True,
     'skip_frames': False,
@@ -68,11 +69,7 @@ openvino_facenet: detector.Detector = None
 clarified_in_process = False
 uploaded_in_process = False
 process_lock = threading.Lock()
-frame_num = 0
 unknown_num = 0
-last_fully_processed = None
-freq = None
-skip_threshold = 0
 badge_detector = None
 
 
@@ -97,6 +94,7 @@ def init_hook(**kwargs):
 
     PARAMS['need_table'] = _boolean_string(PARAMS['need_table'])
     PARAMS['notify_log'] = _boolean_string(PARAMS['notify_log'])
+    PARAMS['log_console'] = _boolean_string(PARAMS['log_console'])
     PARAMS['postprocess_notify'] = _boolean_string(PARAMS['postprocess_notify'])
     PARAMS['only_distance'] = _boolean_string(PARAMS['only_distance'])
     PARAMS['fixed_normalization'] = _boolean_string(PARAMS['fixed_normalization'])
@@ -219,24 +217,6 @@ def process_uploaded(inputs):
 
 
 def process_recognize(inputs, ctx, **kwargs):
-    global frame_num
-    global last_fully_processed
-    global freq
-    global skip_threshold
-    frame_num += 1
-
-    # if PARAMS['skip_frames'] and last_fully_processed is not None:
-    #     if freq is None:
-    #         fps = int(_get_fps(**kwargs))
-    #
-    #         freq = (fps - PARAMS['inference_fps']) / float(fps)
-    #
-    #     if PARAMS['inference_fps'] != 0:
-    #         skip_threshold += freq
-    #         if skip_threshold > 1:
-    #             skip_threshold -= 1
-    #             return last_fully_processed
-
     frame = _load_image(inputs, 'input')
     # convert to BGR
     bgr_frame = np.copy(frame[:, :, ::-1])
@@ -252,7 +232,7 @@ def process_recognize(inputs, ctx, **kwargs):
         'labels': np.array([processed.label for processed in face_infos], dtype=np.str),
     }
 
-    if PARAMS['enable_log']:
+    if PARAMS['enable_log'] or PARAMS['log_console']:
         log_recognition(frame, ret, **kwargs)
 
     # processing.postprocess_notify(face_infos, frame=bgr_frame)
@@ -268,8 +248,6 @@ def process_recognize(inputs, ctx, **kwargs):
         image_output = rgb_frame
 
     ret['output'] = image_output
-
-    last_fully_processed = ret
 
     return ret
 
@@ -482,21 +460,29 @@ def _get_fps(**kwargs):
 
 def log_recognition(rgb_frame, ret, **kwargs):
     fps = _get_fps(**kwargs)
+    frame_num = kwargs['metadata']['frame_num']
 
     current_time = float(frame_num) / fps
 
     # Log all in text
     log_file = os.path.join(PARAMS['logdir'], 'log.txt')
     str_labels = ret['labels'].astype(str)
+    msg = '{:.6f} {}\n'.format(current_time, ','.join(str_labels))
+
+    if PARAMS['log_console'] and len(str_labels) > 0 and str_labels[0]:
+        LOG.info('Detected: %s' % ','.join(str_labels))
+
+    if not PARAMS['enable_log']:
+        return
+
     with open(log_file, 'a+') as f:
-        msg = '{:.6f} {}\n'.format(current_time, ','.join(str_labels))
         f.write(msg)
 
     # Save unknowns
-    if PARAMS['inference_fps'] == 0:
+    if 'output_fps' in kwargs['metadata']:
         relative_fps = fps
     else:
-        relative_fps = float(fps) / PARAMS['inference_fps']
+        relative_fps = float(fps) / kwargs['metadata']['output_fps']
     log_freq = 1. / fps
     if int(log_freq * frame_num) - int(log_freq * (frame_num - relative_fps)) == 1:
         not_detected_indices = [i for i, e in enumerate(str_labels) if e == '']
