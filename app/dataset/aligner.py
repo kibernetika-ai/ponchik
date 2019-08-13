@@ -313,7 +313,7 @@ class Aligner:
             self.serving = drv()
             self.serving.load_model(
                 self.face_detection_path,
-                device=self.device,
+                # device=self.device,
                 flexible_batch_size=True,
             )
             self.input_name = list(self.serving.inputs.keys())[0]
