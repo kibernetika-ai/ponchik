@@ -143,7 +143,7 @@ class FaceInfo:
     __slots__ = [
         'bbox', 'person_bbox', 'state', 'label', 'overlay_label',
         'prob', 'face_prob', 'classes', 'classes_meta', 'meta',
-        'looks_like', 'embedding', 'head_pose', 'last_seen'
+        'looks_like', 'embedding', 'head_pose', 'last_seen', 'dist'
     ]
 
     def __init__(
@@ -161,7 +161,7 @@ class FaceInfo:
             looks_like=None,
             embedding=None,
             head_pose=None,
-            distance = None,
+            dist=None,
     ):
         self.bbox = bbox
         self.person_bbox = person_bbox
@@ -177,7 +177,7 @@ class FaceInfo:
         self.embedding = embedding
         self.head_pose = head_pose
         self.last_seen = None
-        self.distance = distance
+        self.dist = dist
 
     def is_detected(self):
         return self.state == DETECTED
@@ -473,8 +473,8 @@ class Detector(object):
             overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
             dist = None
         else:
-            out = self.recognize_distance(output,self.detect_dst_threshold)
-            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected,dist = out
+            out = self.recognize_distance(output, self.detect_dst_threshold)
+            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected, dist = out
         meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
 
         classes_meta = {}
@@ -496,10 +496,10 @@ class Detector(object):
             meta=meta,
             looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
             embedding=output,
-            distance = dist,
+            dist=dist,
         )
 
-    def recognize_distance(self, output,threshold=0.4):
+    def recognize_distance(self, output, threshold=0.4):
         output = output.reshape([-1, 512])
         # min_dist = 10e10
         if self.kd_tree is None:
@@ -522,8 +522,8 @@ class Detector(object):
         #                 detected_class = cls
 
         if dist < threshold:
-            prob = 1 - dist/threshold*0.5
-            #prob = 1 - (max(dist, 0.2) - 0.2)
+            prob = 1 - dist / threshold * 0.5
+            # prob = 1 - (max(dist, 0.2) - 0.2)
             summary_overlay_label = detected_class
             if self.debug:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
@@ -535,12 +535,12 @@ class Detector(object):
         else:
             summary_overlay_label = ''
             if self.debug:
-                overlay_label_str = "Summary: not detected; distance(%s): %.3f" % (detected_class,dist)
+                overlay_label_str = "Summary: not detected; distance(%s): %.3f" % (detected_class, dist)
             else:
                 overlay_label_str = ''
             classes = []
             detected = False
-            prob = 0.5 - 0.5*math.tanh(dist-threshold)
+            prob = 0.5 - 0.5 * math.tanh(dist - threshold)
 
         return overlay_label_str, summary_overlay_label, classes, detected_class, prob, detected, dist
 
@@ -693,7 +693,6 @@ class Detector(object):
 
         stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
         return overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected
-
 
     def wrong_pose_indices(self, bgr_frame, boxes):
         if self.head_pose_driver is None:
@@ -1070,6 +1069,6 @@ class Detector(object):
 def cosine_dist(embeddings1, embeddings2):
     dot = np.sum(np.multiply(embeddings1, embeddings2))
     norm = np.linalg.norm(embeddings1) * np.linalg.norm(embeddings2)
-    similarity = dot/norm
+    similarity = dot / norm
     d = np.arccos(similarity) / math.pi
     return d
