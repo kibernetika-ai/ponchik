@@ -161,6 +161,7 @@ class FaceInfo:
             looks_like=None,
             embedding=None,
             head_pose=None,
+            distance = None,
     ):
         self.bbox = bbox
         self.person_bbox = person_bbox
@@ -176,6 +177,7 @@ class FaceInfo:
         self.embedding = embedding
         self.head_pose = head_pose
         self.last_seen = None
+        self.distance = distance
 
     def is_detected(self):
         return self.state == DETECTED
@@ -469,9 +471,10 @@ class Detector(object):
         if not self.only_distance:
             out = self.recognize_classifier(output)
             overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
+            dist = None
         else:
             out = self.recognize_distance(output,self.detect_dst_threshold)
-            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected = out
+            overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected,dist = out
         meta = self.meta[stored_class_name] if detected and stored_class_name in self.meta else None
 
         classes_meta = {}
@@ -493,6 +496,7 @@ class Detector(object):
             meta=meta,
             looks_like=[self.classifiers.class_names[ll] for ll in looks_likes],
             embedding=output,
+            distance = dist,
         )
 
     def recognize_distance(self, output,threshold=0.4):
@@ -538,7 +542,7 @@ class Detector(object):
             detected = False
             prob = 0.5 - 0.5*math.tanh(dist-threshold)
 
-        return overlay_label_str, summary_overlay_label, classes, detected_class, prob, detected
+        return overlay_label_str, summary_overlay_label, classes, detected_class, prob, detected, dist
 
     def recognize_classifier(self, output):
         detected_indices = []
