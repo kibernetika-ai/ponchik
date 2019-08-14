@@ -334,6 +334,15 @@ class Detector(object):
                     # Reset kd_tree
                     self.kd_tree = None
 
+            threshold_file = os.path.join(self.classifiers_dir, 'threshold.txt')
+            if os.path.exists(threshold_file):
+                with open(threshold_file) as f:
+                    data = f.read()
+
+                best_threshold = float(data)
+                tools.print_fun('Loaded best threshold = %s' % best_threshold)
+                self.detect_dst_threshold = best_threshold
+
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
         if os.path.isfile(meta_file):

@@ -47,6 +47,11 @@ def main():
         help='Complementary align and training.',
         action='store_true',
     )
+    parser.add_argument(
+        '--best_threshold',
+        help='Find best threshold.',
+        action='store_true',
+    )
     args = parser.parse_args()
     if not args.skip_align:
         al = aligner_args(args)

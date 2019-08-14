@@ -97,6 +97,7 @@ def classifiers_args(args):
         device=args.device,
         with_svm=args.with_svm,
         store_embeddings=args.store_embeddings,
+        best_threshold=args.best_threshold,
     )
 
 
@@ -117,6 +118,7 @@ class Classifiers:
             device=defaults.DEVICE,
             with_svm=False,
             store_embeddings=False,
+            best_threshold=False,
     ):
         self.algorithms = ["kNN"]
         if with_svm:
@@ -138,6 +140,7 @@ class Classifiers:
         self.loading_images = 0
         self.serving = None
         self.store_embeddings = store_embeddings
+        self.find_best_threshold = best_threshold
 
     def train(self):
 
@@ -337,8 +340,66 @@ class Classifiers:
             shutil.rmtree(meta_file, ignore_errors=True)
             print_fun('No metadata saved')
 
+        if self.find_best_threshold:
+            self.store_best_threshold(stored_embeddings, classifiers_dir)
+
         print_fun("Training complete: created %d classifiers with %d embeddings (%d images) in %d classes" %
                   (len(self.algorithms), len(emb_array), nrof_images, len(set(fit_labels))))
+
+    def store_best_threshold(self, stored_embeddings, dir):
+        thresholds = np.arange(0, 1, 0.0025)
+        embedding_size = 512
+        size = 0
+        for i, cls in enumerate(stored_embeddings):
+            for embs in stored_embeddings[cls].values():
+                size += len(embs)
+
+        plain_embeddings = np.zeros([size, embedding_size])
+        class_index = []
+        emb_i = 0
+        for i, cls in enumerate(stored_embeddings):
+            for embs in stored_embeddings[cls].values():
+                for emb in embs:
+                    plain_embeddings[emb_i] = emb
+                    emb_i += 1
+                    class_index.append(cls)
+
+        embeddings = (plain_embeddings + 1.) / 2.
+        kd_tree = neighbors.KDTree(embeddings, metric='euclidean')
+
+        dists, recognized = np.zeros([size], dtype=np.float32), np.zeros([size], np.bool)
+        for i, emb in enumerate(embeddings):
+            dist, idx = kd_tree.query(emb.reshape([1, 512]), k=2)
+
+            dist = dist[0][np.argmax(dist)]
+            idx = idx[0][np.argmax(dist)]
+            detected_class = class_index[idx]
+
+            detected = detected_class == class_index[i]
+            recognized[i] = detected
+            dists[i] = dist
+
+        best_threshold = 0
+        max_detect = 0
+        if recognized.all():
+            best_threshold = np.max(dists)
+        else:
+            for threshold in thresholds:
+                detected = len(dists[recognized & (dists < threshold)])
+                if detected > max_detect:
+                    max_detect = detected
+                    best_threshold = threshold
+
+        threshold_file = os.path.join(dir, 'threshold.txt')
+        best_threshold = best_threshold * 1.1
+
+        print_fun('=' * 50)
+        print_fun('Found best threshold = %s' % best_threshold)
+        print_fun('Written to %s.' % threshold_file)
+        print_fun('=' * 50)
+
+        with open(threshold_file, 'w') as f:
+            f.write(str(best_threshold) + '\n')
 
     def _load_model(self):
         if self.serving is None:
