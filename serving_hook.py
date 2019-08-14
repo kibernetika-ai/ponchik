@@ -480,7 +480,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
         f.write(msg)
 
     # Save unknowns
-    if 'output_fps' in kwargs['metadata']:
+    if 'output_fps' not in kwargs['metadata']:
         relative_fps = fps
     else:
         relative_fps = float(fps) / kwargs['metadata']['output_fps']
