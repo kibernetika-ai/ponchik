@@ -45,6 +45,9 @@ class InVideoDetected:
                     if self.dists / self.counter < 0.4:
                         self.notified = True
                         self.notified_awaiting = True
+                        self.dists = 0
+                        self.counter = 0
+                        self.last = now
                     else:
                         self.dists = d
                         self.counter = c
