@@ -231,6 +231,7 @@ def process_recognize(inputs, ctx, **kwargs):
     ret = {
         'boxes': np.array(faces_bbox),
         'labels': np.array([processed.label for processed in face_infos], dtype=np.str),
+        'probs': np.array([processed.prob for processed in face_infos], dtype=np.float32),
     }
 
     if PARAMS['enable_log'] or PARAMS['log_console']:
@@ -469,14 +470,25 @@ def log_recognition(rgb_frame, ret, **kwargs):
     # Log all in text
     log_file = os.path.join(PARAMS['logdir'], 'log.txt')
     str_labels = ret['labels'].astype(str)
-    str_labels = [l for l in str_labels if len(l)>0]
-    if len(str_labels)<1:
+    probs = ret['probs'].astype(np.float32)
+    msg = []
+    no_data = True
+    for i in range(str_labels):
+        label = str_labels[i]
+        if label == '':
+            continue
+        no_data = False
+        prob = probs[i]
+        ms = int(current_time*1000) % 1000
+        msg.append('{},{}.{},{},{:.2f}'.format(frame_num,datetime.fromtimestamp(current_time).strftime('%I:%M:%S'),ms,label,prob))
+
+    if no_data:
         return
 
-    msg = '{} {}\n'.format(datetime.fromtimestamp(current_time).strftime('%I:%M:%S'),','.join(str_labels))
+    msg = '\n'.join(msg)
 
-    if PARAMS['log_console'] and len(str_labels) > 0 and str_labels[0]:
-        LOG.info('Detected: %s' % ','.join(str_labels))
+    if PARAMS['log_console']:
+        LOG.info(msg)
 
     if not PARAMS['enable_log']:
         return
@@ -484,6 +496,8 @@ def log_recognition(rgb_frame, ret, **kwargs):
     with open(log_file, 'a+') as f:
         f.write(msg)
 
+    if len(str_labels)>1:
+        return
     # Save unknowns
     if 'output_fps' not in kwargs['metadata']:
         relative_fps = fps
