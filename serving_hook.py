@@ -473,7 +473,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
     probs = ret['probs'].astype(np.float32)
     msg = []
     no_data = True
-    for i in range(str_labels):
+    for i in range(len(str_labels)):
         label = str_labels[i]
         if label == '':
             continue
