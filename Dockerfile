@@ -5,6 +5,7 @@ RUN pip install croniter slackclient srt
 RUN mkdir /svod
 
 COPY ./models /svod/models
+COPY ./data /svod/data
 COPY ./app /svod/app
 COPY ./streaming.sh /svod/streaming.sh
 COPY ./serving_hook.py /svod/serving_hook.py
