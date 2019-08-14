@@ -31,7 +31,10 @@ def process(inputs, ctx):
     if len(faces) > 1:
         raise RuntimeError('more than one face detected')
 
-    return {'output': faces[0].embedding}
+    return dict(
+        bbox=faces[0].bbox,
+        embedding=faces[0].embedding,
+    )
 
 
 def _load_detector(ctx):
