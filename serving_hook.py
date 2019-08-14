@@ -468,7 +468,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
     current_time = float(frame_num) / fps
 
     # Log all in text
-    log_file = os.path.join(PARAMS['logdir'], 'log.txt')
+    log_file = os.path.join(PARAMS['logdir'], 'log.log')
     str_labels = ret['labels'].astype(str)
     probs = ret['probs'].astype(np.float32)
     msg = []
@@ -480,7 +480,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
         no_data = False
         prob = probs[i]
         ms = int(current_time*1000) % 1000
-        msg.append('{},{}.{},{},{:.2f}'.format(frame_num,datetime.fromtimestamp(current_time).strftime('%I:%M:%S'),ms,label,prob))
+        msg.append('{},{}.{},{},{:.2f}'.format(frame_num,datetime.fromtimestamp(current_time).strftime('%H:%M:%S'),ms,label,prob))
 
     if no_data:
         return

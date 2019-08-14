@@ -6,10 +6,9 @@ class NotifyFile:
 
     def __init__(self, filename):
         self.filename = filename
-        if not os.path.exists(self.filename):
-            open(self.filename, 'a').close()
-        elif os.path.isdir(self.filename):
-            raise ValueError('%s is dir, unable to log' % self.filename)
+        if os.path.exists(self.filename):
+            os.remove(self.filename)
+        self.out = open(self.filename, 'w')
 
     def notify(self, **kwargs):
         override_text = kwargs.get('text')
@@ -23,5 +22,5 @@ class NotifyFile:
             msg_strings.append('Company: %s' % kwargs['company'])
         if 'url' in kwargs:
             msg_strings.append('URL: %s' % kwargs['url'])
-        with open(self.filename, 'a') as f:
-            f.write('{}: {}'.format(datetime.datetime.now(), ', '.join(msg_strings)))
+        self.out.write('{}: {}\n'.format(datetime.datetime.now(), ', '.join(msg_strings)))
+        self.out.flush()
