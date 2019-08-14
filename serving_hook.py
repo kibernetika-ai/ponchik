@@ -36,7 +36,7 @@ PARAMS = {
     'detect_dst_threshold': 0.42,
     'enable_log': False,
     'log_console': False,
-    'logdir': 'faces_dir',
+    'logdir': 'log',
     'timing': True,
     'skip_frames': False,
     'inference_fps': 2,
