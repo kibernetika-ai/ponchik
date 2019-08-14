@@ -35,7 +35,7 @@ PARAMS = {
     'clarified_dir': '',
     'uploaded_dir': '',
     'project_name': '',
-    'detect_dst_threshold': 0.36,
+    'detect_dst_threshold': 0.38,
     'enable_log': False,
     'log_console': False,
     'logdir': 'log',

@@ -12,3 +12,4 @@ COPY ./pull_model.py /svod/pull_model.py
 COPY ./get_stats.py /svod/get_stats.py
 
 RUN mkdir -p /svod/data/classifiers
+RUN mkdir -p /svod/log
