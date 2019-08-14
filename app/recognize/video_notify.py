@@ -31,8 +31,12 @@ class InVideoDetected:
 
     def exists_in_frame(self, face_info=None, frame=None):
         if not self.done:
-            d = 0 if face_info.dist is None else face_info.dist
-            c = 0 if face_info is None else 1
+            if face_info is None:
+                c = 0
+                d = 0
+            else:
+                d = 0 if face_info.dist is None else face_info.dist
+                c=1
             self.dists += d
             self.counter += c
             now = time()
