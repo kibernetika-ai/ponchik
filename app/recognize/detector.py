@@ -518,7 +518,8 @@ class Detector(object):
         #                 detected_class = cls
 
         if dist < threshold:
-            prob = 1 - (max(dist, 0.2) - 0.2)
+            prob = 1 - dist/threshold*0.5
+            #prob = 1 - (max(dist, 0.2) - 0.2)
             summary_overlay_label = detected_class
             if self.debug:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
@@ -535,7 +536,7 @@ class Detector(object):
                 overlay_label_str = ''
             classes = []
             detected = False
-            prob = 0.
+            prob = 0.5 - 0.5*math.tanh(dist-threshold)
 
         return overlay_label_str, summary_overlay_label, classes, detected_class, prob, detected
 
