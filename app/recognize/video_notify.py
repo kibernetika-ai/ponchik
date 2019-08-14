@@ -7,7 +7,7 @@ class InVideoDetected:
 
     notify_period = 1
     notify_prob = .5
-    stay_notified = 120
+    stay_notified = 2
 
     def __init__(self):
         self.done = False
