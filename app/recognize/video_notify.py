@@ -41,7 +41,7 @@ class InVideoDetected:
             self.counter += c
             now = time()
             if (now - self.last) > self.notify_period:
-                if self.counter > 1:
+                if self.counter > 3:
                     if self.dists / self.counter < 0.4:
                         self.notified = True
                         self.notified_awaiting = True
