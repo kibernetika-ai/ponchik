@@ -139,7 +139,7 @@ def init_hook(**kwargs):
         if not os.path.exists(PARAMS['logdir']):
             os.mkdir(PARAMS['logdir'])
 
-        log_file = os.path.join(PARAMS['logdir'], 'log.txt')
+        log_file = os.path.join(PARAMS['logdir'], 'log.log')
         if os.path.exists(log_file):
             os.remove(log_file)
 
