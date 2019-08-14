@@ -52,6 +52,7 @@ PARAMS = {
     'slack_channel': '',
     'slack_server': '',
     'notify_log': False,
+    'notify_file': False,
     'postprocess_notify': False,
     'badge_detector': '',
     'normalization': defaults.NORMALIZATION,
