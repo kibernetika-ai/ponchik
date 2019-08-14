@@ -467,7 +467,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
     fps = _get_fps(**kwargs)
     frame_num = kwargs['metadata']['frame_num']
 
-    stream_name = kwargs['metadata'].get('stream_id','unknown')
+    stream_name = kwargs['metadata'].get('stream_id', 'unknown')
 
     current_time = float(frame_num) / fps
 
@@ -483,8 +483,12 @@ def log_recognition(rgb_frame, ret, **kwargs):
             continue
         no_data = False
         prob = probs[i]
-        ms = int(current_time*1000) % 1000
-        msg.append('{},{},{}.{},{},{:.2f}'.format(stream_name,frame_num,datetime.fromtimestamp(current_time,timezone.utc).strftime('%H:%M:%S'),ms,label,prob))
+        ms = int(current_time * 1000) % 1000
+        msg.append('{},{},{}.{},{},{:.2f}'.format(
+            stream_name, frame_num,
+            datetime.fromtimestamp(current_time, timezone.utc).strftime('%H:%M:%S'),
+            ms, label, prob
+        ))
 
     if no_data:
         return
@@ -497,9 +501,9 @@ def log_recognition(rgb_frame, ret, **kwargs):
         return
 
     with open(log_file, 'a+') as f:
-        f.write(msg+'\n')
+        f.write(msg + '\n')
 
-    if len(str_labels)>1:
+    if len(str_labels) > 1:
         return
     # Save unknowns
     if 'output_fps' not in kwargs['metadata']:
