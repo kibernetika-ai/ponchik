@@ -484,7 +484,6 @@ def log_recognition(rgb_frame, ret, **kwargs):
 
     if no_data:
         return
-
     msg = '\n'.join(msg)
 
     if PARAMS['log_console']:
@@ -494,7 +493,7 @@ def log_recognition(rgb_frame, ret, **kwargs):
         return
 
     with open(log_file, 'a+') as f:
-        f.write(msg)
+        f.write(msg+'\n')
 
     if len(str_labels)>1:
         return
