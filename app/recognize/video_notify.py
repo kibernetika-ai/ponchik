@@ -53,6 +53,8 @@ class InVideoDetected:
                         self.counter = c
                         self.notified = False
                         self.last = now
+            else:
+                self.notified = False
             if face_info:
                 if face_info.looks_like:
                     self.looks_like.extend(face_info.looks_like)
