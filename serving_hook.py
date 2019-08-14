@@ -16,6 +16,7 @@ from app.recognize import video_notify
 from app.notify import init_notifier_slack, init_notifier_print, init_notifier_file
 from app.tools import images, dataset
 from app.mlboard import mlboard
+from datetime import datetime
 
 import pull_model
 
@@ -468,7 +469,11 @@ def log_recognition(rgb_frame, ret, **kwargs):
     # Log all in text
     log_file = os.path.join(PARAMS['logdir'], 'log.txt')
     str_labels = ret['labels'].astype(str)
-    msg = '{:.6f} {}\n'.format(current_time, ','.join(str_labels))
+    str_labels = [l for l in str_labels if len(l)>0]
+    if len(str_labels)<1:
+        return
+
+    msg = '{} {}\n'.format(datetime.fromtimestamp(current_time).strftime('%I:%M:%S'),','.join(str_labels))
 
     if PARAMS['log_console'] and len(str_labels) > 0 and str_labels[0]:
         LOG.info('Detected: %s' % ','.join(str_labels))
