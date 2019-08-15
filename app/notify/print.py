@@ -1,4 +1,4 @@
-from app.tools import print_fun
+from app.tools import utils
 
 
 class NotifyPrint:
@@ -24,6 +24,6 @@ class NotifyPrint:
         if 'system' in kwargs:
             msg_strings.append('System: %s' % kwargs['system'])
         sl = max([len(s) for s in msg_strings])
-        print_fun('=' * sl)
-        print_fun('\r\n'.join(msg_strings))
-        print_fun('=' * sl)
+        utils.print_fun('=' * sl)
+        utils.print_fun('\r\n'.join(msg_strings))
+        utils.print_fun('=' * sl)

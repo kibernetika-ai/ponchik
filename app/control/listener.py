@@ -1,5 +1,5 @@
 import pickle
-from app.tools import print_fun
+from app.tools import utils
 
 import zmq
 
@@ -21,7 +21,7 @@ class Listener:
                     raise ValueError("test error")
                 return command, data
             except Exception as e:
-                print_fun("listener exception: %s" % e)
+                utils.print_fun("listener exception: %s" % e)
                 self.result(e)
 
     def result(self, err=None):

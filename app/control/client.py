@@ -3,7 +3,7 @@ import pickle
 import zmq
 
 from app.control import listener
-from app.tools import print_fun
+from app.tools import utils
 
 
 class Client:
@@ -27,7 +27,7 @@ class Client:
             err = pickle.loads(self.socket.recv())
         except zmq.error.Again:
             err = ValueError("no response, is server available?")
-            print_fun(err)
+            utils.print_fun(err)
             self.socket.close()
             self.context.term()
             self.socket = None

@@ -1,4 +1,8 @@
 import logging
+import sys
+
+from app.recognize import defaults
+from app.tools import images
 
 
 def box_intersection(box_a, box_b):
@@ -17,6 +21,30 @@ def box_intersection(box_a, box_b):
         return 0
     iou = inter_area / d
     return iou
+
+
+def print_fun(s):
+    print(s)
+    sys.stdout.flush()
+
+
+def add_normalization_args(parser):
+    parser.add_argument(
+        '--normalization',
+        help='Image normalization during training.',
+        default=defaults.NORMALIZATION,
+        choices=[images.NORMALIZATION_PREWHITEN, images.NORMALIZATION_STANDARD, images.NORMALIZATION_FIXED],
+    )
+
+
+def boolean_string(s):
+    if isinstance(s, bool):
+        return s
+
+    s = s.lower()
+    if s not in {'false', 'true'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'true'
 
 
 def box_includes(outer, inner):

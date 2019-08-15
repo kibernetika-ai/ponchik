@@ -2,13 +2,13 @@ import cv2
 import numpy as np
 from ml_serving.drivers import driver as sdrv
 
-from app.tools import print_fun
+from app.tools import utils
 
 
 class Driver(object):
 
     def __init__(self, bg_remove_path):
-        print_fun('Load BG_REMOVE model')
+        utils.print_fun('Load BG_REMOVE model')
         drv = sdrv.load_driver('tensorflow')
         self.drv = drv()
         self.drv.load_model(bg_remove_path)

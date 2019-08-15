@@ -11,9 +11,12 @@ from ml_serving.drivers import driver
 from sklearn import svm, neighbors
 
 from app.recognize import defaults
-from app.tools import dataset, images, print_fun
+from app.tools import utils
+from app.tools import dataset
+from app.tools import images
 
 META_FILENAME = 'meta.json'
+print_fun = utils.print_fun
 
 
 def add_classifier_args(parser):
@@ -42,7 +45,7 @@ def add_classifier_args(parser):
     )
     parser.add_argument(
         '--aug_flip',
-        type=bool,
+        type=utils.boolean_string,
         default=defaults.AUG_FLIP,
         help='Add horizontal flip to images.',
     )
@@ -54,12 +57,13 @@ def add_classifier_args(parser):
     )
     parser.add_argument(
         '--aug_blur',
-        action='store_true',
+        type=utils.boolean_string,
+        default=True,
         help='Add gaussian blur to images.',
     )
     parser.add_argument(
         '--aug_upscale',
-        type=bool,
+        type=utils.boolean_string,
         default=defaults.AUG_UPSCALE,
         help='Add upscale to images from 30x30 size.',
     )
@@ -379,6 +383,7 @@ class Classifiers:
             recognized[i] = detected
             dists[i] = dist
 
+        __import__('ipdb').set_trace()
         best_threshold = 0
         max_detect = 0
         if recognized.all():

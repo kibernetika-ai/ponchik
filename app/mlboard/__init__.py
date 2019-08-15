@@ -1,6 +1,6 @@
 import os
 
-from app.tools import print_fun
+from app.tools import utils
 
 try:
     from mlboardclient.api import client
@@ -18,9 +18,9 @@ if client:
         mlboard.apps.get()
     except Exception:
         mlboard_logging = False
-        print_fun('Do not use mlboard parameters logging.')
+        utils.print_fun('Do not use mlboard parameters logging.')
     else:
-        print_fun('Using mlboard parameters logging.')
+        utils.print_fun('Using mlboard parameters logging.')
 
 
 def update_task_info(data):

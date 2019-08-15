@@ -2,7 +2,7 @@ import argparse
 
 from app.mlboard import mlboard, update_task_info, catalog_ref
 from app.recognize import add_common_args
-from app.tools import print_fun
+from app.tools import utils
 
 
 def main():
@@ -25,10 +25,10 @@ def main():
     )
     args = parser.parse_args()
 
-    print_fun('Uploading model...')
+    utils.print_fun('Uploading model...')
     mlboard.model_upload(args.model_name, args.model_version, args.classifiers_dir)
     update_task_info({'model_reference': catalog_ref(args.model_name, 'mlmodel', args.model_version)})
-    print_fun("New model uploaded as '%s', version '%s'." % (args.model_name, args.model_version))
+    utils.print_fun("New model uploaded as '%s', version '%s'." % (args.model_name, args.model_version))
 
 
 if __name__ == '__main__':

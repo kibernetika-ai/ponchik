@@ -11,8 +11,8 @@ from scipy.spatial import distance
 from sklearn import svm, neighbors
 
 from app.recognize import classifiers, defaults
-from app.tools import images, add_normalization_args, utils
-from app import tools
+from app.tools import images
+from app.tools import utils
 import math
 
 DETECTED = 1
@@ -67,7 +67,7 @@ def add_detector_args(parser):
         help='Full debug output for each detected face.',
         action='store_true',
     )
-    add_normalization_args(parser)
+    utils.add_normalization_args(parser)
 
 
 def detector_args(args):
@@ -75,47 +75,47 @@ def detector_args(args):
     if args.head_pose_path is not None:
         if os.path.isfile(args.head_pose_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load HEAD POSE ESTIMATION model")
+            utils.print_fun("Load HEAD POSE ESTIMATION model")
             drv = driver.load_driver('openvino')
             head_pose_driver = drv()
             head_pose_driver.load_model(args.head_pose_path)
         else:
-            tools.print_fun("head-pose-estimation openvino model is not found, skipped")
+            utils.print_fun("head-pose-estimation openvino model is not found, skipped")
 
     face_driver = None
     if args.face_detection_path is not None:
         if os.path.isfile(args.face_detection_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load FACE DETECTION model %s" % args.face_detection_path)
+            utils.print_fun("Load FACE DETECTION model %s" % args.face_detection_path)
             drv = driver.load_driver('openvino')
             face_driver = drv()
             face_driver.load_model(args.face_detection_path)
         else:
-            tools.print_fun("face-detection openvino model is not found, skipped")
+            utils.print_fun("face-detection openvino model is not found, skipped")
 
     facenet_driver = None
     if not args.without_facenet and args.model_path is not None:
         if os.path.isfile(args.model_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load FACENET model")
+            utils.print_fun("Load FACENET model")
             drv = driver.load_driver('openvino')
             facenet_driver = drv()
             facenet_driver.load_model(args.model_path)
         else:
-            tools.print_fun("facenet openvino model is not found, skipped")
+            utils.print_fun("facenet openvino model is not found, skipped")
 
     person_driver = None
     if args.person_detection_path is not None:
         if args.person_detection_driver == "openvino" and os.path.isfile(args.person_detection_path) \
                 or args.person_detection_driver == "tensorflow" and os.path.isdir(args.person_detection_path):
             from ml_serving.drivers import driver
-            tools.print_fun("Load PERSON DETECTION model %s (driver %s)" %
+            utils.print_fun("Load PERSON DETECTION model %s (driver %s)" %
                             (args.person_detection_path, args.person_detection_driver))
             drv = driver.load_driver(args.person_detection_driver)
             person_driver = drv()
             person_driver.load_model(args.person_detection_path)
         else:
-            tools.print_fun("person-detection model is not found, skipped")
+            utils.print_fun("person-detection model is not found, skipped")
 
     multi_detect = None
     if args.multi_detect:
@@ -270,7 +270,7 @@ class Detector(object):
             for clfi, clf in enumerate(loaded_classifiers):
                 # Load classifier
                 with open(clf, 'rb') as f:
-                    tools.print_fun('Load CLASSIFIER %s' % clf)
+                    utils.print_fun('Load CLASSIFIER %s' % clf)
                     opts = {'file': f}
                     if six.PY3:
                         opts['encoding'] = 'latin1'
@@ -288,7 +288,7 @@ class Detector(object):
                         embedding_size = 512
                         classifier_name = "%d" % clfi
                         classifier_name_log = type(clf)
-                    tools.print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
+                    utils.print_fun('Loaded %s, embedding size: %d' % (classifier_name_log, embedding_size))
                     if new.class_names is None:
                         new.class_names = class_names
                         self.classes = class_names
@@ -340,13 +340,13 @@ class Detector(object):
                     data = f.read()
 
                 best_threshold = float(data)
-                tools.print_fun('Loaded best threshold = %s' % best_threshold)
+                utils.print_fun('Loaded best threshold = %s' % best_threshold)
                 self.detect_dst_threshold = best_threshold
 
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
         if os.path.isfile(meta_file):
-            tools.print_fun("Load metadata...")
+            utils.print_fun("Load metadata...")
             with open(meta_file, 'r') as mr:
                 self.meta = json.load(mr)
 
@@ -567,7 +567,7 @@ class Detector(object):
                 predictions = clf.predict_proba(output)
             except ValueError as e:
                 # Can not reshape
-                tools.print_fun("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
+                utils.print_fun("ERROR: Output from graph doesn't consistent with classifier model: %s" % e)
                 continue
 
             best_class_indices = np.argmax(predictions, axis=1)
@@ -585,7 +585,7 @@ class Detector(object):
                     max_candidate = sorted(counts.items(), reverse=True, key=lambda x: x[1])[0]
 
                     if best_class_indices[idx] != max_candidate[0] and max_candidate[1] > len(candidates) // 2:
-                        # tools.print_fun(
+                        # utils.print_fun(
                         #     "Changed candidate from %s to %s" % (
                         #         self.classifiers.class_names[best_class_indices[idx]],
                         #         self.classifiers.class_names[max_candidate[0]]
@@ -641,7 +641,7 @@ class Detector(object):
                     eval_values = predictions[np.arange(len(best_class_indices)), best_class_indices]
                     return max(0, min(1, eval_values[idx] * 10)), '%.1f%%' % (eval_values[idx] * 100), []
             else:
-                tools.print_fun("ERROR: Unsupported model type: %s" % type(clf))
+                utils.print_fun("ERROR: Unsupported model type: %s" % type(clf))
                 continue
 
             for i in range(len(best_class_indices)):
@@ -1016,23 +1016,23 @@ class Detector(object):
                             thickness=thickness + 1,
                         )
                         if cls not in self.classes_previews:
-                            # tools.print_fun('Init preview for class "%s"' % cls)
+                            # utils.print_fun('Init preview for class "%s"' % cls)
                             self.classes_previews[cls] = None
                             cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
                             if os.path.isfile(cls_img_path):
                                 try:
                                     self.classes_previews[cls] = cv2.imread(cls_img_path)
                                 except Exception as e:
-                                    tools.print_fun('Error reading preview for "%s": %s' % (cls, e))
+                                    utils.print_fun('Error reading preview for "%s": %s' % (cls, e))
                             else:
-                                tools.print_fun('Error reading preview for "%s": file not found' % cls)
+                                utils.print_fun('Error reading preview for "%s": file not found' % cls)
                         cls_img = self.classes_previews[cls]
                         if cls_img is not None:
                             resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
                             try:
                                 frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
                             except Exception as e:
-                                tools.print_fun("ERROR: %s" % e)
+                                utils.print_fun("ERROR: %s" % e)
                         i_left += int(classes_preview_size * 1.2)
 
     @staticmethod

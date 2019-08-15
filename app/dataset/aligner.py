@@ -36,7 +36,12 @@ import numpy as np
 from ml_serving.drivers import driver
 
 from app.recognize import defaults
-from app.tools import bg_remove, images, downloader, dataset, print_fun
+from app.tools import bg_remove
+from app.tools import images
+from app.tools import downloader
+from app.tools import dataset
+from app.tools import utils
+
 
 DEFAULT_INPUT_DIR = "./data/faces"
 
@@ -80,9 +85,9 @@ class Aligner:
     def align(self, images_limit=None):
 
         if self.complementary_align:
-            print_fun('Complementary align %simages to %s' % ("clarified " if self.clarified else "", self.aligned_dir))
+            utils.print_fun('Complementary align %simages to %s' % ("clarified " if self.clarified else "", self.aligned_dir))
         else:
-            print_fun('Align images to %s' % self.aligned_dir)
+            utils.print_fun('Align images to %s' % self.aligned_dir)
 
         aligned_dir = os.path.expanduser(self.aligned_dir)
         bounding_boxes_filename = os.path.join(aligned_dir, 'bounding_boxes.txt')
@@ -98,18 +103,18 @@ class Aligner:
 
         align_data = {}
         if os.path.isfile(align_filename):
-            print_fun("Check previous align data")
+            utils.print_fun("Check previous align data")
             with open(align_filename, 'rb') as infile:
                 (align_data_args_loaded, align_data_loaded) = pickle.load(infile)
                 if align_data_args == align_data_args_loaded:
-                    print_fun("Loaded data about %d aligned classes" % len(align_data_loaded))
+                    utils.print_fun("Loaded data about %d aligned classes" % len(align_data_loaded))
                     align_data = align_data_loaded
                 else:
-                    print_fun("Previous align data is for another arguments, deleting existing data")
+                    utils.print_fun("Previous align data is for another arguments, deleting existing data")
                     shutil.rmtree(aligned_dir, ignore_errors=True)
 
         if not os.path.isdir(aligned_dir):
-            print_fun("Creating output dir")
+            utils.print_fun("Creating output dir")
             os.makedirs(aligned_dir)
 
         # Store some git revision info in a text file in the log directory
@@ -118,7 +123,7 @@ class Aligner:
         loaded_dataset = dataset.get_dataset(self.input_dir)
         loaded_dataset_meta = dataset.get_meta(loaded_dataset)
 
-        print_fun('Creating networks and loading parameters')
+        utils.print_fun('Creating networks and loading parameters')
 
         # Load driver
         self._load_driver()
@@ -163,7 +168,7 @@ class Aligner:
                         img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype(np.float32)
                     except Exception as e:
                         error_message = '{}: {}'.format(image_path, e)
-                        print_fun('ERROR: %s' % error_message)
+                        utils.print_fun('ERROR: %s' % error_message)
                         continue
 
                     img_hash = hashlib.sha1(img.tostring()).hexdigest()
@@ -193,10 +198,10 @@ class Aligner:
                                     continue
 
                     align_data_class[image_path] = {'hash': hashlib.sha1(img.tostring()).hexdigest()}
-                    print_fun(image_path)
+                    utils.print_fun(image_path)
 
                     if len(img.shape) <= 2:
-                        print_fun('WARNING: Unable to align "%s", shape %s' % (image_path, img.shape))
+                        utils.print_fun('WARNING: Unable to align "%s", shape %s' % (image_path, img.shape))
                         bounding_boxes_contents += '%s ERROR invalid shape\n' % image_path
                         continue
 
@@ -217,7 +222,7 @@ class Aligner:
                             img_masked = bg_rm_drv.apply_mask(img)
                             bounding_boxes = self._get_boxes(image_path, img_masked)
                             if bounding_boxes is None:
-                                print_fun('WARNING: no faces on image with removed bg, trying without bg removing')
+                                utils.print_fun('WARNING: no faces on image with removed bg, trying without bg removing')
 
                         if bounding_boxes is None or bg_rm_drv is not None:
                             bounding_boxes = self._get_boxes(image_path, img)
@@ -279,7 +284,7 @@ class Aligner:
             align_data[cls.name] = align_data_class
 
             if images_limit and images_limit <= nrof_successfully_aligned:
-                print_fun("Limit for aligned images %d is reached" % images_limit)
+                utils.print_fun("Limit for aligned images %d is reached" % images_limit)
                 break
 
         dataset.get_meta(loaded_dataset)
@@ -297,14 +302,14 @@ class Aligner:
         with open(align_filename, 'wb') as align_file:
             pickle.dump((align_data_args, align_data), align_file, protocol=2)
 
-        print_fun('Total number of images: %d' % nrof_images_total)
+        utils.print_fun('Total number of images: %d' % nrof_images_total)
         if nrof_images_cached > 0:
-            print_fun('Number of cached images: %d' % nrof_images_cached)
+            utils.print_fun('Number of cached images: %d' % nrof_images_cached)
         if nrof_images_skipped > 0:
-            print_fun('Number of skipped images: %d' % nrof_images_skipped)
+            utils.print_fun('Number of skipped images: %d' % nrof_images_skipped)
         if nrof_has_meta > 0:
-            print_fun('Number of classes with meta: %d' % nrof_has_meta)
-        print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)
+            utils.print_fun('Number of classes with meta: %d' % nrof_has_meta)
+        utils.print_fun('Number of successfully aligned images: %d' % nrof_successfully_aligned)
 
     def _load_driver(self):
         if self.serving is None:
@@ -344,12 +349,12 @@ class Aligner:
         area = (bbs[:, 3] - bbs[:, 1]) * (bbs[:, 2] - bbs[:, 0])
 
         if len(area) < 1:
-            print_fun('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
+            utils.print_fun('WARNING: Unable to align "%s", n_faces=%s' % (image_path, len(area)))
             return None
 
         num = np.argmax(area)
         if area[num] < self.min_face_area:
-            print_fun(
+            utils.print_fun(
                 'WARNING: Unable to align "{}", face found but too small - about {}px '
                 'width against required minimum of {}px. Try adjust parameter --min-face-size'.format(
                     image_path, int(np.sqrt(area[num])), self.min_face_size

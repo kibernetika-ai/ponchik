@@ -1,7 +1,7 @@
 import io
 import tarfile
 from urllib.request import urlopen
-from app.tools import print_fun
+from app.tools import utils
 
 
 def downloader_args(args):
@@ -15,12 +15,12 @@ class Downloader:
 
     def extract(self):
         try:
-            print_fun("Downloading from %s" % self.url)
+            utils.print_fun("Downloading from %s" % self.url)
             arc = io.BytesIO(urlopen(self.url).read())
         except Exception as e:
             return RuntimeError("Download archive error: %s" % e)
         try:
-            print_fun("Extracting...")
+            utils.print_fun("Extracting...")
             tar = tarfile.open(fileobj=arc, mode="r:*")
             tar.extractall(path=self.dest)
             tar.close()
