@@ -113,7 +113,7 @@ def init_hook(**kwargs):
     clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
     clarify_checker.start()
 
-    video_notify.InVideoDetected.notify_period = 3.0
+    video_notify.InVideoDetected.notify_period = 1.5
 
     if PARAMS['enable_pull_model']:
         assert PARAMS['workspace_name'] != ''

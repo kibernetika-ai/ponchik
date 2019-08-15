@@ -1,5 +1,5 @@
 from app.notify import file, slack, print
-from app.tools import print_fun
+from app.tools import utils
 
 notifier = None
 not_init_say = False
@@ -74,7 +74,7 @@ def notify(**kwargs):
     if notifier is None:
         global not_init_say
         if not not_init_say:
-            print_fun("=== Notifications aren't initialized ===")
+            utils.print_fun("=== Notifications aren't initialized ===")
             not_init_say = True
         return
     if not kwargs.get('name') and not kwargs.get('text'):

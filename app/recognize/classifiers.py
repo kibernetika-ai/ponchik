@@ -396,7 +396,7 @@ class Classifiers:
                     best_threshold = threshold
 
         threshold_file = os.path.join(dir, 'threshold.txt')
-        best_threshold = best_threshold * 1.1
+        # best_threshold = best_threshold * 1.1
 
         print_fun('=' * 50)
         print_fun('Found best threshold = %s' % best_threshold)

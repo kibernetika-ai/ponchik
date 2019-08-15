@@ -4,9 +4,9 @@ from app.tools import images
 
 
 class InVideoDetected:
-    notify_period = 4
+    notify_period = 1
     notify_prob = .5
-    stay_notified = 2
+    stay_notified = 20
 
     def __init__(self):
         self.done = False
@@ -29,7 +29,7 @@ class InVideoDetected:
         if self.last == 0:
             self.last = time.time()
 
-    def exists_in_frame(self, face_info=None, frame=None):
+    def exists_in_frame_new(self, face_info=None, frame=None):
         if not self.done:
             if face_info is None:
                 c = 0
@@ -65,7 +65,7 @@ class InVideoDetected:
                     self.image = images.crop_by_box(frame, face_info.bbox)
             self.done = True
 
-    def exists_in_frame_old(self, face_info=None, frame=None):
+    def exists_in_frame(self, face_info=None, frame=None):
         if not self.done:
             exists = face_info is not None
             self.in_frames.append(1 if exists else 0)
