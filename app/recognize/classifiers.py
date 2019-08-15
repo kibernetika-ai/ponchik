@@ -383,7 +383,7 @@ class Classifiers:
             recognized[i] = detected
             dists[i] = dist
 
-        __import__('ipdb').set_trace()
+        # __import__('ipdb').set_trace()
         best_threshold = 0
         max_detect = 0
         if recognized.all():
