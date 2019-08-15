@@ -1,4 +1,4 @@
-from time import time
+import time
 
 from app.tools import images
 
@@ -27,7 +27,7 @@ class InVideoDetected:
     def prepare(self):
         self.done = False
         if self.last == 0:
-            self.last = time()
+            self.last = time.time()
 
     def exists_in_frame(self, face_info=None, frame=None):
         if not self.done:
@@ -36,10 +36,10 @@ class InVideoDetected:
                 d = 0
             else:
                 d = 0 if face_info.dist is None else face_info.dist
-                c=1
+                c = 1
             self.dists += d
             self.counter += c
-            now = time()
+            now = time.time()
             if (now - self.last) > self.notify_period:
                 if self.counter > 4:
                     if self.dists / self.counter < 0.39:
@@ -65,12 +65,11 @@ class InVideoDetected:
                     self.image = images.crop_by_box(frame, face_info.bbox)
             self.done = True
 
-
     def exists_in_frame_old(self, face_info=None, frame=None):
         if not self.done:
             exists = face_info is not None
             self.in_frames.append(1 if exists else 0)
-            now = time()
+            now = time.time()
             self.in_frames_ts.append(now)
             period_filled = False
             while len(self.in_frames_ts) > 1 and now - self.in_frames_ts[0] > self.notify_period:
