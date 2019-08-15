@@ -408,6 +408,9 @@ class Classifiers:
 
     def _load_model(self):
         if self.serving is None:
+            if os.path.isdir(self.model_path) and os.path.exists(os.path.join(self.model_path, 'saved_model.pb')):
+                self.driver_name = 'tensorflow'
+                self.image_size = 112
             drv = driver.load_driver(self.driver_name)
             self.serving = drv()
             self.serving.load_model(
@@ -420,7 +423,13 @@ class Classifiers:
 
     def _predict(self, imgs):
         if self.serving.driver_name == 'tensorflow':
-            feed_dict = {'input:0': imgs, 'phase_train:0': False}
+            input_sizes = list(self.serving.inputs.values())[0]
+            if input_sizes[1] == 112:
+                # Arcface
+                input_name = list(self.serving.inputs.keys())[0]
+                feed_dict = {input_name: imgs}
+            else:
+                feed_dict = {'input:0': imgs, 'phase_train:0': False}
         elif self.serving.driver_name == 'openvino':
             input_name = list(self.serving.inputs.keys())[0]
             # Transpose image for channel first format

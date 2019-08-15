@@ -217,6 +217,10 @@ class Detector(object):
         self._initialized = False
         self.face_driver: driver.ServingDriver = face_driver
         self.facenet_driver: driver.ServingDriver = facenet_driver
+        self.facenet_image_size = 160
+        if self.facenet_driver.driver_name == 'tensorflow':  # ArcFace
+            self.facenet_image_size = 112
+
         self.classifiers_dir = classifiers_dir
 
         self.head_pose_driver: driver.ServingDriver = head_pose_driver
@@ -787,7 +791,7 @@ class Detector(object):
         else:
             bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
             poses = self.wrong_pose_indices(frame, bboxes)
-            imgs = images.get_images(frame, bboxes, normalization=self.normalization)
+            imgs = images.get_images(frame, bboxes, normalization=self.normalization, face_crop_size=self.facenet_image_size)
 
         if stored_persons is not None:
             persons_bboxes = []
@@ -826,7 +830,11 @@ class Detector(object):
                     output = embeddings[img_idx]
                 else:
                     img = img[:, :, ::-1]
-                    img = img.transpose([2, 0, 1]).reshape([1, 3, 160, 160])
+                    if self.facenet_driver.driver_name == 'openvino':
+                        img = img.transpose([2, 0, 1]).reshape([1, 3, self.facenet_image_size, self.facenet_image_size])
+                    else:
+                        img = img.reshape(1, self.facenet_image_size, self.facenet_image_size, 3)
+
                     output = self.inference_facenet(img)
                 # LOG.info('facenet: %.3fms' % ((time.time() - t) * 1000))
                 # output = output[facenet_output]

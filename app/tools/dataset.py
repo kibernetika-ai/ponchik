@@ -90,6 +90,10 @@ def load_data(image_paths, image_size, fixed_normalization=False):
             img = images.fixed_normalize(img)
         else:
             img = images.prewhiten(img)
+
+        if img.shape[0] != image_size:
+            img = cv2.resize(img, (image_size, image_size), interpolation=cv2.INTER_AREA)
+
         imgs[i, :, :, :] = img
     return imgs
 
