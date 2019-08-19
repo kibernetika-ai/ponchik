@@ -29,28 +29,119 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import argparse
+import base64
 import os
 import sys
+
+import cv2
+from mlboardclient.api import client
 from ml_serving.drivers import driver
+import numpy as np
 from sklearn import metrics
 from scipy.optimize import brentq
 from scipy import interpolate
 
 from app.tools import dataset
 from app.tools import helpers
+from app.tools import utils
+
+
+def update_data(data, use_mlboard, mlboard):
+    if use_mlboard and mlboard:
+        mlboard.update_task_info(data)
+
+
+def report(tpr, fpr, accuracy, val, val_std, far):
+    import io
+    import matplotlib.pyplot as plt
+    plt.figure(1, figsize=(10, 10))
+    # plot no skill
+    plt.plot([0, 1], [0, 1], linestyle='--')
+    # plot the roc curve for the model
+    plt.plot(fpr, tpr, marker='.')
+    plt.title('ROC Curve')
+    plt.tight_layout(pad=1.5)
+    # plt.ylabel('True label')
+    # plt.xlabel('Predicted label')
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+
+    img = cv2.imdecode(np.frombuffer(buf.getvalue(), dtype=np.uint8), cv2.IMREAD_COLOR)
+    img = img[:, :, ::-1]
+    img = np.vstack((np.ones([150, img.shape[1], 3]) * 255, img))
+
+    mean_accuracy = np.mean(accuracy)
+    std_accuracy = np.std(accuracy)
+    utils.print_fun('Accuracy: %2.5f+-%2.5f' % (mean_accuracy, std_accuracy))
+
+    font = cv2.FONT_HERSHEY_DUPLEX
+
+    utils.print_fun('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
+
+    auc = metrics.auc(fpr, tpr)
+    utils.print_fun('Area Under Curve (AUC): %1.3f' % auc)
+
+    eer = brentq(lambda x: 1. - x - interpolate.interp1d(fpr, tpr)(x), 0., 1.)
+    utils.print_fun('Equal Error Rate (EER): %1.3f' % eer)
+
+    cv2.putText(
+        img,
+        'Accuracy: %2.5f+-%2.5f' % (mean_accuracy, std_accuracy),
+        (50, 30), font, 1.0, 0, thickness=1, lineType=cv2.LINE_AA
+    )
+    cv2.putText(
+        img,
+        'Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far),
+        (50, 70), font, 1.0, 0, thickness=1, lineType=cv2.LINE_AA
+    )
+    cv2.putText(
+        img,
+        'Area Under Curve (AUC): %1.3f' % auc,
+        (50, 110), font, 1.0, 0, thickness=1, lineType=cv2.LINE_AA
+    )
+    cv2.putText(
+        img,
+        'Equal Error Rate (EER): %1.3f' % eer,
+        (50, 150), font, 1.0, 0, thickness=1, lineType=cv2.LINE_AA
+    )
+    buf = cv2.imencode('.jpg', img)[1].tostring()
+    return '<html><img src="data:image/png;base64,{}"/></html>'.format(base64.b64encode(buf).decode())
 
 
 def main(args):
     # Get the paths for the corresponding images
+    use_mlboard = False
+    mlboard = None
+    if client:
+        mlboard = client.Client()
+        try:
+            mlboard.apps.get()
+        except Exception:
+            mlboard = None
+            utils.print_fun('Do not use mlboard.')
+        else:
+            utils.print_fun('Use mlboard parameters logging.')
+            use_mlboard = True
+
     image_size = args.image_size
     driver_name = 'openvino'
     if os.path.isdir(args.model) and os.path.exists(os.path.join(args.model, 'saved_model.pb')):
         driver_name = 'tensorflow'
         image_size = 112
 
-    img_paths, actual_issame = load_dataset(args.lfw_dir)
+    data = {
+        'image_size': image_size,
+        'driver_name': driver_name,
+        'model_path': args.model,
+        'data_dir': args.data_dir,
+        'batch_size': args.batch_size,
+    }
+    update_data(data, use_mlboard, mlboard)
+
+    img_paths, actual_issame = load_dataset(args.data_dir)
     drv = driver.load_driver(driver_name)
     serving = drv()
     serving.load_model(
@@ -67,15 +158,21 @@ def main(args):
     # Enqueue one epoch of image paths and labels
     nrof_images = len(img_paths)
 
+    data = {
+        'num_images': nrof_images,
+        'num_classes': nrof_images // 4,
+    }
+    update_data(data, use_mlboard, mlboard)
+
     embedding_size = list(serving.outputs.values())[0][-1]
-    nrof_batches = int(np.ceil(float(nrof_images) / args.lfw_batch_size))
+    nrof_batches = int(np.ceil(float(nrof_images) / args.batch_size))
     emb_array = np.zeros((nrof_images, embedding_size))
 
     # TODO(nmakhotkin): cache embeddings by image paths (because image pairs
     #  are duplicated and no need to do inference on them)
     for i in range(nrof_batches):
-        start_index = i * args.lfw_batch_size
-        end_index = min((i + 1) * args.lfw_batch_size, nrof_images)
+        start_index = i * args.batch_size
+        end_index = min((i + 1) * args.batch_size, nrof_images)
         paths_batch = img_paths[start_index:end_index]
         probe_imgs = dataset.load_data(paths_batch, image_size, fixed_normalization=True)
         emb = _predict(serving, probe_imgs)
@@ -91,13 +188,10 @@ def main(args):
         distance_metric=args.distance_metric, subtract_mean=args.subtract_mean
     )
 
-    print('Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
-    print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
-
-    auc = metrics.auc(fpr, tpr)
-    print('Area Under Curve (AUC): %1.3f' % auc)
-    eer = brentq(lambda x: 1. - x - interpolate.interp1d(fpr, tpr)(x), 0., 1.)
-    print('Equal Error Rate (EER): %1.3f' % eer)
+    rpt = report(tpr, fpr, accuracy, val, val_std, far)
+    with open('report.html', 'w') as f:
+        f.write(rpt)
+    update_data({'#documents.report.html': rpt}, use_mlboard, mlboard)
 
 
 def load_dataset(dataset_dir):
@@ -176,23 +270,18 @@ def _predict(serving, imgs):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('lfw_dir', type=str,
+    parser.add_argument('data_dir', type=str,
                         help='Path to the data directory containing aligned LFW face patches.')
-    parser.add_argument('--lfw_batch_size', type=int,
+    parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch in the LFW test set.', default=100)
     parser.add_argument('model', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
     parser.add_argument('--image_size', type=int,
                         help='Image size (height, width) in pixels.', default=160)
-    parser.add_argument('--lfw_pairs', type=str,
-                        help='The file containing the pairs to use for validation.', default='data/pairs.txt')
     parser.add_argument('--lfw_nrof_folds', type=int,
                         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     parser.add_argument('--distance_metric', type=int,
                         help='Distance metric  0:euclidian, 1:cosine similarity.', default=0)
-    parser.add_argument('--use_flipped_images',
-                        help='Concatenates embeddings for the image and its horizontally flipped counterpart.',
-                        action='store_true')
     parser.add_argument('--subtract_mean',
                         help='Subtract feature mean before calculating distance.', action='store_true')
     return parser.parse_args(argv)
