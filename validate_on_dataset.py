@@ -153,7 +153,7 @@ def main(args):
     )
 
     # Run forward pass to calculate embeddings
-    print('Runnning forward pass on dataset images')
+    utils.print_fun('Runnning forward pass on dataset images')
 
     # Enqueue one epoch of image paths and labels
     nrof_images = len(img_paths)
@@ -178,9 +178,9 @@ def main(args):
         emb = _predict(serving, probe_imgs)
         emb_array[start_index:end_index, :] = emb
         if i % 5 == 4:
-            print('{}/{}'.format(i + 1, nrof_batches))
+            utils.print_fun('{}/{}'.format(i + 1, nrof_batches))
             sys.stdout.flush()
-    print('')
+    utils.print_fun('')
     embeddings = emb_array
 
     tpr, fpr, accuracy, val, val_std, far = helpers.evaluate(
@@ -216,7 +216,7 @@ def load_dataset(dataset_dir):
             i += 1
 
     # Expand dataset with random pairs
-    print('Generating pairs for dataset...')
+    utils.print_fun('Generating pairs for dataset...')
     for i in range(len(imgs_original) * 2):
         if i % 2 == 0:
             target = lambda x: not x
@@ -243,7 +243,7 @@ def load_dataset(dataset_dir):
 
         issame[i] = imgs_cls[i % size] == imgs_cls[j % size]
 
-    print('Done.')
+    utils.print_fun('Done.')
     return imgs, issame
 
 
