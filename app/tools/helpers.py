@@ -451,6 +451,25 @@ def distance(embeddings1, embeddings2, distance_metric=0):
     return dist
 
 
+def evaluate(embeddings, actual_issame, nrof_folds=10, distance_metric=0, subtract_mean=False):
+    # Calculate evaluation metrics
+    thresholds = np.arange(0, 4, 0.01)
+    embeddings1 = embeddings[0::2]
+    embeddings2 = embeddings[1::2]
+    tpr, fpr, accuracy = calculate_roc(
+        thresholds, embeddings1, embeddings2,
+        np.asarray(actual_issame), nrof_folds=nrof_folds,
+        distance_metric=distance_metric, subtract_mean=subtract_mean
+    )
+    thresholds = np.arange(0, 4, 0.001)
+    val, val_std, far = calculate_val(
+        thresholds, embeddings1, embeddings2,
+        np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds,
+        distance_metric=distance_metric, subtract_mean=subtract_mean
+    )
+    return tpr, fpr, accuracy, val, val_std, far
+
+
 def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds=10, distance_metric=0,
                   subtract_mean=False):
     assert (embeddings1.shape[0] == embeddings2.shape[0])

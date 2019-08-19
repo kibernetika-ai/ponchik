@@ -40,21 +40,17 @@ from scipy import interpolate
 
 from app.tools import dataset
 from app.tools import helpers
-from app.tools import lfw
 
 
 def main(args):
-    # Read the file containing the pairs used for testing
-    pairs = lfw.read_pairs(os.path.expanduser(args.lfw_pairs))
-
     # Get the paths for the corresponding images
-    paths, actual_issame = lfw.get_paths(os.path.expanduser(args.lfw_dir), pairs)
-
-    driver_name = 'openvino'
     image_size = args.image_size
+    driver_name = 'openvino'
     if os.path.isdir(args.model) and os.path.exists(os.path.join(args.model, 'saved_model.pb')):
         driver_name = 'tensorflow'
         image_size = 112
+
+    img_paths, actual_issame = load_dataset(args.lfw_dir)
     drv = driver.load_driver(driver_name)
     serving = drv()
     serving.load_model(
@@ -65,48 +61,32 @@ def main(args):
         flexible_batch_size=True,
     )
 
-    image_size = (image_size, image_size)
-
     # Run forward pass to calculate embeddings
-    print('Runnning forward pass on LFW images')
+    print('Runnning forward pass on dataset images')
 
     # Enqueue one epoch of image paths and labels
-    nrof_embeddings = len(actual_issame) * 2  # nrof_pairs * nrof_images_per_pair
-    nrof_flips = 2 if args.use_flipped_images else 1
-    nrof_images = nrof_embeddings * nrof_flips
-    labels_array = np.expand_dims(np.arange(0, nrof_images), 1)
-    image_paths_array = np.expand_dims(np.repeat(np.array(paths), nrof_flips), 1)
-    control_array = np.zeros_like(labels_array, np.int32)
-    control_array += np.ones_like(labels_array) * helpers.FIXED_STANDARDIZATION
-    if args.use_flipped_images:
-        # Flip every second image
-        control_array += (labels_array % 2) * helpers.FLIP
+    nrof_images = len(img_paths)
 
-    embedding_size = 512
-    assert nrof_images % args.lfw_batch_size == 0, 'The number of LFW images must be an integer multiple of the LFW batch size'
-    nrof_batches = nrof_images // args.lfw_batch_size
+    embedding_size = list(serving.outputs.values())[0][-1]
+    nrof_batches = int(np.ceil(float(nrof_images) / args.lfw_batch_size))
     emb_array = np.zeros((nrof_images, embedding_size))
+
+    # TODO(nmakhotkin): cache embeddings by image paths (because image pairs
+    #  are duplicated and no need to do inference on them)
     for i in range(nrof_batches):
         start_index = i * args.lfw_batch_size
         end_index = min((i + 1) * args.lfw_batch_size, nrof_images)
-        paths_batch = image_paths_array[start_index:end_index]
-        imgs = dataset.load_data(paths_batch.transpose().tolist()[0] , image_size[0], fixed_normalization=True)
-        emb = _predict(serving, imgs)
-        # emb, lab = sess.run([embeddings, labels], feed_dict=feed_dict)
+        paths_batch = img_paths[start_index:end_index]
+        probe_imgs = dataset.load_data(paths_batch, image_size, fixed_normalization=True)
+        emb = _predict(serving, probe_imgs)
         emb_array[start_index:end_index, :] = emb
-        if i % 10 == 9:
-            print('.', end='')
+        if i % 5 == 4:
+            print('{}/{}'.format(i + 1, nrof_batches))
             sys.stdout.flush()
     print('')
-    embeddings = np.zeros((nrof_embeddings, embedding_size * nrof_flips))
-    if args.use_flipped_images:
-        # Concatenate embeddings for flipped and non flipped version of the images
-        embeddings[:, :embedding_size] = emb_array[0::2, :]
-        embeddings[:, embedding_size:] = emb_array[1::2, :]
-    else:
-        embeddings = emb_array
+    embeddings = emb_array
 
-    tpr, fpr, accuracy, val, val_std, far = lfw.evaluate(
+    tpr, fpr, accuracy, val, val_std, far = helpers.evaluate(
         embeddings, actual_issame, nrof_folds=args.lfw_nrof_folds,
         distance_metric=args.distance_metric, subtract_mean=args.subtract_mean
     )
@@ -118,6 +98,59 @@ def main(args):
     print('Area Under Curve (AUC): %1.3f' % auc)
     eer = brentq(lambda x: 1. - x - interpolate.interp1d(fpr, tpr)(x), 0., 1.)
     print('Equal Error Rate (EER): %1.3f' % eer)
+
+
+def load_dataset(dataset_dir):
+    ds = dataset.get_dataset(dataset_dir)
+    size = 0
+    for cls in ds:
+        size += len(cls.image_paths)
+
+    imgs_original = [''] * size
+    imgs = [''] * (size * 4)
+    imgs_cls = [''] * size
+    issame = np.zeros([size * 2], dtype=np.bool)
+
+    i = 0
+    for cls in ds:
+        for j, path in enumerate(cls.image_paths):
+            img_path = path
+            imgs_original[i] = img_path
+            imgs[i + i] = img_path
+            imgs[i + i + size * 2] = img_path + ':flip'
+            imgs_cls[i] = cls.name
+            i += 1
+
+    # Expand dataset with random pairs
+    print('Generating pairs for dataset...')
+    for i in range(len(imgs_original) * 2):
+        if i % 2 == 0:
+            target = lambda x: not x
+        else:
+            target = lambda x: x
+        j = np.random.randint(0, len(imgs_original) * 2)
+        if target(imgs_cls[i % size] != imgs_cls[j % size]):
+            shift = 1
+            j1 = j - shift if j > 0 else 0
+            j2 = j + shift if j < len(imgs_original) * 2 else len(imgs_original) - 1
+            while target(imgs_cls[i % size] != imgs_cls[j1 % size]) and target(imgs_cls[i % size] != imgs_cls[j2 % size]):
+                j1 = j - shift if j1 > 0 else 0
+                j2 = j + shift if j2 < len(imgs_original) * 2 else len(imgs_original) - 1
+                shift += 1
+            if target(imgs_cls[i % size] == imgs_cls[j1 % size]):
+                j = j1
+            else:
+                j = j2
+
+        if j >= size:
+            imgs[i + i + 1] = imgs_original[j % size] + ':flip'
+        else:
+            imgs[i + i + 1] = imgs_original[j]
+
+        issame[i] = imgs_cls[i % size] == imgs_cls[j % size]
+
+    print('Done.')
+    return imgs, issame
 
 
 def _predict(serving, imgs):

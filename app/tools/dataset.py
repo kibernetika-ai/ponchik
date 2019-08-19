@@ -79,7 +79,9 @@ def load_data(image_paths, image_size, fixed_normalization=False):
     nrof_samples = len(image_paths)
     imgs = np.zeros((nrof_samples, image_size, image_size, 3))
     for i in range(nrof_samples):
-        img = cv2.imread(image_paths[i], cv2.IMREAD_COLOR)
+        path_attr = image_paths[i].split(':')
+        path, attrs = path_attr[0], path_attr[1:]
+        img = cv2.imread(path, cv2.IMREAD_COLOR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         if img.ndim == 2:
             img = images.to_rgb(img)
@@ -93,6 +95,9 @@ def load_data(image_paths, image_size, fixed_normalization=False):
 
         if img.shape[0] != image_size:
             img = cv2.resize(img, (image_size, image_size), interpolation=cv2.INTER_AREA)
+
+        if 'flip' in attrs:
+            img = np.fliplr(img)
 
         imgs[i, :, :, :] = img
     return imgs
