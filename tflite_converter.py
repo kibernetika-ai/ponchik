@@ -4,6 +4,7 @@ import os
 import itertools
 
 import cv2
+import numpy as np
 import tensorflow as tf
 
 
@@ -19,6 +20,10 @@ def parse_args():
         '--data-dir'
     )
     parser.add_argument(
+        '--output',
+        default='model.tflite'
+    )
+    parser.add_argument(
         '--limit-steps',
         type=int,
         default=0,
@@ -28,14 +33,14 @@ def parse_args():
 
 def normalize(img):
     normalized = img / 127.5 - 1.0
-    return normalized
+    return normalized.astype(np.float32)
 
 
 def main():
     args = parse_args()
 
-    def representative_dataset_gen(dataset_dir):
-        dataset_dir = dataset_dir.rstrip('/')
+    def representative_dataset_gen():
+        dataset_dir = args.data_dir.rstrip('/')
         jpg_iter = glob.iglob(dataset_dir + '/**/*.jpg')
         jpeg_iter = glob.iglob(dataset_dir + '/**/*.jpeg')
         png_iter = glob.iglob(dataset_dir + '/**/*.png')
@@ -48,7 +53,7 @@ def main():
             if args.limit_steps != 0 and i >= args.limit_steps:
                 break
 
-            yield normalize(img)
+            yield [np.expand_dims(normalize(img), axis=0)]
 
     if args.graph:
         converter = tf.lite.TFLiteConverter.from_frozen_graph(
@@ -60,10 +65,18 @@ def main():
     else:
         converter = tf.lite.TFLiteConverter.from_saved_model(args.saved_model)
 
-    # converter.optimizations = [tf.lite.]
+    converter.allow_custom_ops = True
+    converter.target_ops.add(tf.lite.OpsSet.SELECT_TF_OPS)
+    converter.optimizations = [tf.lite.Optimize.DEFAULT]
     converter.representative_dataset = representative_dataset_gen
     tflite_quant_model = converter.convert()
 
+    dirname = os.path.dirname(args.output)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    with open(args.output, 'wb') as f:
+        f.write(tflite_quant_model)
     # __import__('ipdb').set_trace()
 
 
