@@ -8,6 +8,9 @@ import numpy as np
 import tensorflow as tf
 
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -65,10 +68,23 @@ def main():
     else:
         converter = tf.lite.TFLiteConverter.from_saved_model(args.saved_model)
 
-    converter.allow_custom_ops = True
-    converter.target_ops.add(tf.lite.OpsSet.SELECT_TF_OPS)
+    # inputs = []
+    # for data in representative_dataset_gen():
+    #     inputs.append(data[0])
+    # inputs = np.stack(inputs)
+    # mean, std = np.mean(inputs), np.std(inputs)
+    # tf.logging.info('Mean: {}; Std: {}'.format(mean, std))
+
+    # converter.allow_custom_ops = True
+    # converter.target_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+    # converter.optimizations = []
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     converter.representative_dataset = representative_dataset_gen
+
+    converter.inference_input_type = tf.uint8
+    converter.inference_output_type = tf.uint8
+
+    # converter.quantized_input_stats = {'input': (mean, std)}
     tflite_quant_model = converter.convert()
 
     dirname = os.path.dirname(args.output)
