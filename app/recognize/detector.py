@@ -1006,42 +1006,42 @@ class Detector(object):
                 self._put_text(frame, line, left, int(top + i * str_h), color=(0, 0, 0), thickness_mul=3)
                 self._put_text(frame, line, left, int(top + i * str_h), color=color)
 
-                if face.classes and len(face.classes) > 0:
-                    classes_preview_size = min(
-                        str_h * 3,  # size depends on row height
-                        int((face.bbox[2] - face.bbox[0] - 10) / len(face.classes) / 1.2),
-                        # size depends on bounding box size
+            if face.classes and len(face.classes) > 0:
+                classes_preview_size = min(
+                    str_h * 3,  # size depends on row height
+                    int((face.bbox[2] - face.bbox[0] - 10) / len(face.classes) / 1.2),
+                    # size depends on bounding box size
+                )
+                i_left = max(0, face.bbox[0])
+                i_top = min(face.bbox[3] + int(classes_preview_size * .1),
+                            frame.shape[0] - int(classes_preview_size * 1.1))
+                for cls in face.classes:
+                    cv2.rectangle(
+                        frame,
+                        (i_left, i_top),
+                        (i_left + classes_preview_size, i_top + classes_preview_size),
+                        color=color,
+                        thickness=thickness + 1,
                     )
-                    i_left = max(0, face.bbox[0])
-                    i_top = min(face.bbox[3] + int(classes_preview_size * .1),
-                                frame.shape[0] - int(classes_preview_size * 1.1))
-                    for cls in face.classes:
-                        cv2.rectangle(
-                            frame,
-                            (i_left, i_top),
-                            (i_left + classes_preview_size, i_top + classes_preview_size),
-                            color=color,
-                            thickness=thickness + 1,
-                        )
-                        if cls not in self.classes_previews:
-                            # utils.print_fun('Init preview for class "%s"' % cls)
-                            self.classes_previews[cls] = None
-                            cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
-                            if os.path.isfile(cls_img_path):
-                                try:
-                                    self.classes_previews[cls] = cv2.imread(cls_img_path)
-                                except Exception as e:
-                                    utils.print_fun('Error reading preview for "%s": %s' % (cls, e))
-                            else:
-                                utils.print_fun('Error reading preview for "%s": file not found' % cls)
-                        cls_img = self.classes_previews[cls]
-                        if cls_img is not None:
-                            resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
+                    if cls not in self.classes_previews:
+                        # utils.print_fun('Init preview for class "%s"' % cls)
+                        self.classes_previews[cls] = None
+                        cls_img_path = os.path.join(self.classifiers_dir, "previews/%s.png" % cls.replace(" ", "_"))
+                        if os.path.isfile(cls_img_path):
                             try:
-                                frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
+                                self.classes_previews[cls] = cv2.imread(cls_img_path)
                             except Exception as e:
-                                utils.print_fun("ERROR: %s" % e)
-                        i_left += int(classes_preview_size * 1.2)
+                                utils.print_fun('Error reading preview for "%s": %s' % (cls, e))
+                        else:
+                            utils.print_fun('Error reading preview for "%s": file not found' % cls)
+                    cls_img = self.classes_previews[cls]
+                    if cls_img is not None:
+                        resized = images.image_resize(cls_img, classes_preview_size, classes_preview_size)
+                        try:
+                            frame[i_top:i_top + resized.shape[0], i_left:i_left + resized.shape[1]] = resized
+                        except Exception as e:
+                            utils.print_fun("ERROR: %s" % e)
+                    i_left += int(classes_preview_size * 1.2)
 
     @staticmethod
     def _get_text_props(frame, thickness=None, thickness_mul=None, font_scale=None, font_face=None):
