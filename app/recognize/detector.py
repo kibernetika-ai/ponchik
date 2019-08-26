@@ -411,8 +411,13 @@ class Detector(object):
         # Get boxes shaped [N, 5]:
         # xmin, ymin, xmax, ymax, confidence
         input_name, input_shape = list(drv.inputs.items())[0]
+        if drv.driver_name == 'openvino':
+            image_size = tuple(input_shape[:-3:-1])
+        else:
+            image_size = tuple(input_shape[-2:-4:-1])
+
         output_name = list(drv.outputs)[0]
-        inference_frame = cv2.resize(frame, tuple(input_shape[:-3:-1]), interpolation=cv2.INTER_AREA)
+        inference_frame = cv2.resize(frame, image_size, interpolation=cv2.INTER_AREA)
 
         if drv.driver_name == 'openvino':
             inference_frame = np.transpose(inference_frame, [2, 0, 1])
