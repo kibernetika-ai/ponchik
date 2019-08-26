@@ -70,7 +70,7 @@ def _load(ctx):
 
     LOG.info('Loading preparer...')
     clf = classifiers.Classifiers()
-    clf.load_model()
+    clf.serving = facenet_driver
     global app_classifier
     app_classifier = clf
     LOG.info('Loading preparer done!')
