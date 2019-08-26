@@ -46,7 +46,6 @@ def process(inputs, ctx):
 
     return dict(
         bbox=bbox,
-        embedding=embeddings[0],
         embeddings=embeddings
     )
 
