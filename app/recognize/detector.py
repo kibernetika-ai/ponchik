@@ -220,6 +220,8 @@ class Detector(object):
         self.facenet_image_size = 160
         if self.facenet_driver.driver_name == 'tensorflow':  # ArcFace
             self.facenet_image_size = 112
+        elif self.facenet_driver.driver_name == 'edgetpu':
+            self.facenet_image_size = 160
 
         self.classifiers_dir = classifiers_dir
 
@@ -387,7 +389,7 @@ class Detector(object):
         return boxes
 
     def _detect_faces(self, frame, threshold=0.5, offset=(0, 0)):
-        boxes = self._detect_openvino(self.face_driver, frame, threshold, offset)
+        boxes = self._detect_generic(self.face_driver, frame, threshold, offset)
         if boxes is not None:
             boxes = boxes[(boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]) >= self.min_face_area]
         return boxes
@@ -401,6 +403,53 @@ class Detector(object):
             return self._detect_tensorflow(self.person_driver, frame, threshold)
         else:
             return None
+
+    @staticmethod
+    def _detect_generic(drv, frame, threshold=0.5, offset=(0, 0)):
+        if drv is None:
+            return None
+        # Get boxes shaped [N, 5]:
+        # xmin, ymin, xmax, ymax, confidence
+        input_name, input_shape = list(drv.inputs.items())[0]
+        output_name = list(drv.outputs)[0]
+        inference_frame = cv2.resize(frame, tuple(input_shape[:-3:-1]), interpolation=cv2.INTER_AREA)
+
+        if drv.driver_name == 'openvino':
+            inference_frame = np.transpose(inference_frame, [2, 0, 1])
+
+        inference_frame = inference_frame.reshape(input_shape)
+        outputs = drv.predict({input_name: inference_frame})
+
+        if drv.driver_name == 'edgetpu':
+            output = outputs
+            score = output[2]
+            bboxes_raw = output[0].reshape([-1, 4])
+            bboxes_raw = bboxes_raw[score > threshold]
+            boxes = np.zeros_like(bboxes_raw)
+
+            # y1, x1, y2, x2 -> x1, y1, x2, y2
+            boxes[:, 0] = bboxes_raw[:, 1]
+            boxes[:, 1] = bboxes_raw[:, 0]
+            boxes[:, 2] = bboxes_raw[:, 3]
+            boxes[:, 3] = bboxes_raw[:, 2]
+            confidence = np.expand_dims(score[:len(boxes)], axis=0).transpose()
+        else:
+            output = outputs[output_name]
+            output = output.reshape(-1, 7)
+            bboxes_raw = output[output[:, 2] > threshold]
+            # Extract 4 values
+            boxes = bboxes_raw[:, 3:7]
+            # confidence shape: [N, 1]
+            confidence = np.expand_dims(bboxes_raw[:, 2], axis=0).transpose()
+
+        boxes = np.concatenate((boxes, confidence), axis=1)
+        # Assign confidence to 4th
+        # boxes[:, 4] = bboxes_raw[:, 2]
+        boxes[:, 0] = boxes[:, 0] * frame.shape[1] + offset[0]
+        boxes[:, 2] = boxes[:, 2] * frame.shape[1] + offset[0]
+        boxes[:, 1] = boxes[:, 1] * frame.shape[0] + offset[1]
+        boxes[:, 3] = boxes[:, 3] * frame.shape[0] + offset[1]
+        return boxes
 
     @staticmethod
     def _detect_openvino(drv, frame, threshold=0.5, offset=(0, 0)):
@@ -924,8 +973,11 @@ class Detector(object):
     def process_faces_info(self, frame):
         bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
         poses = self.pose_indices(frame, bboxes)
-        imgs = images.get_images(frame, bboxes, normalization=self.normalization,
-                                 face_crop_size=self.facenet_image_size)
+        imgs = images.get_images(
+            frame, bboxes,
+            normalization=self.normalization,
+            face_crop_size=self.facenet_image_size
+        )
         skips = self.wrong_pose_skips(poses)
         # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
         return bboxes, imgs, poses, skips
