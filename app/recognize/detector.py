@@ -707,7 +707,7 @@ class Detector(object):
         stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
         return overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected
 
-    def wrong_pose_indices(self, bgr_frame, boxes):
+    def pose_indices(self, bgr_frame, boxes):
         if self.head_pose_driver is None:
             return []
         if boxes is None or len(boxes) == 0:
@@ -789,9 +789,7 @@ class Detector(object):
                 overlay_labels.append(d.overlay_label)
                 imgs.append(None)
         else:
-            bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
-            poses = self.wrong_pose_indices(frame, bboxes)
-            imgs = images.get_images(frame, bboxes, normalization=self.normalization, face_crop_size=self.facenet_image_size)
+            bboxes, imgs, poses, skips = self.process_faces_info(frame)
 
         if stored_persons is not None:
             persons_bboxes = []
@@ -807,9 +805,6 @@ class Detector(object):
                 stored_persons = []
                 for i, b in enumerate(persons_bboxes):
                     stored_persons.append(PersonInfo(bbox=b, prob=persons_probs[i]))
-
-        skips = self.wrong_pose_skips(poses)
-        # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
 
         faces = []
         not_detected_embs = []
@@ -925,6 +920,15 @@ class Detector(object):
         self.current_frame_persons = persons
 
         return faces
+
+    def process_faces_info(self, frame):
+        bboxes = self.detect_faces(frame, self.threshold, self.multi_detect)
+        poses = self.pose_indices(frame, bboxes)
+        imgs = images.get_images(frame, bboxes, normalization=self.normalization,
+                                 face_crop_size=self.facenet_image_size)
+        skips = self.wrong_pose_skips(poses)
+        # skips, poses = self.skip_wrong_pose_indices(frame, bboxes)
+        return bboxes, imgs, poses, skips
 
     def add_overlays(self, frame, faces: [FaceInfo] = None, persons: [PersonInfo] = None):
         if persons:

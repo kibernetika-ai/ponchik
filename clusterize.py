@@ -75,11 +75,11 @@ faces_paths = [
 # print(faces_paths)
 
 clf = Classifiers(aug_noise=0, aug_flip=False)
-clf._load_model()
+clf.load_model()
 
 # for face_path in faces_paths:
 imgs = clf.load_data(faces_paths, [1] * len(faces_paths))
-embs = clf._predict(imgs)
+embs = clf.embeddings(imgs)
 print(embs.shape)
 
 # clt = DBSCAN(metric="euclidean", n_jobs=args["jobs"])

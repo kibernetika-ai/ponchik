@@ -164,7 +164,7 @@ class Classifiers:
         print_fun('Loading feature extraction model')
 
         # Load and instantinate driver
-        self._load_model()
+        self.load_model()
 
         # Run forward pass to calculate embeddings
         print_fun('Calculating features for images')
@@ -253,7 +253,7 @@ class Classifiers:
             print_fun("Load & Augmentation: %.3fms" % ((time.time() - t) * 1000))
 
             t = time.time()
-            emb_outputs = self._predict(imgs)
+            emb_outputs = self.embeddings(imgs)
             print_fun("Inference: %.3fms" % ((time.time() - t) * 1000))
 
             for n, e in enumerate(emb_outputs):
@@ -406,7 +406,7 @@ class Classifiers:
         with open(threshold_file, 'w') as f:
             f.write(str(best_threshold) + '\n')
 
-    def _load_model(self):
+    def load_model(self):
         if self.serving is None:
             if os.path.isdir(self.model_path) and os.path.exists(os.path.join(self.model_path, 'saved_model.pb')):
                 self.driver_name = 'tensorflow'
@@ -421,7 +421,7 @@ class Classifiers:
                 flexible_batch_size=True,
             )
 
-    def _predict(self, imgs):
+    def embeddings(self, imgs):
         if self.serving.driver_name == 'tensorflow':
             input_sizes = list(self.serving.inputs.values())[0]
             if input_sizes[1] == 112:
@@ -451,7 +451,7 @@ class Classifiers:
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 
-        imgs = self.apply_augmentation(paths_batch, labels, imgs)
+        imgs = self.apply_augmentation(imgs, paths_batch, labels)
 
         batch_log = ' ... %d images' % len(imgs)
         # if self.aug_noise > 0 or self.aug_flip:
@@ -476,7 +476,7 @@ class Classifiers:
 
         return imgs
 
-    def apply_augmentation(self, paths_batch, labels, imgs, already_flipped=False):
+    def apply_augmentation(self, imgs, paths_batch=None, labels=None, already_flipped=False):
         imgs_size = len(imgs)
         for k in range(imgs_size):
             img = imgs[k]
@@ -485,29 +485,37 @@ class Classifiers:
                     # print_fun('Applying noise to image {}, #{}'.format(paths_batch[k], i + 1))
                     noised = images.random_noise(img)
                     imgs = np.concatenate((imgs, noised.reshape(1, *noised.shape)))
-                    labels.append(labels[k])
-                    paths_batch.append(paths_batch[k])
+                    if labels is not None:
+                        labels.append(labels[k])
+                    if paths_batch is not None:
+                        paths_batch.append(paths_batch[k])
             if self.aug_blur:
                 blured = images.blur(img)
                 imgs = np.concatenate((imgs, blured.reshape(1, *blured.shape)))
-                labels.append(labels[k])
-                paths_batch.append(paths_batch[k])
+                if labels is not None:
+                    labels.append(labels[k])
+                if paths_batch is not None:
+                    paths_batch.append(paths_batch[k])
             if self.aug_upscale:
                 upscaled = images.upscale(img)
                 imgs = np.concatenate((imgs, upscaled.reshape(1, *upscaled.shape)))
-                labels.append(labels[k])
-                paths_batch.append(paths_batch[k])
+                if labels is not None:
+                    labels.append(labels[k])
+                if paths_batch is not None:
+                    paths_batch.append(paths_batch[k])
             if self.aug_flip and not already_flipped:
                 flipped = images.horizontal_flip(img)
                 flipped_imgs = [flipped]
-                flipped_labels = [labels[k]]
-                flipped_paths_batch = [paths_batch[k]]
+                flipped_labels = None if labels is None else [labels[k]]
+                flipped_paths_batch = None if paths_batch is None else [paths_batch[k]]
                 flipped_imgs_aug = self.apply_augmentation(
-                    flipped_paths_batch, flipped_labels, flipped_imgs, already_flipped=True)
+                    flipped_imgs, flipped_paths_batch, flipped_labels, already_flipped=True)
                 for flipped_img_aug in flipped_imgs_aug:
                     imgs = np.concatenate((imgs, flipped_img_aug.reshape(1, *flipped_img_aug.shape)))
-                labels.extend(flipped_labels)
-                paths_batch.extend(flipped_paths_batch)
+                if labels is not None:
+                    labels.extend(flipped_labels)
+                if paths_batch is not None:
+                    paths_batch.extend(flipped_paths_batch)
         return imgs
 
     def aug_images_count(self, count):
