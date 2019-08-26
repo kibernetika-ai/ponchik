@@ -60,7 +60,7 @@ def _load(ctx):
 
     d = detector.Detector(
         face_driver=face_driver,
-        # facenet_driver=facenet_driver,
+        facenet_driver=facenet_driver,
         head_pose_driver=head_pose_driver,
     )
     d.init()
