@@ -411,6 +411,9 @@ class Classifiers:
             if os.path.isdir(self.model_path) and os.path.exists(os.path.join(self.model_path, 'saved_model.pb')):
                 self.driver_name = 'tensorflow'
                 self.image_size = 112
+            if '_edgetpu' in self.model_path and '.tflite' in self.model_path:
+                self.driver_name = 'edgetpu'
+
             drv = driver.load_driver(self.driver_name)
             self.serving = drv()
             self.serving.load_model(
