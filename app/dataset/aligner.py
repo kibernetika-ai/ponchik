@@ -337,7 +337,7 @@ class Aligner:
         if self.serving.driver_name == 'openvino':
             serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, *self.input_size[::-1]])
         else:
-            serving_img = serving_img.reshape([1, *self.input_size[::-1], 3])
+            serving_img = serving_img.reshape([1, *self.input_size[::-1], 3]).astype(np.uint8)
 
         raw = self.serving.predict({self.input_name: serving_img})
 
