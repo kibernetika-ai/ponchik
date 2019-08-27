@@ -313,7 +313,10 @@ class Aligner:
 
     def _load_driver(self):
         if self.serving is None:
-            drv = driver.load_driver("openvino")
+            driver_name = 'openvino'
+            if '_edgetpu' in self.face_detection_path and '.tflite' in self.face_detection_path:
+                driver_name = 'edgetpu'
+            drv = driver.load_driver(driver_name)
             # Instantinate driver
             self.serving = drv()
             self.serving.load_model(
@@ -322,26 +325,55 @@ class Aligner:
                 flexible_batch_size=True,
             )
             self.input_name = list(self.serving.inputs.keys())[0]
-            self.input_size = tuple(list(self.serving.inputs.values())[0][:-3:-1])
+            if driver_name == 'openvino':
+                self.input_size = tuple(list(self.serving.inputs.values())[0][:-3:-1])
+            else:
+                self.input_size = tuple(list(self.serving.inputs.values())[0][-2:-4:-1])
             self.output_name = list(self.serving.outputs.keys())[0]
 
     def _get_boxes(self, image_path, img):
         serving_img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_AREA)
-        serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, *self.input_size[::-1]])
-        raw = self.serving.predict({self.input_name: serving_img})[self.output_name].reshape([-1, 7])
-        # 7 values:
-        # class_id, label, confidence, x_min, y_min, x_max, y_max
-        # Select boxes where confidence > factor
-        bboxes_raw = raw[raw[:, 2] > self.threshold]
-        bboxes_raw[:, 3] = bboxes_raw[:, 3] * img.shape[1]
-        bboxes_raw[:, 5] = bboxes_raw[:, 5] * img.shape[1]
-        bboxes_raw[:, 4] = bboxes_raw[:, 4] * img.shape[0]
-        bboxes_raw[:, 6] = bboxes_raw[:, 6] * img.shape[0]
 
-        bounding_boxes = np.zeros([len(bboxes_raw), 5])
+        if self.serving.driver_name == 'openvino':
+            serving_img = np.transpose(serving_img, [2, 0, 1]).reshape([1, 3, *self.input_size[::-1]])
+        else:
+            serving_img = serving_img.reshape([1, *self.input_size[::-1], 3])
 
-        bounding_boxes[:, 0:4] = bboxes_raw[:, 3:7]
-        bounding_boxes[:, 4] = bboxes_raw[:, 2]
+        raw = self.serving.predict({self.input_name: serving_img})
+
+        if self.serving.driver_name == 'edgetpu':
+            output = raw
+            score = output[2]
+            bboxes_raw = output[0].reshape([-1, 4])
+            bboxes_raw = bboxes_raw[score > self.threshold]
+            bounding_boxes = np.zeros_like(bboxes_raw)
+
+            # y1, x1, y2, x2 -> x1, y1, x2, y2
+            bounding_boxes[:, 0] = bboxes_raw[:, 1] * img.shape[1]
+            bounding_boxes[:, 1] = bboxes_raw[:, 0] * img.shape[0]
+            bounding_boxes[:, 2] = bboxes_raw[:, 3] * img.shape[1]
+            bounding_boxes[:, 3] = bboxes_raw[:, 2] * img.shape[0]
+        else:
+            # 7 values:
+            # class_id, label, confidence, x_min, y_min, x_max, y_max
+            # Select boxes where confidence > factor
+            raw = raw[self.output_name].reshape([-1, 7])
+
+            bboxes_raw = raw[raw[:, 2] > self.threshold]
+            bboxes_raw[:, 3] = bboxes_raw[:, 3] * img.shape[1]
+            bboxes_raw[:, 5] = bboxes_raw[:, 5] * img.shape[1]
+            bboxes_raw[:, 4] = bboxes_raw[:, 4] * img.shape[0]
+            bboxes_raw[:, 6] = bboxes_raw[:, 6] * img.shape[0]
+
+            bounding_boxes = np.zeros([len(bboxes_raw), 5])
+
+            bounding_boxes[:, 0:4] = bboxes_raw[:, 3:7]
+            bounding_boxes[:, 4] = bboxes_raw[:, 2]
+
+            # output = output.reshape(-1, 7)
+            # bboxes_raw = output[output[:, 2] > self.threshold]
+            # Extract 4 values
+            # bounding_boxes = bboxes_raw[:, 3:7]
 
         # Get the biggest box: find the box with largest square:
         # (y1 - y0) * (x1 - x0) - size of box.
