@@ -400,11 +400,11 @@ class Classifiers:
 
         print_fun('=' * 50)
         print_fun('Found best threshold = %s' % best_threshold)
-        print_fun('Written to %s.' % threshold_file)
+        # print_fun('Written to %s.' % threshold_file)
         print_fun('=' * 50)
 
-        with open(threshold_file, 'w') as f:
-            f.write(str(best_threshold) + '\n')
+        # with open(threshold_file, 'w') as f:
+        #     f.write(str(best_threshold) + '\n')
 
     def load_model(self):
         if self.serving is None:
@@ -430,14 +430,23 @@ class Classifiers:
                 feed_dict = {input_name: imgs}
             else:
                 feed_dict = {'input:0': imgs, 'phase_train:0': False}
+            outputs = self.serving.predict(feed_dict)
         elif self.serving.driver_name == 'openvino':
             input_name = list(self.serving.inputs.keys())[0]
             # Transpose image for channel first format
             imgs = imgs.transpose([0, 3, 1, 2])
             feed_dict = {input_name: imgs}
+            outputs = self.serving.predict(feed_dict)
+        elif self.serving.driver_name == 'edgetpu':
+            input_name = list(self.serving.inputs.keys())[0]
+            outputs = {'0': np.zeros([len(imgs), 512])}
+            for i, img in enumerate(imgs):
+                feed_dict = {input_name: np.expand_dims(img, axis=0)}
+                output = self.serving.predict(feed_dict)[0]
+                outputs['0'][i] = output
         else:
             raise RuntimeError('Driver %s currently not supported' % self.serving.driver_name)
-        outputs = self.serving.predict(feed_dict)
+
         return list(outputs.values())[0]
 
     def load_data(self, paths_batch, labels):
