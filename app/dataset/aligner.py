@@ -349,10 +349,10 @@ class Aligner:
             bounding_boxes = np.zeros_like(bboxes_raw)
 
             # y1, x1, y2, x2 -> x1, y1, x2, y2
-            bounding_boxes[:, 0] = bboxes_raw[:, 1] * img.shape[1]
-            bounding_boxes[:, 1] = bboxes_raw[:, 0] * img.shape[0]
-            bounding_boxes[:, 2] = bboxes_raw[:, 3] * img.shape[1]
-            bounding_boxes[:, 3] = bboxes_raw[:, 2] * img.shape[0]
+            bounding_boxes[:, 0] = bboxes_raw[:, 1] * img.shape[0]
+            bounding_boxes[:, 1] = bboxes_raw[:, 0] * img.shape[1]
+            bounding_boxes[:, 2] = bboxes_raw[:, 3] * img.shape[0]
+            bounding_boxes[:, 3] = bboxes_raw[:, 2] * img.shape[1]
         else:
             # 7 values:
             # class_id, label, confidence, x_min, y_min, x_max, y_max
