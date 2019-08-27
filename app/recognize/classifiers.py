@@ -443,7 +443,7 @@ class Classifiers:
         elif self.serving.driver_name == 'edgetpu':
             input_name = list(self.serving.inputs.keys())[0]
             outputs = {'0': np.zeros([len(imgs), 512])}
-            for i, img in enumerate(imgs):
+            for i, img in enumerate(imgs.astype(np.uint8)):
                 feed_dict = {input_name: np.expand_dims(img, axis=0)}
                 output = self.serving.predict(feed_dict)[0]
                 outputs['0'][i] = output
