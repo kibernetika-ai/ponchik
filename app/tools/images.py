@@ -5,6 +5,7 @@ import numpy as np
 NORMALIZATION_STANDARD = "standard"
 NORMALIZATION_FIXED = "fixed"
 NORMALIZATION_PREWHITEN = "prewhiten"
+NORMALIZATION_NONE = "none"
 
 
 def get_images(image, bounding_boxes, face_crop_size=160, face_crop_margin=32, normalization=None):
