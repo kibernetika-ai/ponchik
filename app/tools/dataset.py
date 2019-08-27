@@ -75,7 +75,7 @@ def get_meta(dataset):
     return meta
 
 
-def load_data(image_paths, image_size, fixed_normalization=False):
+def load_data(image_paths, image_size, normalization=images.NORMALIZATION_FIXED):
     nrof_samples = len(image_paths)
     imgs = np.zeros((nrof_samples, image_size, image_size, 3))
     for i in range(nrof_samples):
@@ -88,10 +88,15 @@ def load_data(image_paths, image_size, fixed_normalization=False):
         if len(img.shape) >= 3 and img.shape[2] > 3:
             # RGBA, convert to RGB
             img = np.array(Image.fromarray(img).convert('RGB'))
-        if fixed_normalization:
+        if normalization == images.NORMALIZATION_FIXED:
             img = images.fixed_normalize(img)
-        else:
+        elif normalization == images.NORMALIZATION_PREWHITEN:
             img = images.prewhiten(img)
+        elif normalization == images.NORMALIZATION_STANDARD:
+            img = images.normalize(img)
+        else:
+            # no-op, null normalization
+            pass
 
         if img.shape[0] != image_size:
             img = cv2.resize(img, (image_size, image_size), interpolation=cv2.INTER_AREA)

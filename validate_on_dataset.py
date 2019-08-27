@@ -174,7 +174,7 @@ def main(args):
         start_index = i * args.batch_size
         end_index = min((i + 1) * args.batch_size, nrof_images)
         paths_batch = img_paths[start_index:end_index]
-        probe_imgs = dataset.load_data(paths_batch, image_size, fixed_normalization=True)
+        probe_imgs = dataset.load_data(paths_batch, image_size, normalization=args.normalization)
         emb = _predict(serving, probe_imgs)
         emb_array[start_index:end_index, :] = emb
         if i % 5 == 4:
@@ -284,6 +284,8 @@ def parse_arguments(argv):
                         help='Distance metric  0:euclidian, 1:cosine similarity.', default=0)
     parser.add_argument('--subtract_mean',
                         help='Subtract feature mean before calculating distance.', action='store_true')
+    parser.add_argument('--normalization',
+                        help='Normalization method.', default='fixed')
     return parser.parse_args(argv)
 
 

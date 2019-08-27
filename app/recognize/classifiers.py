@@ -459,7 +459,7 @@ class Classifiers:
         init_batch_len = len(paths_batch)
 
         t = time.time()
-        imgs = dataset.load_data(paths_batch, self.image_size, fixed_normalization=self.normalization)
+        imgs = dataset.load_data(paths_batch, self.image_size, normalization=self.normalization)
         self.loading_images += len(paths_batch)
         self.loading_image_total_time += (time.time() - t)
 
