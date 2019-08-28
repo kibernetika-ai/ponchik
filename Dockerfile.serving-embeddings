@@ -1,0 +1,20 @@
+FROM kuberlab/serving:latest-openvino
+
+RUN mkdir /exporecall
+
+COPY ./app /exporecall/app
+COPY ./serving_emb_hook.py /exporecall
+
+RUN mkdir /model
+
+COPY ./models/facenet_pretrained_vgg_openvino_cpu_1_0_0/* /model/
+
+WORKDIR /exporecall
+
+CMD ["kserving", \
+    "--driver", "openvino", "--model-path", "/opt/intel/openvino/deployment_tools/intel_models/face-detection-adas-0001/FP32/face-detection-adas-0001.xml", \
+    "--driver", "openvino", "--model-path", "/model/facenet.xml", \
+    "--driver", "openvino", "--model-path", "/opt/intel/openvino/deployment_tools/intel_models/head-pose-estimation-adas-0001/FP32/head-pose-estimation-adas-0001.xml", \
+    "--hooks", "serving_emb_hook.py", \
+    "-o", "device=CPU", \
+    "--http-enable"]
