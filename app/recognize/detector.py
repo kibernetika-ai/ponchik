@@ -345,11 +345,12 @@ class Detector(object):
         elif os.path.exists(os.path.join(self.classifiers_dir,'embeddings.npy')):
             utils.print_fun('Load embeddings from: {}'.format(os.path.join(self.classifiers_dir,'embeddings.npy')))
             embeddings = np.load(os.path.join(self.classifiers_dir,'embeddings.npy'))
-
-            self.classifiers.plain_embeddings = (embeddings + 1.) / 2.
+            utils.print_fun('Loaded embeddings: {}'.format(embeddings.shape))
+            self.classifiers.plain_embeddings = embeddings
             self.kd_tree = None
             with open(os.path.join(self.classifiers_dir,'classes.json'), 'rb') as f:
                 classes = json.load(f)
+            utils.print_fun('Loaded classes: {}'.format(classes))
             self.classifiers.class_index = classes
 
 
@@ -531,21 +532,22 @@ class Detector(object):
         if face_prob is None:
             face_prob = bbox[4]
 
-        if not self.use_classifiers or not use_classifiers:
-            return FaceInfo(
-                bbox=bbox[:4].astype(int),
-                person_bbox=person_bbox,
-                state=NOT_DETECTED,
-                label=label,
-                overlay_label=overlay_label,
-                prob=0,
-                face_prob=face_prob,
-                classes=[],
-                classes_meta={},
-                meta=None,
-                looks_like=[],
-                head_pose=None
-            )
+        #TODO: WTF
+        #if not self.use_classifiers or not use_classifiers:
+        #    return FaceInfo(
+        #        bbox=bbox[:4].astype(int),
+        #        person_bbox=person_bbox,
+        #        state=NOT_DETECTED,
+        #        label=label,
+        #        overlay_label=overlay_label,
+        #        prob=0,
+        #        face_prob=face_prob,
+        #        classes=[],
+        #        classes_meta={},
+        #        meta=None,
+        #        looks_like=[],
+        #        head_pose=None
+        #    )
 
         looks_likes = []
 
@@ -605,7 +607,11 @@ class Detector(object):
         if dist < threshold:
             prob = 1 - dist / threshold * 0.5
             # prob = 1 - (max(dist, 0.2) - 0.2)
-            summary_overlay_label = detected_class
+            descr = self.meta.get(detected_class,None)
+            if descr is not None:
+                summary_overlay_label = descr.get('name',detected_class)
+            else:
+                summary_overlay_label = detected_class
             if self.debug:
                 overlay_label_str = "%.1f%% %s" % (prob * 100, summary_overlay_label)
                 overlay_label_str += "\ndistance: %.3f" % dist
