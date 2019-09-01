@@ -20,6 +20,7 @@ from datetime import datetime
 from datetime import timezone
 
 import pull_model
+import pull_event_model
 
 LOG = logging.getLogger(__name__)
 PARAMS = {
@@ -41,7 +42,6 @@ PARAMS = {
     'logdir': 'log',
     'timing': True,
     'skip_frames': False,
-    'inference_fps': 2,
 
     'enable_pull_model': False,
     'base_url': 'https://dev.kibernetika.io/api/v0.2',
@@ -105,7 +105,6 @@ def init_hook(**kwargs):
     PARAMS['timing'] = _boolean_string(PARAMS['timing'])
     PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
     PARAMS['enable_pull_model'] = _boolean_string(PARAMS['enable_pull_model'])
-    PARAMS['inference_fps'] = int(PARAMS['inference_fps'])
     PARAMS['min_face_size'] = int(PARAMS['min_face_size'])
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
@@ -121,19 +120,32 @@ def init_hook(**kwargs):
         assert PARAMS['model_name'] != ''
         assert PARAMS['token'] != ''
 
-        pull_thread = threading.Thread(
-            target=pull_model.loop,
-            kwargs=dict(
-                pattern='* * * * * */20',
-                base_url=PARAMS['base_url'],
-                ws=PARAMS['workspace_name'],
-                name=PARAMS['model_name'],
-                token=PARAMS['token'],
-                classifiers_dir=PARAMS['classifiers_dir'],
-                openvino_facenet=openvino_facenet,
-            ),
-            daemon=True
-        )
+        if PARAMS['model_name']=='__expo__':
+            pull_thread = threading.Thread(
+                target=pull_event_model.loop,
+                kwargs=dict(
+                    pattern='* * * * * */20',
+                    model_url=PARAMS['base_url'],
+                    token=PARAMS['token'],
+                    classifiers_dir=PARAMS['classifiers_dir'],
+                    openvino_facenet=openvino_facenet,
+                ),
+                daemon=True
+            )
+        else:
+            pull_thread = threading.Thread(
+                target=pull_model.loop,
+                kwargs=dict(
+                    pattern='* * * * * */20',
+                    base_url=PARAMS['base_url'],
+                    ws=PARAMS['workspace_name'],
+                    name=PARAMS['model_name'],
+                    token=PARAMS['token'],
+                    classifiers_dir=PARAMS['classifiers_dir'],
+                    openvino_facenet=openvino_facenet,
+                ),
+                daemon=True
+            )
         pull_thread.start()
 
     if PARAMS['enable_log']:

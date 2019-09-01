@@ -269,8 +269,9 @@ class Detector(object):
         if self.facenet_driver is None or self.classifiers_dir is None:
             return
 
-        loaded_classifiers = glob.glob(classifiers.classifier_filename(self.classifiers_dir, '*'))
 
+        loaded_classifiers = glob.glob(classifiers.classifier_filename(self.classifiers_dir, '*'))
+        utils.print_fun('Try load classifiers.... {}:{}'.format(self.classifiers_dir,len(loaded_classifiers)))
         if len(loaded_classifiers) > 0:
             new = DetectorClassifiers()
             for clfi, clf in enumerate(loaded_classifiers):
@@ -311,43 +312,56 @@ class Detector(object):
             self.classifiers = new
             self.use_classifiers = True
 
-            embs_filename = classifiers.embeddings_filename(self.classifiers_dir)
-            if os.path.isfile(embs_filename):
-                with open(embs_filename, 'rb') as r:
-                    opts = {'file': r}
-                    if six.PY3:
-                        opts['encoding'] = 'latin1'
-                    new.embeddings = pickle.load(**opts)
+        embs_filename = classifiers.embeddings_filename(self.classifiers_dir)
+        if os.path.exists(embs_filename):
+            utils.print_fun('Load embeddings from: {}'.format(embs_filename))
+            with open(embs_filename, 'rb') as r:
+                opts = {'file': r}
+                if six.PY3:
+                    opts['encoding'] = 'latin1'
+                self.classifiers.embeddings = pickle.load(**opts)
 
-                    size = 0
-                    for i, cls in enumerate(self.classifiers.embeddings):
-                        for embs in self.classifiers.embeddings[cls].values():
-                            size += len(embs)
+                size = 0
+                for i, cls in enumerate(self.classifiers.embeddings):
+                    for embs in self.classifiers.embeddings[cls].values():
+                        size += len(embs)
 
-                    plain_embeddings = np.zeros([size, embedding_size])
-                    class_index = []
-                    emb_i = 0
-                    for i, cls in enumerate(self.classifiers.embeddings):
-                        for embs in self.classifiers.embeddings[cls].values():
-                            for emb in embs:
-                                plain_embeddings[emb_i] = emb
-                                emb_i += 1
-                                class_index.append(cls)
-                                pass
+                plain_embeddings = np.zeros([size, embedding_size])
+                class_index = []
+                emb_i = 0
+                for i, cls in enumerate(self.classifiers.embeddings):
+                    for embs in self.classifiers.embeddings[cls].values():
+                        for emb in embs:
+                            plain_embeddings[emb_i] = emb
+                            emb_i += 1
+                            class_index.append(cls)
+                            pass
 
-                    self.classifiers.plain_embeddings = plain_embeddings
-                    self.classifiers.class_index = class_index
-                    # Reset kd_tree
-                    self.kd_tree = None
+                self.classifiers.plain_embeddings = plain_embeddings
+                self.classifiers.class_index = class_index
+                # Reset kd_tree
+                utils.print_fun('Reset kd_tree')
+                self.kd_tree = None
+        elif os.path.exists(os.path.join(self.classifiers_dir,'embeddings.npy')):
+            utils.print_fun('Load embeddings from: {}'.format(os.path.join(self.classifiers_dir,'embeddings.npy')))
+            embeddings = np.load(os.path.join(self.classifiers_dir,'embeddings.npy'))
 
-            threshold_file = os.path.join(self.classifiers_dir, 'threshold.txt')
-            if os.path.exists(threshold_file):
-                with open(threshold_file) as f:
-                    data = f.read()
+            self.classifiers.plain_embeddings = (embeddings + 1.) / 2.
+            self.kd_tree = None
+            with open(os.path.join(self.classifiers_dir,'classes.json'), 'rb') as f:
+                classes = json.load(f)
+            self.classifiers.class_index = classes
 
-                best_threshold = float(data)
-                utils.print_fun('Loaded best threshold = %s' % best_threshold)
-                self.detect_dst_threshold = best_threshold
+
+
+        threshold_file = os.path.join(self.classifiers_dir, 'threshold.txt')
+        if os.path.exists(threshold_file):
+            with open(threshold_file) as f:
+                data = f.read()
+
+            best_threshold = float(data)
+            utils.print_fun('Loaded best threshold = %s' % best_threshold)
+            self.detect_dst_threshold = best_threshold
 
         meta_file = os.path.join(self.classifiers_dir, classifiers.META_FILENAME)
         self.meta = {}
