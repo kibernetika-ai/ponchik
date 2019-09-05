@@ -24,7 +24,7 @@ def process(inputs, ctx):
                 _load(ctx)
                 net_loaded = True
 
-    img, _ = helpers.load_image(inputs, 'input')
+    img, _ = helpers.load_image(inputs, 'input', rgb=False)
     bboxes_, imgs_, _, skips = app_detector.process_faces_info(img)
     if len(bboxes_) != len(imgs_):
         raise RuntimeError('bboxes and imggs counts are not equal')
