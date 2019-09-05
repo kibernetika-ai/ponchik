@@ -139,10 +139,7 @@ def pull_version(version_id, updated, fileobj, classifiers_dir, openvino_facenet
     tar.extractall(classifiers_dir)
 
     LOG.info('Reloading classifiers...')
-    if openvino_facenet is not None:
-        openvino_facenet.load_classifiers()
-    else:
-        LOG.info('Classifiers not detected, skipped...')
+    openvino_facenet()
 
     ver_file = os.path.join(classifiers_dir, VER_FILE)
     with open(ver_file, 'w') as v:

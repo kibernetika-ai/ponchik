@@ -76,6 +76,10 @@ unknown_num = 0
 badge_detector = None
 
 
+def update_model():
+    if openvino_facenet is not None:
+        openvino_facenet.load_classifiers()
+
 def init_hook(**kwargs):
     global PARAMS, openvino_facenet
     PARAMS.update(kwargs)
@@ -128,7 +132,7 @@ def init_hook(**kwargs):
                     model_url=PARAMS['base_url'],
                     token=PARAMS['token'],
                     classifiers_dir=PARAMS['classifiers_dir'],
-                    openvino_facenet=openvino_facenet,
+                    openvino_facenet=update_model
                 ),
                 daemon=True
             )
@@ -142,7 +146,7 @@ def init_hook(**kwargs):
                     name=PARAMS['model_name'],
                     token=PARAMS['token'],
                     classifiers_dir=PARAMS['classifiers_dir'],
-                    openvino_facenet=openvino_facenet,
+                    openvino_facenet=update_model,
                 ),
                 daemon=True
             )

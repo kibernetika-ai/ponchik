@@ -70,7 +70,7 @@ def load_model(model_url, token, dst):
     model_zip.extractall(dst)
 
 
-def loop(pattern, model_url, token, classifiers_dir, openvino_facenet=None):
+def loop(pattern, model_url, token, classifiers_dir, openvino_facenet):
     cron = croniter.croniter(pattern, datetime.datetime.utcnow())
     next_time = cron.get_next(datetime.datetime)
     curver_updated = None
@@ -99,8 +99,7 @@ def loop(pattern, model_url, token, classifiers_dir, openvino_facenet=None):
                             updated=curver_updated
                         ), v)
                     LOG.info('Reloading classifiers...')
-                    if openvino_facenet is not None:
-                        openvino_facenet.load_classifiers()
+                    openvino_facenet()
                 except Exception as e:
                     LOG.error('load current version data error: %s' % e)
                     pass
