@@ -11,8 +11,7 @@ from scipy.spatial import distance
 from sklearn import svm, neighbors
 
 from app.recognize import classifiers, defaults
-from app.tools import images
-from app.tools import utils
+from app.tools import images, utils
 import math
 
 DETECTED = 1
