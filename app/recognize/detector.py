@@ -62,6 +62,11 @@ def add_detector_args(parser):
         help='Threshold for detecting persons',
     )
     parser.add_argument(
+        '--only_distance',
+        action='store_true',
+        help='Recognize faces by searching minimal distance with the samples',
+    )
+    parser.add_argument(
         '--debug',
         help='Full debug output for each detected face.',
         action='store_true',
@@ -135,6 +140,7 @@ def detector_args(args):
         account_head_pose=not args.head_pose_not_account,
         multi_detect=multi_detect,
         normalization=args.normalization,
+        only_distance=args.only_distance,
     )
 
 
