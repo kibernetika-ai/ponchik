@@ -777,7 +777,10 @@ class Detector(object):
         elif detected:
             overlay_label_str = label_strings[0]
 
-        stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
+        if self.classifiers.class_names is not None:
+            stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
+        else:
+            stored_class_name = ''
         return overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected
 
     def pose_indices(self, bgr_frame, boxes):
