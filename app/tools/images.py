@@ -104,8 +104,7 @@ def horizontal_flip(image):
 
 def random_noise(image):
     mean = 0
-    var = 0.1
-    sigma = var ** 0.5
+    sigma = .005
     gauss = np.random.normal(mean, sigma, image.shape)
     noisy = image + gauss
     return noisy

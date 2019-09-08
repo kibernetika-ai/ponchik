@@ -11,8 +11,7 @@ from scipy.spatial import distance
 from sklearn import svm, neighbors
 
 from app.recognize import classifiers, defaults
-from app.tools import images
-from app.tools import utils
+from app.tools import images, utils
 import math
 
 DETECTED = 1
@@ -61,6 +60,11 @@ def add_detector_args(parser):
         type=float,
         default=defaults.PERSON_THRESHOLD,
         help='Threshold for detecting persons',
+    )
+    parser.add_argument(
+        '--only_distance',
+        action='store_true',
+        help='Recognize faces by searching minimal distance with the samples',
     )
     parser.add_argument(
         '--debug',
@@ -136,6 +140,7 @@ def detector_args(args):
         account_head_pose=not args.head_pose_not_account,
         multi_detect=multi_detect,
         normalization=args.normalization,
+        only_distance=args.only_distance,
     )
 
 
@@ -777,7 +782,10 @@ class Detector(object):
         elif detected:
             overlay_label_str = label_strings[0]
 
-        stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
+        if self.classifiers.class_names is not None:
+            stored_class_name = self.classifiers.class_names[detected_indices[0]].replace(" ", "_")
+        else:
+            stored_class_name = ''
         return overlay_label_str, summary_overlay_label, classes, stored_class_name, mean_prob, detected
 
     def pose_indices(self, bgr_frame, boxes):

@@ -1,5 +1,11 @@
+import tempfile
+
+import cv2
 import logging
 import threading
+from app.tools import images
+
+import numpy as np
 
 from app.recognize import detector, classifiers
 from ml_serving.utils import helpers
@@ -24,10 +30,10 @@ def process(inputs, ctx):
                 _load(ctx)
                 net_loaded = True
 
-    img, _ = helpers.load_image(inputs, 'input')
+    img, _ = helpers.load_image(inputs, 'input', rgb=False)
     bboxes_, imgs_, _, skips = app_detector.process_faces_info(img)
-    if len(bboxes_) != len(imgs_):
-        raise RuntimeError('bboxes and imggs counts are not equal')
+    for i, ii in enumerate(imgs_):
+        cv2.imwrite('/test/imgs_{}.png'.format(i), ii)
     bboxes, imgs = [], []
     for idx, img_ in enumerate(imgs_):
         if idx not in skips:
@@ -44,8 +50,19 @@ def process(inputs, ctx):
     aug_imgs = app_classifier.apply_augmentation(imgs)
     embeddings = app_classifier.embeddings(aug_imgs)
 
+    _, tmp_img = tempfile.mkstemp(suffix='.png')
+    previews = images.get_images(
+        img, np.array(bboxes),
+        face_crop_size=app_detector.facenet_image_size,
+    )
+    cv2.imwrite(tmp_img, previews[0])
+
+    with open(tmp_img, 'rb') as f:
+        face = f.read()
+
     return dict(
         bbox=bbox,
+        face=face,
         embeddings=embeddings
     )
 
