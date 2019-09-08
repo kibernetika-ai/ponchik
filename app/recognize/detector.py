@@ -605,8 +605,7 @@ class Detector(object):
         #                 detected_class = cls
 
         if dist < threshold:
-            prob = 1 - dist / threshold * 0.5
-            # prob = 1 - (max(dist, 0.2) - 0.2)
+            prob = 1.5 - 1/(1+math.exp(-dist / threshold))
             descr = self.meta.get(detected_class,None)
             if descr is not None:
                 summary_overlay_label = descr.get('name',detected_class)
