@@ -601,14 +601,6 @@ class Detector(object):
         dist = dist[0][0]
         idx = idx[0][0]
         detected_class = self.classifiers.class_index[idx]
-        # for cls in self.classifiers.embeddings:
-        #     for embs in self.classifiers.embeddings[cls].values():
-        #         for emb in embs:
-        #             dist = distance.cosine(output, emb)
-        #             if dist < min_dist and dist < threshold:
-        #                 min_dist = dist
-        #                 detected_class = cls
-
         if dist < threshold:
             prob = 1.5 - 1/(1+math.exp(-dist / threshold))
             descr = self.meta.get(detected_class,None)
