@@ -440,79 +440,8 @@ class Video:
             self.process_frame(self.frame, overlays=False)
 
     def process_frame(self, frame, overlays=True):
-        original_copy = np.copy(frame)
-        stored_faces = None
-        stored_persons = None
-        if self.h5data:
-            stored_faces = []
-            stored_persons = []
-            if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
-                if not self.h5data_skip:
-                    LOG.warning(
-                        'max h5 data index {} reached, skipped all next frames'.format(
-                            len(self.h5data['face_frame_nums'])))
-                    self.h5data_skip = True
-                return
-            while self.h5data['face_frame_nums'][self.h5data_face_idx] == self.frame_idx:
-                stored_face = None
-                if self.postprocess:
-                    stored_face = self.postprocess.get_sequence_recognized_face(self.h5data_face_idx)
-                if stored_face is None:
-                    stored_face = detector.FaceInfo()
-                stored_face.bbox = self.h5data['face_bboxes'][self.h5data_face_idx]
-                stored_face.person_bbox = self.h5data['face_person_bboxes'][self.h5data_face_idx]
-                if self._h5_box_is_none(stored_face.person_bbox):
-                    stored_face.person_bbox = None
-                stored_face.embedding = self.h5data['face_embeddings'][self.h5data_face_idx]
-                stored_face.face_prob = self.h5data['face_probs'][self.h5data_face_idx]
-                stored_face.head_pose = self.h5data['face_head_poses'][self.h5data_face_idx]
-                stored_face.state = detector.DETECTED
 
-                # stored_face = detector.FaceInfo(
-                #     bbox=self.h5data['bounding_boxes'][self.h5data_idx],
-                #     embedding=self.h5data['embeddings'][self.h5data_idx],
-                #     face_prob=self.h5data['face_probs'][self.h5data_idx],
-                #     head_pose=self.h5data['head_poses'][self.h5data_idx],
-                # )
-                # if self.postprocess:
-                #     sequence_face = self.postprocess.get_sequence_recognized_face(self.h5data_idx)
-                #     if sequence_face is not None:
-                #         stored_face.label = sequence_face.label
-                #         stored_face.overlay_label = sequence_face.overlay_label
-                # lbl, dtctd = self.postprocess.face_info(self.h5data_idx)
-                # stored_face.label = lbl
-                # stored_face.overlay_label = lbl
-                # stored_face.classes = [lbl.replace(' ', '_')]
-                # if dtctd == self.postprocess.RECOGNIZED:
-                #     stored_face.state = detector.DETECTED
-                # elif dtctd == self.postprocess.DETECTED:
-
-                # stored_face.detected =
-                stored_faces.append(stored_face)
-                self.h5data_face_idx += 1
-                if self.h5data_face_idx >= len(self.h5data['face_frame_nums']):
-                    break
-
-            while self.h5data['person_frame_nums'][self.h5data_person_idx] == self.frame_idx:
-                stored_person = detector.PersonInfo()
-                stored_person.bbox = self.h5data['person_bboxes'][self.h5data_person_idx]
-                stored_person.prob = self.h5data['person_probs'][self.h5data_person_idx]
-                stored_persons.append(stored_person)
-                self.h5data_person_idx += 1
-                if self.h5data_person_idx >= len(self.h5data['person_frame_nums']):
-                    break
-
-        self.detector.process_frame(frame, overlays=overlays, stored_faces=stored_faces, stored_persons=stored_persons)
-
-        for fi in self.detector.current_frame_faces:
-            self.write_h5_if_needed(original_copy, face_info=fi)
-        for pi in self.detector.current_frame_persons:
-            self.write_h5_if_needed(original_copy, person_info=pi)
-
-        self.research_processed(self.detector.current_frame_faces, frame=original_copy)
-
-        if self.postprocess_notify_enabled:
-            self.postprocess_notify(self.detector.current_frame_faces, frame=frame)
+        self.detector.process_frame(frame, overlays=overlays, stored_faces=None, stored_persons=None)
 
         return self.detector.current_frame_faces
 

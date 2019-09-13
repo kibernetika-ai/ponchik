@@ -1,5 +1,5 @@
 import logging
-import srt
+
 import datetime
 
 import numpy as np
@@ -323,7 +323,7 @@ class PostProcessor:
         return detector.FaceInfo(overlay_label='Seq.2 {}'.format(sequence_idx))
 
     def export_srt(self, srt_file):
-
+        import srt
         LOG.info('writing SRT to {}...'.format(srt_file))
         sequences_frames_not_recognized_labels = {}
         for f in self.frame_sequences_faces_not_recognized:

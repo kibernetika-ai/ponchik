@@ -274,9 +274,8 @@ class Detector(object):
         if self.facenet_driver is None or self.classifiers_dir is None:
             return
 
-
         loaded_classifiers = glob.glob(classifiers.classifier_filename(self.classifiers_dir, '*'))
-        utils.print_fun('Try load classifiers.... {}:{}'.format(self.classifiers_dir,len(loaded_classifiers)))
+        utils.print_fun('Try load classifiers.... {}:{}'.format(self.classifiers_dir, len(loaded_classifiers)))
         if len(loaded_classifiers) > 0:
             new = DetectorClassifiers()
             for clfi, clf in enumerate(loaded_classifiers):
@@ -347,18 +346,16 @@ class Detector(object):
                 # Reset kd_tree
                 utils.print_fun('Reset kd_tree')
                 self.kd_tree = None
-        elif os.path.exists(os.path.join(self.classifiers_dir,'embeddings.npy')):
-            utils.print_fun('Load embeddings from: {}'.format(os.path.join(self.classifiers_dir,'embeddings.npy')))
-            embeddings = np.load(os.path.join(self.classifiers_dir,'embeddings.npy'))
+        elif os.path.exists(os.path.join(self.classifiers_dir, 'embeddings.npy')):
+            utils.print_fun('Load embeddings from: {}'.format(os.path.join(self.classifiers_dir, 'embeddings.npy')))
+            embeddings = np.load(os.path.join(self.classifiers_dir, 'embeddings.npy'))
             utils.print_fun('Loaded embeddings: {}'.format(embeddings.shape))
             self.classifiers.plain_embeddings = embeddings
             self.kd_tree = None
-            with open(os.path.join(self.classifiers_dir,'classes.json'), 'rb') as f:
+            with open(os.path.join(self.classifiers_dir, 'classes.json'), 'rb') as f:
                 classes = json.load(f)
             utils.print_fun('Loaded classes: {}'.format(classes))
             self.classifiers.class_index = classes
-
-
 
         threshold_file = os.path.join(self.classifiers_dir, 'threshold.txt')
         if os.path.exists(threshold_file):
@@ -373,7 +370,7 @@ class Detector(object):
         self.meta = {}
         if os.path.isfile(meta_file):
             utils.print_fun("Load metadata...")
-            with open(meta_file, 'r') as mr:
+            with open(meta_file, 'r', encoding='utf-8') as mr:
                 self.meta = json.load(mr)
 
     def detect_faces(self, frame, threshold=0.5, split_counts=None):
@@ -537,8 +534,8 @@ class Detector(object):
         if face_prob is None:
             face_prob = bbox[4]
 
-        #TODO: WTF
-        #if not self.use_classifiers or not use_classifiers:
+        # TODO: WTF
+        # if not self.use_classifiers or not use_classifiers:
         #    return FaceInfo(
         #        bbox=bbox[:4].astype(int),
         #        person_bbox=person_bbox,
@@ -602,10 +599,10 @@ class Detector(object):
         idx = idx[0][0]
         detected_class = self.classifiers.class_index[idx]
         if dist < threshold:
-            prob = 1.5 - 1/(1+math.exp(-dist / threshold))
-            descr = self.meta.get(detected_class,None)
+            prob = 1.5 - 1 / (1 + math.exp(-dist / threshold))
+            descr = self.meta.get(detected_class, None)
             if descr is not None:
-                summary_overlay_label = descr.get('name',detected_class)
+                summary_overlay_label = descr.get('name', detected_class)
             else:
                 summary_overlay_label = detected_class
             if self.debug:
@@ -1144,6 +1141,14 @@ class Detector(object):
             frame, thickness, thickness_mul, font_scale, font_face
         )
         return cv2.getTextSize(text, font_face, font_scale, thickness)[0]
+
+    @staticmethod
+    def add_text(frame, text, left, top, color, thickness=None, thickness_mul=None,
+                 font_scale=None, font_face=None, line_type=cv2.LINE_AA):
+        font_face, font_scale, thickness = Detector._get_text_props(
+            frame, thickness, thickness_mul, font_scale, font_face
+        )
+        cv2.putText(frame, text, (left, top), font_face, font_scale, color, thickness=thickness, lineType=line_type)
 
     @staticmethod
     def _put_text(frame, text, left, top, color, thickness=None, thickness_mul=None,

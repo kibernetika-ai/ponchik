@@ -7,6 +7,7 @@ import threading
 import time
 
 import cv2
+
 import numpy as np
 
 from app.recognize import detector
@@ -18,11 +19,16 @@ from app.tools import images, dataset
 from app.mlboard import mlboard
 from datetime import datetime
 from datetime import timezone
+from app.recognize.track import PearlDemoPresenter
 
 import pull_model
 import pull_event_model
 
 LOG = logging.getLogger(__name__)
+
+font_face = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 0
+
 PARAMS = {
     'device': 'CPU',
     'classifiers_dir': '',
@@ -61,6 +67,8 @@ PARAMS = {
 
     'min_face_size': defaults.MIN_FACE_SIZE,
     'multi_detect': [],
+    'pearl_present_time': 5,
+    'pearl_present_delay': 15,
 }
 load_lock = threading.Lock()
 width = 640
@@ -74,11 +82,12 @@ uploaded_in_process = False
 process_lock = threading.Lock()
 unknown_num = 0
 badge_detector = None
-
+presenter = None
 
 def update_model():
     if openvino_facenet is not None:
         openvino_facenet.load_classifiers()
+
 
 def init_hook(**kwargs):
     global PARAMS, openvino_facenet
@@ -110,8 +119,14 @@ def init_hook(**kwargs):
     PARAMS['skip_frames'] = _boolean_string(PARAMS['skip_frames'])
     PARAMS['enable_pull_model'] = _boolean_string(PARAMS['enable_pull_model'])
     PARAMS['min_face_size'] = int(PARAMS['min_face_size'])
+    PARAMS['pearl_present_time'] = int(PARAMS['pearl_present_time'])
+    PARAMS['pearl_present_delay'] = int(PARAMS['pearl_present_delay'])
+
     LOG.info('Init with params:')
     LOG.info(json.dumps(PARAMS, indent=2))
+
+    global presenter
+    presenter = PearlDemoPresenter(PARAMS['pearl_present_time'],PARAMS['pearl_present_delay'])
 
     clarify_checker = threading.Thread(target=_retrain_checker, daemon=True)
     clarify_checker.start()
@@ -124,7 +139,7 @@ def init_hook(**kwargs):
         assert PARAMS['model_name'] != ''
         assert PARAMS['token'] != ''
 
-        if PARAMS['model_name']=='__expo__':
+        if PARAMS['model_name'] == '__expo__':
             pull_thread = threading.Thread(
                 target=pull_event_model.loop,
                 kwargs=dict(
@@ -235,41 +250,30 @@ def process_uploaded(inputs):
     return res
 
 
+
+
+
 def process_recognize(inputs, ctx, **kwargs):
     frame = _load_image(inputs, 'input')
     # convert to BGR
-    bgr_frame = np.copy(frame[:, :, ::-1])
+    bgr_frame = frame[:, :, ::-1]
 
-    face_infos = processing.process_frame(bgr_frame, overlays=True)
+    face_infos = processing.process_frame(bgr_frame, overlays=PARAMS['debug'] == 'true')
     faces_bbox = [fi.bbox for fi in face_infos]
+    present = presenter.process(face_infos)
+    if present is not None:
+        global font_scale
+        h = bgr_frame.shape[0]
+        if font_scale == 0:
+            font_scale = 65 / 22 * (h/1080)
+        fw, fh = cv2.getTextSize(present, font_face, font_scale, 3)[0]
+        bgr_frame = cv2.rectangle(bgr_frame, (60, h - 60 - fh - 80), (60 + fw + 80, h - 60), (63,190,140), -1)
+        bgr_frame = cv2.putText(bgr_frame, present, (100, h - 100), font_face, font_scale,(255,255,255), thickness=3,
+                    lineType=cv2.LINE_AA)
+        bgr_frame = bgr_frame.get()
 
-    if badge_detector is not None:
-        badge_detector.process(frame[:, :, :].copy(), faces_bbox)
 
-    ret = {
-        'boxes': np.array(faces_bbox),
-        'labels': np.array([processed.label for processed in face_infos], dtype=np.str),
-        'probs': np.array([processed.prob for processed in face_infos], dtype=np.float32),
-    }
-
-    if PARAMS['enable_log'] or PARAMS['log_console']:
-        log_recognition(frame, ret, **kwargs)
-
-    # processing.postprocess_notify(face_infos, frame=bgr_frame)
-
-    if PARAMS['need_table']:
-        table_result = build_table(frame, face_infos)
-        ret.update(table_result)
-
-    if PARAMS['output_type'] == 'bytes':
-        image_output = cv2.imencode(".jpg", bgr_frame, params=[cv2.IMWRITE_JPEG_QUALITY, 95])[1].tostring()
-    else:
-        rgb_frame = bgr_frame[:, :, ::-1]
-        image_output = rgb_frame
-
-    ret['output'] = image_output
-
-    return ret
+    return {'output':bgr_frame[:, :, ::-1]}
 
 
 def process_test():
